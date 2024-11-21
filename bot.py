@@ -1,17 +1,22 @@
-from telegram import Update, KeyboardButton, ReplyKeyboardMarkup, WebAppInfo
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    MessageHandler,
-    ContextTypes,
-    filters,
-)
+import logging
+import os
 import json
+from telegram import Update, KeyboardButton, ReplyKeyboardMarkup, WebAppInfo
+from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 
-TOKEN = '7672739920:AAFC6KkmnunNRbEQUU-6NtC4XeAnUZZa6mQ'
+# Настройка логирования
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logger = logging.getLogger(__name__)
+
+# URL вашего веб-приложения
+WEB_APP_URL = 'https://circle-drawing.vercel.app'
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    web_app = WebAppInfo(url='https://circle-drawing.vercel.app')
+    """Обработчик команды /start."""
+    web_app = WebAppInfo(url=WEB_APP_URL)
     keyboard = [
         [KeyboardButton(text='🌀 Запустить приложение', web_app=web_app)]
     ]
@@ -22,16 +27,28 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def handle_web_app_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик данных из веб-приложения."""
     data = update.message.web_app_data.data  # Получение данных из мини-приложения
     data_dict = json.loads(data)
     score = data_dict.get('score')
     await update.message.reply_text(f"Ваш результат: {score}!")
 
 def main():
-    app = ApplicationBuilder().token(TOKEN).build()
-    app.add_handler(CommandHandler('start', start))
-    app.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, handle_web_app_data))
-    app.run_polling()
+    """Запуск бота."""
+    # Получение токена бота из переменных окружения
+    TOKEN = os.environ.get("TOKEN")
+    if not TOKEN:
+        logger.error("Необходимо установить переменную окружения TOKEN.")
+        return
 
-if __name__ == '__main__':
+    # Создание приложения и регистрация обработчиков
+    application = Application.builder().token(TOKEN).build()
+
+    application.add_handler(CommandHandler('start', start))
+    application.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, handle_web_app_data))
+
+    # Запуск бота
+    application.run_polling()
+
+if __name__ == "__main__":
     main()
