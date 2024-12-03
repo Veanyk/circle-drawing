@@ -1,26 +1,24 @@
-.result-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 20px;
-  background-color: #0f0f0f;
-  min-height: 100vh;
-  box-sizing: border-box;
-}
-
-.progress-bar {
-  width: 150px;
-  height: 150px;
+.result-image {
+  position: relative;
+  width: 200px;
+  height: 200px;
   margin-bottom: 20px;
-  box-shadow: 0 0 20px #00ffff;
 }
 
-.result-text {
-  font-size: 24px;
-  margin-bottom: 10px;
+.result-circle {
+  width: 100%;
+  height: 100%;
+}
+
+.result-text-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   color: #ffffff;
-  text-align: center;
-  text-shadow: 0 0 5px #00ffff;
+  font-size: 48px;
+  font-weight: bold;
+  text-shadow: 0 0 10px #000000;
 }
 
 .earned-coins {
@@ -51,15 +49,14 @@
 }
 
 .reset-button {
-  padding: 10px 20px;
-  background-color: #ff00ff;
+  background: none;
   border: none;
-  border-radius: 5px;
-  color: #ffffff;
   cursor: pointer;
-  font-size: 16px;
-  transition: background-color 0.3s ease;
-  box-shadow: 0 0 10px #ff00ff;
+}
+
+.button-icon {
+  width: 150px;
+  height: auto;
 }
 
 .reset-button:hover {
@@ -74,10 +71,9 @@
   text-shadow: 0 0 5px #ffffff;
 }
 
-.social-icons {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
+.social-icon {
+  width: 48px;
+  height: 48px;
 }
 
 @media (max-width: 768px) {

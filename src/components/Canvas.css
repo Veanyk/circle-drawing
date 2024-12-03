@@ -17,9 +17,11 @@
 }
 
 .drawing-canvas {
-  border: 2px solid #00ffff;
+  border: none;
   border-radius: 10px;
-  background-color: #1a1a1a;
+  background-image: url('/assets/drawing_field.png');
+  background-size: cover;
+  background-position: center;
   cursor: crosshair;
   touch-action: none;
   width: 80vw;
