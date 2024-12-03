@@ -1,11 +1,13 @@
 # bot.py
-
 import logging
 import os
 import json
 from telegram import Update, KeyboardButton, ReplyKeyboardMarkup, WebAppInfo
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
-from database import get_user_data, update_user_data  # Импортируем функции из database.py
+from database import get_user_data, update_user_data
+from flask import Flask, request, jsonify
+from threading import Thread
+from flask_cors import CORS
 
 # Настройка логирования
 logging.basicConfig(
@@ -66,6 +68,26 @@ async def handle_web_app_data(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     await update.message.reply_text(f"Ваши данные успешно сохранены!")
 
+# Создание Flask-приложения
+app = Flask(__name__)
+CORS(app)
+
+@app.route('/getUserData', methods=['POST'])
+def get_user_data_route():
+    user_id = request.json.get('user_id')
+    user_data = get_user_data(user_id)
+    return jsonify(user_data)
+
+@app.route('/updateUserData', methods=['POST'])
+def update_user_data_route():
+    user_id = request.json.get('user_id')
+    data = request.json.get('data')
+    update_user_data(user_id, data)
+    return 'User data updated successfully'
+
+def run_flask_app():
+    app.run(host='0.0.0.0', port=8000)
+
 def main():
     """Запуск бота."""
     # Получение токена бота из переменных окружения
@@ -79,6 +101,10 @@ def main():
 
     application.add_handler(CommandHandler('start', start))
     application.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, handle_web_app_data))
+
+    # Запуск Flask-приложения в отдельном потоке
+    flask_thread = Thread(target=run_flask_app)
+    flask_thread.start()
 
     # Запуск бота
     application.run_polling()
