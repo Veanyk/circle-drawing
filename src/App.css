@@ -1,0 +1,41 @@
+.App {
+  text-align: center;
+  background-color: #0f0f0f;
+  min-height: 100vh;
+  position: relative;
+  background-image: url('/assets/background.png');
+  background-size: cover;
+  background-position: center;
+}
+
+
+.coins-display,
+.attempts-display {
+  display: flex;
+  align-items: center;
+  background: none;
+  padding: 0;
+  box-shadow: none;
+}
+
+.banner-icon {
+  width: 150px;
+  height: auto;
+}
+
+.coins-display span,
+.attempts-display span {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: bold;
+  text-shadow: 0 0 5px #000000;
+}
+
+
+button:disabled {
+  opacity: 0.6;
+}

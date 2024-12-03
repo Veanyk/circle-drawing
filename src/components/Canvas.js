@@ -24,7 +24,7 @@ const Canvas = ({ onDrawEnd, attempts }) => {
       context.scale(scale, scale);
 
       context.lineWidth = 3;
-      context.strokeStyle = '#00ff00';
+      context.strokeStyle = '#ffffff';
       context.lineCap = 'round';
       context.lineJoin = 'round';
     };
