@@ -1,12 +1,6 @@
+// src/components/Result.js
 import React, { useEffect, useRef } from 'react';
-import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
-import {
-  TwitterShareButton,
-  TelegramShareButton,
-  TwitterIcon,
-  TelegramIcon,
-} from 'react-share';
-import 'react-circular-progressbar/dist/styles.css';
+import { TwitterShareButton, TelegramShareButton } from 'react-share';
 import './Result.css';
 import tryAgainIcon from '../assets/try_again.png';
 import resultCircleImage from '../assets/result_circle.png';
@@ -34,9 +28,7 @@ const Result = ({ score, onReset, drawing }) => {
       }
 
       context.clearRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(
-        image, 0, 0, canvas.width / scale, canvas.height / scale
-      );
+      context.drawImage(image, 0, 0, canvas.width / scale, canvas.height / scale);
     };
   }, [drawing]);
 
@@ -45,12 +37,12 @@ const Result = ({ score, onReset, drawing }) => {
 
   return (
     <div className="result-container">
-        <div className="result-image">
-          <img src={resultCircleImage} alt="Результат" className="result-circle" />
-          <div className="result-text-overlay">
-            {score}%
-          </div>
+      <div className="result-image">
+        <img src={resultCircleImage} alt="Результат" className="result-circle" />
+        <div className="result-text-overlay">
+          {score}%
         </div>
+      </div>
       <h2 className="result-text">Ваш круг на {score}% точен!</h2>
       <p className="earned-coins">
         Вы заработали {(0.01 * score).toFixed(2)} токенов!
@@ -62,14 +54,13 @@ const Result = ({ score, onReset, drawing }) => {
         </button>
         <div className="share-buttons">
           <h3>Поделиться результатом:</h3>
-            <div className="social-icons">
-              <TwitterShareButton url={shareUrl} title={title}>
-                <img src={twitterIcon} alt="Twitter" className="social-icon" />
-              </TwitterShareButton>
-              <TelegramShareButton url={shareUrl} title={title}>
-                <img src={telegramIcon} alt="Telegram" className="social-icon" />
-              </TelegramShareButton>
-            </div>
+          <div className="social-icons">
+            <TwitterShareButton url={shareUrl} title={title}>
+              <img src={twitterIcon} alt="Twitter" className="social-icon" />
+            </TwitterShareButton>
+            <TelegramShareButton url={shareUrl} title={title}>
+              <img src={telegramIcon} alt="Telegram" className="social-icon" />
+            </TelegramShareButton>
           </div>
         </div>
       </div>

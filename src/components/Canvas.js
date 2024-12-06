@@ -65,7 +65,6 @@ const Canvas = ({ onDrawEnd, attempts }) => {
     }
   };
 
-  // Функция начала рисования
   const startDrawing = (event) => {
     if (attempts <= 0) {
       alert('У вас закончились попытки!');
@@ -81,7 +80,6 @@ const Canvas = ({ onDrawEnd, attempts }) => {
     context.moveTo(x, y);
   };
 
-  // Функция рисования
   const draw = (event) => {
     if (!isDrawing) return;
     const { x, y } = getEventPos(event);
@@ -90,62 +88,58 @@ const Canvas = ({ onDrawEnd, attempts }) => {
 
     const context = canvasRef.current.getContext('2d');
 
-    // Расчёт точности
+    // Расчёт точности для динамической смены цвета
     const accuracy = calculateAccuracy(newPoints);
 
-    // Плавное изменение цвета от красного к зелёному с добавлением синего для неонового эффекта
+    // Плавное изменение цвета от красного к зелёному + синий (неоновый оттенок)
     const red = Math.round(255 - (accuracy / 100) * 255);
     const green = Math.round((accuracy / 100) * 255);
-    const blue = 255; // Добавляем постоянный синий компонент
+    const blue = 255;
     context.strokeStyle = `rgb(${red},${green},${blue})`;
 
     context.lineTo(x, y);
     context.stroke();
   };
 
-  // Функция окончания рисования
   const endDrawing = () => {
     if (!isDrawing) return;
     setIsDrawing(false);
 
-    // Получаем размеры холста
     const rect = canvasRef.current.getBoundingClientRect();
-
-    // Оценка точности после завершения рисования
     const score = calculateFinalScore(points);
     onDrawEnd(score, points, canvasRef.current, { width: rect.width, height: rect.height });
   };
 
-  // Функция расчёта финального процента точности
   const calculateFinalScore = (allPoints) => {
     if (allPoints.length < 10) return 0;
     const accuracy = calculateAccuracy(allPoints);
-
     return Math.round(accuracy);
   };
 
-  // Функция расчёта точности нарисованного круга
+  // Функция для оценки кругообразности
   const calculateAccuracy = (currentPoints) => {
     if (currentPoints.length < 10) return 0;
     const circle = fitCircle(currentPoints);
-    if (!circle || isNaN(circle.radius)) return 0;
+    if (!circle || isNaN(circle.radius) || circle.radius <= 0) return 0;
 
     const { centerX, centerY, radius } = circle;
-    const N = currentPoints.length;
 
-    // Замкнутость фигуры
+    // Радиусы до каждой точки
+    const radii = currentPoints.map((p) => Math.hypot(p.x - centerX, p.y - centerY));
+    const avgRadius = radii.reduce((sum, r) => sum + r, 0) / radii.length;
+    const radiusVariance = radii.reduce((sum, r) => sum + Math.pow(r - avgRadius, 2), 0) / radii.length;
+    const radiusStdDev = Math.sqrt(radiusVariance);
+
+    // Оценка равномерности радиуса
+    const radiusUniformityScore = Math.max(0, 1 - (radiusStdDev / avgRadius));
+
+    // Замкнутость
     const startPoint = currentPoints[0];
     const endPoint = currentPoints[currentPoints.length - 1];
-    const distanceStartEnd = Math.hypot(
-      endPoint.x - startPoint.x,
-      endPoint.y - startPoint.y
-    );
-    const closureThreshold = 0.05 * radius;
+    const distanceStartEnd = Math.hypot(endPoint.x - startPoint.x, endPoint.y - startPoint.y);
+    const closureScore = 1 - Math.min(distanceStartEnd / (0.05 * radius), 1);
 
-    // Оцениваем замкнутость от 0 до 1
-    let closureScore = 1 - Math.min(distanceStartEnd / closureThreshold, 1);
-
-    // Общее изменение угла
+    // Угол охвата
     let totalAngleChange = 0;
     for (let i = 1; i < currentPoints.length - 1; i++) {
       const p0 = currentPoints[i - 1];
@@ -156,52 +150,41 @@ const Canvas = ({ onDrawEnd, attempts }) => {
       const angle2 = Math.atan2(p2.y - p1.y, p2.x - p1.x);
       let angleChange = angle2 - angle1;
 
-      if (angleChange > Math.PI) {
-        angleChange -= 2 * Math.PI;
-      } else if (angleChange < -Math.PI) {
-        angleChange += 2 * Math.PI;
-      }
+      if (angleChange > Math.PI) angleChange -= 2 * Math.PI;
+      else if (angleChange < -Math.PI) angleChange += 2 * Math.PI;
 
       totalAngleChange += angleChange;
     }
-
     const angleCoverage = Math.abs(totalAngleChange) / (2 * Math.PI);
-    const angleCoverageScore = Math.min(angleCoverage / 1, 1);
+    const angleCoverageScore = Math.min(angleCoverage, 1);
 
-    // Равномерность радиусов
-    const radii = currentPoints.map((point) =>
-      Math.hypot(point.x - centerX, point.y - centerY)
-    );
-    const avgRadius =
-      radii.reduce((sum, r) => sum + r, 0) / radii.length;
-    const radiusVariance =
-      radii.reduce((sum, r) => sum + Math.pow(r - avgRadius, 2), 0) /
-      radii.length;
-    const radiusStdDev = Math.sqrt(radiusVariance);
-    const radiusUniformity = Math.max(
-      0,
-      Math.min(1, 1 - radiusStdDev / avgRadius)
-    );
+    // Равномерность распределения точек по углу
+    const angles = currentPoints.map((p) => {
+      return Math.atan2(p.y - centerY, p.x - centerX);
+    }).sort((a, b) => a - b);
 
-    // Отношение ширины к высоте
-    const xValues = currentPoints.map((p) => p.x);
-    const yValues = currentPoints.map((p) => p.y);
-    const minX = Math.min(...xValues);
-    const maxX = Math.max(...xValues);
-    const minY = Math.min(...yValues);
-    const maxY = Math.max(...yValues);
+    for (let i = 0; i < angles.length; i++) {
+      if (angles[i] < 0) angles[i] += 2 * Math.PI;
+    }
+    angles.sort((a, b) => a - b);
 
-    const width = maxX - minX;
-    const height = maxY - minY;
-    const aspectRatio = width / height;
-    const aspectRatioScore = Math.max(
-      0,
-      Math.min(1, 1 - Math.abs(aspectRatio - 1))
-    );
+    const expectedSpacing = (2 * Math.PI) / angles.length;
+    const angleDiffs = [];
+    for (let i = 1; i < angles.length; i++) {
+      angleDiffs.push(angles[i] - angles[i - 1]);
+    }
+    // Добавим разницу между последней и первой точкой, чтобы замкнуть круг
+    angleDiffs.push((angles[0] + 2 * Math.PI) - angles[angles.length - 1]);
 
-    // Плавность кривой
+    const avgDiff = angleDiffs.reduce((sum, d) => sum + d, 0) / angleDiffs.length;
+    const diffVariance = angleDiffs.reduce((sum, d) => sum + Math.pow(d - avgDiff, 2), 0) / angleDiffs.length;
+    const diffStdDev = Math.sqrt(diffVariance);
+    const angularUniformityScore = Math.max(0, 1 - (diffStdDev / (expectedSpacing / 2)));
+
+    // Сглаженность
     let smoothnessScore = 1;
-    for (let i = 2; i < currentPoints.length; i++) {
+    const N = currentPoints.length;
+    for (let i = 2; i < N; i++) {
       const dx1 = currentPoints[i - 1].x - currentPoints[i - 2].x;
       const dy1 = currentPoints[i - 1].y - currentPoints[i - 2].y;
       const dx2 = currentPoints[i].x - currentPoints[i - 1].x;
@@ -209,19 +192,17 @@ const Canvas = ({ onDrawEnd, attempts }) => {
       const angle1 = Math.atan2(dy1, dx1);
       const angle2 = Math.atan2(dy2, dx2);
       let angleDiff = Math.abs(angle2 - angle1);
-      if (angleDiff > Math.PI) {
-        angleDiff = 2 * Math.PI - angleDiff;
-      }
+      if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
       smoothnessScore -= angleDiff / (Math.PI * N);
     }
     smoothnessScore = Math.max(0, smoothnessScore);
 
-    // Итоговая точность
+    // Итоговая оценка
     const accuracy =
-      radiusUniformity * 0.3 +
-      aspectRatioScore * 0.2 +
-      angleCoverageScore * 0.2 +
+      radiusUniformityScore * 0.4 +
       closureScore * 0.2 +
+      angleCoverageScore * 0.2 +
+      angularUniformityScore * 0.1 +
       smoothnessScore * 0.1;
 
     return accuracy * 100;
@@ -229,15 +210,7 @@ const Canvas = ({ onDrawEnd, attempts }) => {
 
   // Функция для подгонки круга к точкам (алгоритм наименьших квадратов)
   const fitCircle = (points) => {
-    let sumX = 0,
-      sumY = 0,
-      sumX2 = 0,
-      sumY2 = 0,
-      sumX3 = 0,
-      sumY3 = 0,
-      sumXY = 0,
-      sumX1Y2 = 0,
-      sumX2Y1 = 0;
+    let sumX = 0, sumY = 0, sumX2 = 0, sumY2 = 0, sumX3 = 0, sumY3 = 0, sumXY = 0, sumX1Y2 = 0, sumX2Y1 = 0;
     const N = points.length;
 
     for (let i = 0; i < N; i++) {

@@ -1,5 +1,4 @@
 // src/App.js
-
 import React, { useState, useEffect } from 'react';
 import Canvas from './components/Canvas';
 import Result from './components/Result';
@@ -144,26 +143,32 @@ function App() {
     }
   };
 
+  // Определяем, нужно ли показывать поля монет и попыток
+  const showStats = (currentTab === 'circle') || (score !== null && currentTab === 'circle');
+
   return (
     <div className="App">
-      {/* Отображение монет и попыток */}
-      <div className="coins-display">
-        <div className="banner-container">
-          <img src={totalCoinsBanner} alt="Всего монет" className="banner-icon" />
-          <span className="banner-text">{userData.coins.toFixed(2)}</span>
-        </div>
-      </div>
+      {/* Отображаем монеты и попытки только на Canvas и Result */}
+      {showStats && (
+        <>
+          <div className="coins-display">
+            <div className="banner-container">
+              <img src={totalCoinsBanner} alt="Всего монет" className="banner-icon" />
+              <span className="banner-text">{userData.coins.toFixed(2)}</span>
+            </div>
+          </div>
 
-      <div className="attempts-display">
-        <div className="banner-container">
-          <img src={totalAttemptsBanner} alt="Всего попыток" className="banner-icon" />
-          <span className="banner-text">{userData.attempts}/{userData.maxAttempts}</span>
-        </div>
-      </div>
+          <div className="attempts-display">
+            <div className="banner-container">
+              <img src={totalAttemptsBanner} alt="Всего попыток" className="banner-icon" />
+              <span className="banner-text">{userData.attempts}/{userData.maxAttempts}</span>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Основной контент */}
       <div className="main-content">
-        {/* Условный рендеринг в зависимости от currentTab */}
         {currentTab === 'circle' && (
           <>
             {score === null ? (
