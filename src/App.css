@@ -1,21 +1,39 @@
+/* src/App.css */
+@import url('https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap');
+
 .App {
-  text-align: center;
-  background-color: #0f0f0f;
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
-  position: relative;
-  background-image: url('/assets/background.png');
+  background-color: #0f0f0f;
+  background-image: url('./assets/background.png');
   background-size: cover;
   background-position: center;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
 }
-
-
 .coins-display,
 .attempts-display {
+  position: fixed;
+  right: 10px;
+  z-index: 1000;
   display: flex;
   align-items: center;
-  background: none;
-  padding: 0;
-  box-shadow: none;
+}
+
+.coins-display {
+  top: 10px;
+}
+
+.attempts-display {
+  top: 75px;
+}
+
+.banner-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .banner-icon {
@@ -23,19 +41,32 @@
   height: auto;
 }
 
-.coins-display span,
-.attempts-display span {
+.banner-text {
   position: absolute;
-  left: 50%;
-  top: 50%;
+  top: 45%;
+  left: 65%;
   transform: translate(-50%, -50%);
-  color: #ffffff;
-  font-size: 24px;
+  color: #111111;
+  font-size: 32px;
   font-weight: bold;
-  text-shadow: 0 0 5px #000000;
+  font-family: 'Gloria Hallelujah', cursive;
+  animation: jitter 5s infinite;
 }
 
+@keyframes jitter {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  25% { transform: translate(-50%, -50%) rotate(0.5deg); }
+  50% { transform: translate(-50%, -50%) rotate(0deg); }
+  75% { transform: translate(-50%, -50%) rotate(-0.5deg); }
+  100% { transform: translate(-50%, -50%) rotate(0deg); }
+}
 
-button:disabled {
-  opacity: 0.6;
+@media (max-width: 768px) {
+.banner-icon {
+  width: 100px;
+  height: auto;
+}
+.banner-text {
+  font-size: 16px;
+}
 }

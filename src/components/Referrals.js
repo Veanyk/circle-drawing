@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import './Referrals.css';
+import referralProgramImage from '../assets/referral_program.png';
+import inviteImage from '../assets/invite.png';
+import copyImage from '../assets/copy.png';
+import yourReferralsImage from '../assets/your_referrals.png';
+import linkImage from '../assets/link.png'; // Добавляем изображение link.png
 
 const Referrals = ({ coins, onTaskComplete, completedTasks }) => {
   const [referrals, setReferrals] = useState(() => {
@@ -33,25 +38,22 @@ const Referrals = ({ coins, onTaskComplete, completedTasks }) => {
     fetchReferrals();
   }, []);
 
-  const handleInviteFriend = () => {
-    // Симулируем приглашение друга
-    alert('Вы пригласили друга!');
-    if (!completedTasks.includes(3)) {
-      onTaskComplete(3, 30);
-      alert(`Вы получили 30 токенов за выполнение задания!`);
-    }
-  };
-
   return (
     <div className="referrals-container">
-      <h3>Реферальная программа</h3>
-      <p>Пригласите друзей и получайте 5% от их заработка!</p>
+      <img src={referralProgramImage} alt="Реферальная программа" />
+      <img src={inviteImage} alt="Пригласите друзей" className="invite-image" />
+
       <div className="referral-link">
-        <input type="text" value={referralLink} readOnly />
-        <button onClick={copyToClipboard}>Скопировать</button>
+        <div className="link-field">
+          <img src={linkImage} alt="Реферальная ссылка" className="link-image" />
+          <span className="link-text">{referralLink}</span>
+        </div>
+        <div className="copy-button" onClick={copyToClipboard}>
+          <img src={copyImage} alt="Скопировать" />
+        </div>
       </div>
-      <button className="invite-button" onClick={handleInviteFriend}>Пригласить друга</button>
-      <h4>Ваши рефералы:</h4>
+
+      <img src={yourReferralsImage} alt="Ваши рефералы" className="your-referrals-image" />
       {referrals.length > 0 ? (
         <ul className="referrals-list">
           {referrals.map((ref) => (

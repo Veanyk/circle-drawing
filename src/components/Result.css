@@ -1,8 +1,29 @@
+/* src/components/Result.css */
+
+/* Импортируем шрифт Gloria Hallelujah */
+@import url('https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap');
+
+.result-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: #0f0f0f;
+  background-image: url('../assets/background.png');
+  background-size: cover;
+  background-position: center;
+  padding: 20px;
+  min-height: calc(100vh - 70px);
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding-bottom: 150px;
+}
+
+/* Уменьшаем размер круга и переносим его вверх */
 .result-image {
   position: relative;
-  width: 200px;
-  height: 200px;
-  margin-bottom: 20px;
+  width: 150px; /* Уменьшили размер */
+  height: 150px;
+  margin-bottom: 10px; /* Уменьшили отступ снизу */
 }
 
 .result-circle {
@@ -15,29 +36,33 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  color: #ffffff;
+  color: red;
   font-size: 48px;
   font-weight: bold;
-  text-shadow: 0 0 10px #000000;
+  text-shadow: none;
+  font-family: 'Gloria Hallelujah', cursive; /* Изменили шрифт */
 }
 
-.earned-coins {
-  font-size: 18px;
-  margin-bottom: 20px;
-  color: #ffd700;
+/* Стиль для текстов под кругом */
+.circle-accuracy-text,
+.earned-tokens-text {
+  font-family: 'Gloria Hallelujah', cursive; /* Изменили шрифт */
+  color: #000000; /* Изменили цвет на черный */
+  font-size: 28px; /* Увеличили размер шрифта */
+  margin: 10px 0; /* Увеличили отступы */
   text-align: center;
 }
 
 .result-canvas {
-  border: 2px solid #00ffff;
+  border: none;
   border-radius: 10px;
-  background-color: #1a1a1a;
+  background-color: transparent;
   width: 80vw;
-  height: 80vw;
+  height: auto;
   max-width: 500px;
-  max-height: 500px;
+  margin-top: 20px; /* Добавляем отступ сверху */
   margin-bottom: 20px;
-  box-shadow: 0 0 20px #00ffff;
+  box-shadow: none;
 }
 
 .buttons {
@@ -59,16 +84,22 @@
   height: auto;
 }
 
-.reset-button:hover {
-  background-color: #cc00cc;
+.share-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.share-buttons h3 {
-  color: #ffffff;
-  font-size: 20px;
-  font-weight: bold;
+.share-results-image {
+  width: auto;
+  height: auto;
   margin-bottom: 10px;
-  text-shadow: 0 0 5px #ffffff;
+}
+
+.social-icons {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
 }
 
 .social-icon {
@@ -76,57 +107,43 @@
   height: 48px;
 }
 
+/* Адаптивные стили */
 @media (max-width: 768px) {
-  .result-text {
-    font-size: 20px;
+  .result-image {
+    width: 120px;
+    height: 120px;
   }
 
-  .earned-coins {
-    font-size: 16px;
+  .result-text-overlay {
+    font-size: 36px;
   }
 
-  .result-canvas {
-    max-width: 300px;
-    max-height: 300px;
+  .circle-accuracy-text,
+  .earned-tokens-text {
+    font-size: 22px; /* Адаптивный размер */
   }
 
-  .buttons {
-    max-width: 200px;
-  }
-
-  .reset-button {
-    font-size: 14px;
-    padding: 8px 16px;
+  .button-icon {
+    width: 100px;
   }
 }
 
 @media (max-width: 480px) {
-  .progress-bar {
+  .result-image {
+    width: 100px;
+    height: 100px;
+  }
+
+  .result-text-overlay {
+    font-size: 24px;
+  }
+
+  .circle-accuracy-text,
+  .earned-tokens-text {
+    font-size: 18px; /* Адаптивный размер */
+  }
+
+  .button-icon {
     width: 80px;
-    height: 80px;
-  }
-
-  .result-text {
-    font-size: 18px;
-  }
-
-  .earned-coins {
-    font-size: 14px;
-  }
-
-  .result-canvas {
-    width: 90vw;
-    height: 90vw;
-    max-width: none;
-    max-height: none;
-  }
-
-  .buttons {
-    max-width: 150px;
-  }
-
-  .reset-button {
-    font-size: 12px;
-    padding: 6px 12px;
   }
 }

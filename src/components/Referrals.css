@@ -1,123 +1,86 @@
+/* src/components/Referrals.css */
+@import url('https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap');
+
 .referrals-container {
   padding: 20px;
   background-color: #0f0f0f;
+  background-image: url('../assets/background.png');
+  background-size: cover;
+  background-position: center;
   min-height: 100vh;
   color: #ffffff;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Центрируем элементы по оси X */
 }
 
-.referrals-container h3 {
-  margin-bottom: 20px;
-  color: #00ffff;
-  text-shadow: 0 0 10px #00ffff;
-}
-
-.referrals-container p {
-  font-size: 14px;
-  margin-bottom: 20px;
-  color: #ffffff;
-  text-shadow: 0 0 5px #ffffff;
+.referrals-container img {
+  max-width: 100%;
+  height: auto;
+  display: block;
 }
 
 .referral-link {
   display: flex;
-  margin-bottom: 20px;
+  align-items: center;
+  margin-top: 50px;
+  width: 400px; /* Фиксированная ширина поля для ссылки */
 }
 
-.referral-link input {
-  flex: 1;
-  padding: 10px;
-  border: 1px solid #444444;
-  border-radius: 5px 0 0 5px;
-  background-color: #1e1e1e;
-  color: #ffffff;
-  box-shadow: 0 0 5px #00ffff;
+.link-field {
+  position: relative;
+  width: calc(100% - 50px); /* Учитываем ширину кнопки копирования и отступы */
 }
 
-.referral-link button {
-  padding: 10px 20px;
-  background-color: #ff00ff;
-  border: none;
-  border-radius: 0 5px 5px 0;
-  color: #ffffff;
+.link-field img.link-image {
+  width: 100%;
+  object-fit: cover;
+}
+
+.link-field .link-text {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: 'Gloria Hallelujah', cursive;
+  font-size: 14px;
+  color: #111111;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: calc(100% - 20px); /* Учитываем отступы внутри поля */
+}
+
+.copy-button {
   cursor: pointer;
-  transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-  box-shadow: 0 0 5px #ff00ff;
+  width: 120px; /* Фиксированная ширина кнопки копирования */
+  height: auto;
+  margin-left: 10px;
 }
 
-.referral-link button:hover {
-  background-color: #cc00cc;
-  box-shadow: 0 0 10px #ff00ff;
+.copy-button img {
+  width: 100%;
+  height: auto;
 }
 
 .referrals-list {
   list-style-type: none;
   padding: 0;
+  margin: 20px 0 0;
+  font-family: 'Gloria Hallelujah', cursive;
+  width: 300px; /* Фиксированная ширина списка рефералов */
 }
 
 .referrals-list li {
-  padding: 10px;
+  padding: 10px 0;
   border-bottom: 1px solid #444444;
 }
 
-.referrals-list li:last-child {
-  border-bottom: none;
+.invite-image {
+  margin-top: 100px; /* Отступ сверху для invite.png */
 }
 
-.invite-button {
-  padding: 10px 20px;
-  background-color: #ff00ff;
-  border: none;
-  border-radius: 5px;
-  color: #ffffff;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-  box-shadow: 0 0 5px #ff00ff;
-  margin-bottom: 20px;
-}
-
-.invite-button:hover {
-  background-color: #cc00cc;
-  box-shadow: 0 0 10px #ff00ff;
-}
-
-@media (max-width: 768px) {
-  .referral-link {
-    flex-direction: column;
-  }
-
-  .referral-link input,
-  .referral-link button {
-    width: 100%;
-    border-radius: 5px;
-  }
-
-  .referral-link input {
-    margin-bottom: 10px;
-    border-radius: 5px;
-  }
-
-  .referral-link button {
-    border-radius: 5px;
-  }
-}
-
-@media (max-width: 480px) {
-  .referrals-container {
-    padding: 10px;
-  }
-
-  .referrals-container h3 {
-    font-size: 18px;
-  }
-
-  .referrals-container p {
-    font-size: 12px;
-  }
-
-  .invite-button {
-    padding: 8px 16px;
-    font-size: 12px;
-  }
+.your-referrals-image {
+  margin-top: 25px; /* Отступ сверху для your_referrals.png */
 }

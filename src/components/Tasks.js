@@ -5,29 +5,26 @@ const tasksData = [
   {
     id: 1,
     title: 'Подписаться на канал',
-    description: 'Подпишитесь на наш Telegram-канал, чтобы получить 10 токенов.',
+    descriptionImage: 'task_1.png',
     link: 'https://t.me/durov',
     tokens: 10,
-    icon: '📢',
-    image: '3.png',
+    image: '1.png',
   },
   {
     id: 2,
     title: 'Приобрести буст',
-    description: 'Купите любой буст в магазине и получите 20 токенов.',
+    descriptionImage: 'task_2.png',
     action: 'buyBoost',
     tokens: 20,
-    icon: '🛒',
-    image: '4.png',
+    image: '2.png',
   },
   {
     id: 3,
     title: 'Пригласить друга',
-    description: 'Пригласите друга по реферальной ссылке и получите 30 токенов.',
+    descriptionImage: 'task_3.png',
     action: 'inviteFriend',
     tokens: 30,
-    icon: '🤝',
-    image: '5.png',
+    image: '3.png',
   },
 ];
 
@@ -45,44 +42,63 @@ const Tasks = React.memo(({ onTaskComplete, completedTasks, setCurrentTab }) => 
         onTaskComplete(task.id, task.tokens);
         alert(`Вы получили ${task.tokens} токенов!`);
       }
-    } else if (task.action === 'buyBoost') {
-      // Переходим на вкладку Shop
-      setCurrentTab('shop');
     } else if (task.action === 'inviteFriend') {
-      // Переходим на вкладку Referrals
       setCurrentTab('referrals');
     }
   };
 
-
   return (
     <div className="tasks-container">
-      <h3>Задания</h3>
-      {tasksData.map((task) => (
-        <div
-          key={task.id}
-          className={`task-card ${completedTasks.includes(task.id) ? 'completed' : ''}`}
-        >
-          <img
-            src={process.env.PUBLIC_URL + `/assets/${task.image}`}
-            alt={task.title}
-            className="task-image"
-            loading="lazy"
-          />
-          <div className="task-content">
-            <h4>{task.title}</h4>
-            <p>{task.description}</p>
-            <p>Награда: {task.tokens} токенов</p>
-          </div>
-          <button
-            onClick={() => handleTaskClick(task)}
-            disabled={completedTasks.includes(task.id)}
-            className={`task-button ${completedTasks.includes(task.id) ? 'completed' : ''}`}
+      {/* Изображение заголовка */}
+      <img
+        src={process.env.PUBLIC_URL + '/assets/all_tasks.png'}
+        alt="Все задания"
+        className="tasks-header-image"
+      />
+
+      <div className="tasks-list">
+        {tasksData.map((task) => (
+          <div
+            key={task.id}
+            className={`task-card ${completedTasks.includes(task.id) ? 'completed' : ''}`}
           >
-            {completedTasks.includes(task.id) ? 'Выполнено' : 'Выполнить'}
-          </button>
-        </div>
-      ))}
+            <div className="task-content">
+              {/* Изображение задания */}
+              <img
+                src={process.env.PUBLIC_URL + `/assets/${task.image}`}
+                alt={task.title}
+                className="task-image"
+                loading="lazy"
+              />
+
+              {/* Изображение описания задания */}
+              <img
+                src={process.env.PUBLIC_URL + `/assets/${task.descriptionImage}`}
+                alt={task.title}
+                className="task-description-image"
+                loading="lazy"
+              />
+
+              {/* Кнопка "Complete" */}
+              <button
+                onClick={() => handleTaskClick(task)}
+                disabled={completedTasks.includes(task.id)}
+                className={`task-button ${completedTasks.includes(task.id) ? 'completed' : ''}`}
+              >
+                <img
+                  src={
+                    completedTasks.includes(task.id)
+                      ? process.env.PUBLIC_URL + '/assets/completed.png'
+                      : process.env.PUBLIC_URL + '/assets/complete.png'
+                  }
+                  alt={completedTasks.includes(task.id) ? 'Выполнено' : 'Выполнить'}
+                  className="complete-button-image"
+                />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 });

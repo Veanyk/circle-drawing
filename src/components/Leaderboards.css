@@ -1,0 +1,24 @@
+.leaderboards-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: #0f0f0f;
+  background-image: url('../assets/background.png');
+  background-size: cover;
+  background-position: center;
+  padding: 20px;
+  min-height: calc(100vh - 70px);
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.leaderboards-title-image {
+  width: 100%;
+  max-width: 600px;
+  margin-bottom: 20px;
+}
+
+.leaderboards-board-image {
+  width: 100%;
+  max-width: 600px;
+}

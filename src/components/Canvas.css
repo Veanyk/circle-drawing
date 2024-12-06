@@ -3,30 +3,40 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   background-color: #0f0f0f;
-  min-height: 100vh;
-  padding: 20px;
+  background-image: url('../assets/background.png');
+  background-position: center;
+  background-size: cover;
+  min-height: calc(100vh - 70px);
+  padding-top: 20px;
+  padding-bottom: 20px;
   box-sizing: border-box;
 }
 
-.instructions {
-  margin-bottom: 10px;
-  font-size: 18px;
-  color: #ffffff;
-  text-shadow: 0 0 5px #00ffff;
+.draw-circle-image {
+  width: 100%;
+  max-width: 500px;
+  height: auto;
+  margin-bottom: 20px;
 }
 
 .drawing-canvas {
   border: none;
   border-radius: 10px;
-  background-image: url('/assets/drawing_field.png');
-  background-size: cover;
-  background-position: center;
   cursor: crosshair;
   touch-action: none;
   width: 80vw;
-  height: 80vw;
+  height: auto;
   max-width: 500px;
-  max-height: 500px;
-  box-shadow: 0 0 20px #00ffff;
+  margin-bottom: 20px;
+  box-shadow: none;
+}
+
+.chalk-image {
+  position: fixed;
+  width: 30px;
+  height: 30px;
+  z-index: 10;
+  pointer-events: none;
 }

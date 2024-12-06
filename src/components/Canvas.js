@@ -1,40 +1,70 @@
+// src/components/Canvas.js
+
 import React, { useRef, useEffect, useState } from 'react';
+import chalkImage from '../assets/chalk.png';
+import drawCircleImage from '../assets/draw_the_circle.png';
+import drawingFieldImage from '../assets/drawing_field.png';
 import './Canvas.css';
 
 const Canvas = ({ onDrawEnd, attempts }) => {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [points, setPoints] = useState([]); // Хранение всех точек рисования
+  const [points, setPoints] = useState([]);
+  const [chalkPosition, setChalkPosition] = useState({ x: -100, y: -100 });
+  const backgroundRef = useRef(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
 
-    // Функция для установки размеров холста на основе его CSS-стилей
+    // Загружаем фоновое изображение
+    const background = new Image();
+    background.src = drawingFieldImage;
+    background.onload = () => {
+      backgroundRef.current = background;
+      resizeCanvas();
+
+      // Добавляем слушатель события изменения размера окна после загрузки фона
+      window.addEventListener('resize', resizeCanvas);
+    };
+
+    // Функция для изменения размера канваса и перерисовки фона
     const resizeCanvas = () => {
-      const computedStyle = getComputedStyle(canvas);
+      const container = canvas.parentElement;
+      const computedStyle = getComputedStyle(container);
       const width = parseInt(computedStyle.getPropertyValue('width'), 10);
-      const height = parseInt(computedStyle.getPropertyValue('height'), 10);
+      const maxWidth = 500; // Максимальная ширина, как на странице результатов
+      const canvasWidth = Math.min(width * 0.8, maxWidth);
+      const canvasHeight = canvasWidth; // Делаем канвас квадратным
 
-      const scale = window.devicePixelRatio || 1;
+      // Устанавливаем размеры канваса
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
 
-      canvas.width = width * scale;
-      canvas.height = height * scale;
+      // Устанавливаем отображаемые размеры через стиль
+      canvas.style.width = `${canvasWidth}px`;
+      canvas.style.height = `${canvasHeight}px`;
 
-      context.scale(scale, scale);
+      // Очищаем канвас и рисуем фон
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      if (backgroundRef.current) {
+        context.drawImage(
+          backgroundRef.current,
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+      }
 
+      // Настройки для рисования
       context.lineWidth = 3;
       context.strokeStyle = '#ffffff';
       context.lineCap = 'round';
       context.lineJoin = 'round';
     };
 
-    resizeCanvas();
-
-    // Обработчик изменения размера окна
-    window.addEventListener('resize', resizeCanvas);
-
-    // Предотвращение прокрутки при касании холста на мобильных устройствах
+    // Предотвращаем стандартные действия для сенсорных событий
     const preventDefault = (e) => {
       e.preventDefault();
     };
@@ -43,28 +73,31 @@ const Canvas = ({ onDrawEnd, attempts }) => {
     canvas.addEventListener('touchmove', preventDefault, { passive: false });
 
     return () => {
+      // Удаляем слушатели при размонтировании компонента
       window.removeEventListener('resize', resizeCanvas);
       canvas.removeEventListener('touchstart', preventDefault);
       canvas.removeEventListener('touchmove', preventDefault);
     };
   }, []);
 
-  // Функция для получения позиции события
+  // Функция для получения позиции события относительно канваса
   const getEventPos = (event) => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    let x, y;
+
     if (event.touches && event.touches.length > 0) {
-      const rect = canvasRef.current.getBoundingClientRect();
-      return {
-        x: event.touches[0].clientX - rect.left,
-        y: event.touches[0].clientY - rect.top,
-      };
+      x = event.touches[0].clientX - rect.left;
+      y = event.touches[0].clientY - rect.top;
     } else {
-      return {
-        x: event.nativeEvent.offsetX,
-        y: event.nativeEvent.offsetY,
-      };
+      x = event.clientX - rect.left;
+      y = event.clientY - rect.top;
     }
+
+    return { x, y };
   };
 
+  // Начало рисования
   const startDrawing = (event) => {
     if (attempts <= 0) {
       alert('У вас закончились попытки!');
@@ -78,68 +111,85 @@ const Canvas = ({ onDrawEnd, attempts }) => {
     const context = canvasRef.current.getContext('2d');
     context.beginPath();
     context.moveTo(x, y);
+
+    setChalkPosition({ x: event.clientX, y: event.clientY });
   };
 
+  // Рисование
   const draw = (event) => {
     if (!isDrawing) return;
+
     const { x, y } = getEventPos(event);
-    const newPoints = [...points, { x, y }];
-    setPoints(newPoints);
+    setPoints((prevPoints) => [...prevPoints, { x, y }]);
 
     const context = canvasRef.current.getContext('2d');
-
-    // Расчёт точности для динамической смены цвета
-    const accuracy = calculateAccuracy(newPoints);
-
-    // Плавное изменение цвета от красного к зелёному + синий (неоновый оттенок)
-    const red = Math.round(255 - (accuracy / 100) * 255);
-    const green = Math.round((accuracy / 100) * 255);
-    const blue = 255;
-    context.strokeStyle = `rgb(${red},${green},${blue})`;
-
     context.lineTo(x, y);
     context.stroke();
+
+    // Обновляем позицию мелка
+    setChalkPosition({ x: event.clientX, y: event.clientY });
   };
 
+  // Конец рисования
   const endDrawing = () => {
     if (!isDrawing) return;
     setIsDrawing(false);
 
-    const rect = canvasRef.current.getBoundingClientRect();
+    // Скрываем мелок
+    setChalkPosition({ x: -100, y: -100 });
+
+    const canvas = canvasRef.current;
     const score = calculateFinalScore(points);
-    onDrawEnd(score, points, canvasRef.current, { width: rect.width, height: rect.height });
+    onDrawEnd(score, points, canvas, {
+      width: canvas.width,
+      height: canvas.height,
+    });
+
+    clearCanvas();
+    setPoints([]);
   };
 
+  // Стили для мелка
+  const chalkStyle = {
+    position: 'fixed',
+    left: chalkPosition.x - 15, // Центрируем мелок по горизонтали
+    top: chalkPosition.y - 15, // Центрируем мелок по вертикали
+    width: '30px',
+    height: '30px',
+    pointerEvents: 'none',
+    zIndex: 10,
+    transform: 'rotate(45deg)',
+  };
+
+  // Функция для расчёта финального процента точности
   const calculateFinalScore = (allPoints) => {
     if (allPoints.length < 10) return 0;
     const accuracy = calculateAccuracy(allPoints);
     return Math.round(accuracy);
   };
 
-  // Функция для оценки кругообразности
+  // Функция для расчёта точности нарисованного круга
   const calculateAccuracy = (currentPoints) => {
     if (currentPoints.length < 10) return 0;
     const circle = fitCircle(currentPoints);
-    if (!circle || isNaN(circle.radius) || circle.radius <= 0) return 0;
+    if (!circle || isNaN(circle.radius)) return 0;
 
     const { centerX, centerY, radius } = circle;
+    const N = currentPoints.length;
 
-    // Радиусы до каждой точки
-    const radii = currentPoints.map((p) => Math.hypot(p.x - centerX, p.y - centerY));
-    const avgRadius = radii.reduce((sum, r) => sum + r, 0) / radii.length;
-    const radiusVariance = radii.reduce((sum, r) => sum + Math.pow(r - avgRadius, 2), 0) / radii.length;
-    const radiusStdDev = Math.sqrt(radiusVariance);
-
-    // Оценка равномерности радиуса
-    const radiusUniformityScore = Math.max(0, 1 - (radiusStdDev / avgRadius));
-
-    // Замкнутость
+    // Замкнутость фигуры
     const startPoint = currentPoints[0];
     const endPoint = currentPoints[currentPoints.length - 1];
-    const distanceStartEnd = Math.hypot(endPoint.x - startPoint.x, endPoint.y - startPoint.y);
-    const closureScore = 1 - Math.min(distanceStartEnd / (0.05 * radius), 1);
+    const distanceStartEnd = Math.hypot(
+      endPoint.x - startPoint.x,
+      endPoint.y - startPoint.y
+    );
+    const closureThreshold = 0.05 * radius;
 
-    // Угол охвата
+    // Оцениваем замкнутость от 0 до 1
+    let closureScore = 1 - Math.min(distanceStartEnd / closureThreshold, 1);
+
+    // Общее изменение угла
     let totalAngleChange = 0;
     for (let i = 1; i < currentPoints.length - 1; i++) {
       const p0 = currentPoints[i - 1];
@@ -150,41 +200,52 @@ const Canvas = ({ onDrawEnd, attempts }) => {
       const angle2 = Math.atan2(p2.y - p1.y, p2.x - p1.x);
       let angleChange = angle2 - angle1;
 
-      if (angleChange > Math.PI) angleChange -= 2 * Math.PI;
-      else if (angleChange < -Math.PI) angleChange += 2 * Math.PI;
+      if (angleChange > Math.PI) {
+        angleChange -= 2 * Math.PI;
+      } else if (angleChange < -Math.PI) {
+        angleChange += 2 * Math.PI;
+      }
 
       totalAngleChange += angleChange;
     }
+
     const angleCoverage = Math.abs(totalAngleChange) / (2 * Math.PI);
-    const angleCoverageScore = Math.min(angleCoverage, 1);
+    const angleCoverageScore = Math.min(angleCoverage / 1, 1);
 
-    // Равномерность распределения точек по углу
-    const angles = currentPoints.map((p) => {
-      return Math.atan2(p.y - centerY, p.x - centerX);
-    }).sort((a, b) => a - b);
+    // Равномерность радиусов
+    const radii = currentPoints.map((point) =>
+      Math.hypot(point.x - centerX, point.y - centerY)
+    );
+    const avgRadius =
+      radii.reduce((sum, r) => sum + r, 0) / radii.length;
+    const radiusVariance =
+      radii.reduce((sum, r) => sum + Math.pow(r - avgRadius, 2), 0) /
+      radii.length;
+    const radiusStdDev = Math.sqrt(radiusVariance);
+    const radiusUniformity = Math.max(
+      0,
+      Math.min(1, 1 - radiusStdDev / avgRadius)
+    );
 
-    for (let i = 0; i < angles.length; i++) {
-      if (angles[i] < 0) angles[i] += 2 * Math.PI;
-    }
-    angles.sort((a, b) => a - b);
+    // Отношение ширины к высоте
+    const xValues = currentPoints.map((p) => p.x);
+    const yValues = currentPoints.map((p) => p.y);
+    const minX = Math.min(...xValues);
+    const maxX = Math.max(...xValues);
+    const minY = Math.min(...yValues);
+    const maxY = Math.max(...yValues);
 
-    const expectedSpacing = (2 * Math.PI) / angles.length;
-    const angleDiffs = [];
-    for (let i = 1; i < angles.length; i++) {
-      angleDiffs.push(angles[i] - angles[i - 1]);
-    }
-    // Добавим разницу между последней и первой точкой, чтобы замкнуть круг
-    angleDiffs.push((angles[0] + 2 * Math.PI) - angles[angles.length - 1]);
+    const width = maxX - minX;
+    const height = maxY - minY;
+    const aspectRatio = width / height;
+    const aspectRatioScore = Math.max(
+      0,
+      Math.min(1, 1 - Math.abs(aspectRatio - 1))
+    );
 
-    const avgDiff = angleDiffs.reduce((sum, d) => sum + d, 0) / angleDiffs.length;
-    const diffVariance = angleDiffs.reduce((sum, d) => sum + Math.pow(d - avgDiff, 2), 0) / angleDiffs.length;
-    const diffStdDev = Math.sqrt(diffVariance);
-    const angularUniformityScore = Math.max(0, 1 - (diffStdDev / (expectedSpacing / 2)));
-
-    // Сглаженность
+    // Плавность кривой
     let smoothnessScore = 1;
-    const N = currentPoints.length;
-    for (let i = 2; i < N; i++) {
+    for (let i = 2; i < currentPoints.length; i++) {
       const dx1 = currentPoints[i - 1].x - currentPoints[i - 2].x;
       const dy1 = currentPoints[i - 1].y - currentPoints[i - 2].y;
       const dx2 = currentPoints[i].x - currentPoints[i - 1].x;
@@ -192,25 +253,35 @@ const Canvas = ({ onDrawEnd, attempts }) => {
       const angle1 = Math.atan2(dy1, dx1);
       const angle2 = Math.atan2(dy2, dx2);
       let angleDiff = Math.abs(angle2 - angle1);
-      if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
+      if (angleDiff > Math.PI) {
+        angleDiff = 2 * Math.PI - angleDiff;
+      }
       smoothnessScore -= angleDiff / (Math.PI * N);
     }
     smoothnessScore = Math.max(0, smoothnessScore);
 
-    // Итоговая оценка
+    // Итоговая точность
     const accuracy =
-      radiusUniformityScore * 0.4 +
-      closureScore * 0.2 +
+      radiusUniformity * 0.3 +
+      aspectRatioScore * 0.2 +
       angleCoverageScore * 0.2 +
-      angularUniformityScore * 0.1 +
+      closureScore * 0.2 +
       smoothnessScore * 0.1;
 
     return accuracy * 100;
   };
 
-  // Функция для подгонки круга к точкам (алгоритм наименьших квадратов)
+  // Функция для подгонки круга к точкам (метод наименьших квадратов)
   const fitCircle = (points) => {
-    let sumX = 0, sumY = 0, sumX2 = 0, sumY2 = 0, sumX3 = 0, sumY3 = 0, sumXY = 0, sumX1Y2 = 0, sumX2Y1 = 0;
+    let sumX = 0,
+      sumY = 0,
+      sumX2 = 0,
+      sumY2 = 0,
+      sumX3 = 0,
+      sumY3 = 0,
+      sumXY = 0,
+      sumX1Y2 = 0,
+      sumX2Y1 = 0;
     const N = points.length;
 
     for (let i = 0; i < N; i++) {
@@ -251,9 +322,37 @@ const Canvas = ({ onDrawEnd, attempts }) => {
     return { centerX, centerY, radius };
   };
 
+  // Функция для очистки канваса и перерисовки фона
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    const context = canvas.getContext('2d');
+    context.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Рисуем фоновое изображение, если оно загружено
+    if (backgroundRef.current) {
+      context.drawImage(
+        backgroundRef.current,
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+    }
+  };
+
   return (
     <div className="canvas-container">
-      <p className="instructions">Нарисуйте круг как можно точнее!</p>
+      <img
+        src={chalkImage}
+        alt="Мел"
+        className="chalk-image"
+        style={chalkStyle}
+      />
+      <img
+        src={drawCircleImage}
+        alt="Нарисуйте круг"
+        className="draw-circle-image"
+      />
       <canvas
         ref={canvasRef}
         className="drawing-canvas"
