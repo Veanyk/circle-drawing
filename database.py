@@ -48,6 +48,17 @@ def get_user_data(user_id):
             'referrals': []
         }
 
+def get_top_users_by_coins(limit):
+    cursor.execute('SELECT user_id, coins FROM users ORDER BY coins DESC LIMIT ?', (limit,))
+    rows = cursor.fetchall()
+    leaderboard = []
+    for r in rows:
+        leaderboard.append({
+            'user_id': r[0],
+            'coins': r[1]
+        })
+    return leaderboard
+
 def update_user_data(user_id, data):
     # Обновляем данные пользователя в базе
     cursor.execute('''

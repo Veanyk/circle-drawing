@@ -85,6 +85,26 @@ def update_user_data_route():
     update_user_data(user_id, data)
     return 'User data updated successfully'
 
+@app.route('/getReferrals', methods=['POST'])
+def get_referrals_route():
+    user_id = request.json.get('user_id')
+    user_data = get_user_data(user_id)
+    referrals = user_data.get('referrals', [])
+    referral_data_list = []
+    for rid in referrals:
+        rdata = get_user_data(rid)
+        referral_data_list.append({
+            'user_id': rdata['user_id'],
+            'coins': rdata['coins']
+        })
+    return jsonify(referral_data_list)
+
+@app.route('/getLeaderboard', methods=['GET'])
+def get_leaderboard_route():
+    # Получаем топ-10 пользователей по количеству монет (или измените по своему усмотрению)
+    leaderboard = get_top_users_by_coins(10)
+    return jsonify(leaderboard)
+
 def run_flask_app():
     app.run(host='0.0.0.0', port=8000)
 
