@@ -4,39 +4,38 @@ import referralProgramImage from '../assets/referral_program.png';
 import inviteImage from '../assets/invite.png';
 import copyImage from '../assets/copy.png';
 import yourReferralsImage from '../assets/your_referrals.png';
-import linkImage from '../assets/link.png'; // Добавляем изображение link.png
+import linkImage from '../assets/link.png';
+
+const SERVER_URL = 'https://your-server-url.com';
 
 const Referrals = ({ coins, onTaskComplete, completedTasks }) => {
-  const [referrals, setReferrals] = useState(() => {
-    const savedReferrals = localStorage.getItem('referrals');
-    return savedReferrals ? JSON.parse(savedReferrals) : [];
-  });
-
+  const [referrals, setReferrals] = useState([]);
   const [referralLink, setReferralLink] = useState('');
 
+  // Получаем user_id из URL
   useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const userId = urlParams.get('user_id');
     const baseUrl = window.location.origin;
-    const userId = 'user123';
     setReferralLink(`${baseUrl}/?ref=${userId}`);
+
+    // Получаем список рефералов с сервера
+    fetch(`${SERVER_URL}/getReferrals`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId })
+    })
+    .then(res => res.json())
+    .then(data => {
+      setReferrals(data); // data - список рефералов с полями {user_id, coins}
+    })
+    .catch(err => console.error('Ошибка при получении рефералов:', err));
   }, []);
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(referralLink);
     alert('Реферальная ссылка скопирована в буфер обмена!');
   };
-
-  // Функция для получения данных о рефералах
-  const fetchReferrals = () => {
-    const dummyReferrals = [
-      { id: 1, name: 'Реферал 1', tokensEarned: 50 },
-      { id: 2, name: 'Реферал 2', tokensEarned: 30 },
-    ];
-    setReferrals(dummyReferrals);
-  };
-
-  useEffect(() => {
-    fetchReferrals();
-  }, []);
 
   return (
     <div className="referrals-container">
@@ -57,8 +56,8 @@ const Referrals = ({ coins, onTaskComplete, completedTasks }) => {
       {referrals.length > 0 ? (
         <ul className="referrals-list">
           {referrals.map((ref) => (
-            <li key={ref.id}>
-              {ref.name}: {ref.tokensEarned} токенов
+            <li key={ref.user_id}>
+              Пользователь {ref.user_id}: {ref.coins} монет
             </li>
           ))}
         </ul>

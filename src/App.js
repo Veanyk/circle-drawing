@@ -8,42 +8,19 @@ import Referrals from './components/Referrals';
 import Leaderboards from './components/Leaderboards';
 import './App.css';
 
-import totalCoinsBanner from './assets/total_coins.png';
-import totalAttemptsBanner from './assets/total_attempts.png';
+const SERVER_URL = 'https://your-server-url.com'; // Замените на реальный адрес
 
 function App() {
   const [score, setScore] = useState(null);
   const [currentTab, setCurrentTab] = useState('circle');
   const [drawingData, setDrawingData] = useState(null);
 
-  // Состояние для монет
-  const [coins, setCoins] = useState(() => {
-    const savedCoins = localStorage.getItem('coins');
-    return savedCoins ? parseFloat(savedCoins) : 0;
-  });
-
-  // Состояние для попыток
-  const [attempts, setAttempts] = useState(() => {
-    const savedAttempts = localStorage.getItem('attempts');
-    return savedAttempts ? parseInt(savedAttempts, 10) : 25;
-  });
-
-  const [maxAttempts, setMaxAttempts] = useState(() => {
-    const savedMaxAttempts = localStorage.getItem('maxAttempts');
-    return savedMaxAttempts ? parseInt(savedMaxAttempts, 10) : 25;
-  });
-
-  // Состояние для времени восстановления попыток в секундах
-  const [attemptRecoveryTime, setAttemptRecoveryTime] = useState(() => {
-    const savedRecoveryTime = localStorage.getItem('attemptRecoveryTime');
-    return savedRecoveryTime ? parseInt(savedRecoveryTime, 10) : 60;
-  });
-
-  // Состояние для выполненных заданий
-  const [completedTasks, setCompletedTasks] = useState(() => {
-    const savedTasks = localStorage.getItem('completedTasks');
-    return savedTasks ? JSON.parse(savedTasks) : [];
-  });
+  const [userId, setUserId] = useState(null);
+  const [coins, setCoins] = useState(0);
+  const [attempts, setAttempts] = useState(25);
+  const [maxAttempts, setMaxAttempts] = useState(25);
+  const [attemptRecoveryTime, setAttemptRecoveryTime] = useState(60);
+  const [completedTasks, setCompletedTasks] = useState([]);
 
   useEffect(() => {
     if (window.Telegram && window.Telegram.WebApp) {
@@ -54,34 +31,69 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // Сохранение монет в localStorage при их изменении
-    localStorage.setItem('coins', coins.toFixed(2));
-  }, [coins]);
+    const urlParams = new URLSearchParams(window.location.search);
+    const uId = urlParams.get('user_id');
+    setUserId(uId);
 
-  useEffect(() => {
-    // Сохранение попыток и связанных данных в localStorage при их изменении
-    localStorage.setItem('attempts', attempts);
-    localStorage.setItem('maxAttempts', maxAttempts);
-    localStorage.setItem('attemptRecoveryTime', attemptRecoveryTime);
-  }, [attempts, maxAttempts, attemptRecoveryTime]);
+    // Запрашиваем данные о пользователе
+    if (uId) {
+      fetch(`${SERVER_URL}/getUserData`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ user_id: uId })
+      })
+      .then(res => res.json())
+      .then(data => {
+        // Устанавливаем состояние из базы
+        setCoins(data.coins);
+        setAttempts(data.attempts);
+        setMaxAttempts(data.max_attempts);
+        setAttemptRecoveryTime(data.attempt_recovery_time);
+        setCompletedTasks(data.completed_tasks);
+      })
+      .catch(err => console.error('Ошибка при получении данных пользователя:', err));
+    }
+  }, []);
 
-  useEffect(() => {
-    // Сохранение выполненных заданий в localStorage при их изменении
-    localStorage.setItem('completedTasks', JSON.stringify(completedTasks));
-  }, [completedTasks]);
+  const updateUserDataOnServer = (newData) => {
+    if (!userId) return;
+    fetch(`${SERVER_URL}/updateUserData`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ user_id: userId, data: newData })
+    })
+    .then(res => res.text())
+    .then(() => {
+      // После обновления данных можно снова получить актуальные данные.
+      return fetch(`${SERVER_URL}/getUserData`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ user_id: userId })
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      setCoins(data.coins);
+      setAttempts(data.attempts);
+      setMaxAttempts(data.max_attempts);
+      setAttemptRecoveryTime(data.attempt_recovery_time);
+      setCompletedTasks(data.completed_tasks);
+    })
+    .catch(err => console.error('Ошибка при обновлении данных пользователя:', err));
+  }
 
   // Обработчик окончания рисования
   const onDrawEnd = (score, points, canvas, size) => {
     if (attempts > 0) {
       setScore(score);
       setDrawingData(canvas.toDataURL());
-      setCoins(prevCoins => prevCoins + parseFloat((0.01 * score).toFixed(2)));
-      setAttempts(prevAttempts => prevAttempts - 1);
+      const newCoins = coins + parseFloat((0.01 * score).toFixed(2));
+      const newAttempts = attempts - 1;
 
-      // Начинаем восстановление попытки
-      setTimeout(() => {
-        setAttempts(prevAttempts => prevAttempts + 1);
-      }, attemptRecoveryTime * 1000);
+      updateUserDataOnServer({
+        coins: newCoins,
+        attempts: newAttempts
+      });
     } else {
       alert('У вас закончились попытки!');
     }
@@ -94,31 +106,32 @@ function App() {
 
   const onTaskComplete = (taskId, tokens) => {
     if (!completedTasks.includes(taskId)) {
-      setCompletedTasks([...completedTasks, taskId]);
-      setCoins(coins + tokens);
+      const newCompletedTasks = [...completedTasks, taskId];
+      const newCoins = coins + tokens;
+      updateUserDataOnServer({
+        coins: newCoins,
+        completed_tasks: newCompletedTasks
+      });
     }
   };
 
- return (
+  return (
     <div className="App">
-      {/* Отображение монет и попыток */}
       <div className="coins-display">
         <div className="banner-container">
-          <img src={totalCoinsBanner} alt="Всего монет" className="banner-icon" />
+          <img src={require('./assets/total_coins.png')} alt="Всего монет" className="banner-icon" />
           <span className="banner-text">{coins.toFixed(2)}</span>
         </div>
       </div>
 
       <div className="attempts-display">
         <div className="banner-container">
-          <img src={totalAttemptsBanner} alt="Всего попыток" className="banner-icon" />
+          <img src={require('./assets/total_attempts.png')} alt="Всего попыток" className="banner-icon" />
           <span className="banner-text">{attempts}/{maxAttempts}</span>
         </div>
       </div>
 
-      {/* Основной контент */}
       <div className="main-content">
-        {/* Условный рендеринг в зависимости от currentTab */}
         {currentTab === 'circle' && (
           <>
             {score === null ? (
@@ -150,7 +163,6 @@ function App() {
         )}
       </div>
 
-      {/* TabBar внизу */}
       <TabBar currentTab={currentTab} setCurrentTab={setCurrentTab} />
     </div>
   );
