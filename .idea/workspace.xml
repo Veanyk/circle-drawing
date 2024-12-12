@@ -5,9 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d407c450-7d71-4df7-9a0f-31b971e1d0d8" name="Changes" comment="обновил">
-      <change afterPath="$PROJECT_DIR$/node_modules/iconv-lite/.idea/iconv-lite.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/bot.py" beforeDir="false" afterPath="$PROJECT_DIR$/bot.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/database.py" beforeDir="false" afterPath="$PROJECT_DIR$/database.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -147,6 +145,7 @@
     <MESSAGE value="добавил БД" />
     <MESSAGE value="доработал" />
     <MESSAGE value="обновил" />
-    <option name="LAST_COMMIT_MESSAGE" value="обновил" />
+    <MESSAGE value="разработка бд" />
+    <option name="LAST_COMMIT_MESSAGE" value="разработка бд" />
   </component>
 </project>
