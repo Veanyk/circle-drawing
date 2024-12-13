@@ -8,7 +8,7 @@ import Referrals from './components/Referrals';
 import Leaderboards from './components/Leaderboards';
 import './App.css';
 
-const SERVER_URL = 'https://your-server-url.com'; // Замените на реальный адрес
+const SERVER_URL = 'http://45.153.69.251'; // Замените на реальный адрес/порт вашего сервера
 
 function App() {
   const [score, setScore] = useState(null);
@@ -35,7 +35,6 @@ function App() {
     const uId = urlParams.get('user_id');
     setUserId(uId);
 
-    // Запрашиваем данные о пользователе
     if (uId) {
       fetch(`${SERVER_URL}/getUserData`, {
         method: 'POST',
@@ -44,7 +43,6 @@ function App() {
       })
       .then(res => res.json())
       .then(data => {
-        // Устанавливаем состояние из базы
         setCoins(data.coins);
         setAttempts(data.attempts);
         setMaxAttempts(data.max_attempts);
@@ -64,7 +62,6 @@ function App() {
     })
     .then(res => res.text())
     .then(() => {
-      // После обновления данных можно снова получить актуальные данные.
       return fetch(`${SERVER_URL}/getUserData`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -82,7 +79,6 @@ function App() {
     .catch(err => console.error('Ошибка при обновлении данных пользователя:', err));
   }
 
-  // Обработчик окончания рисования
   const onDrawEnd = (score, points, canvas, size) => {
     if (attempts > 0) {
       setScore(score);
@@ -117,19 +113,23 @@ function App() {
 
   return (
     <div className="App">
-      <div className="coins-display">
-        <div className="banner-container">
-          <img src={require('./assets/total_coins.png')} alt="Всего монет" className="banner-icon" />
-          <span className="banner-text">{coins.toFixed(2)}</span>
-        </div>
-      </div>
+      {currentTab === 'circle' && (
+        <>
+          <div className="coins-display">
+            <div className="banner-container">
+              <img src={require('./assets/total_coins.png')} alt="Всего монет" className="banner-icon" />
+              <span className="banner-text">{coins.toFixed(2)}</span>
+            </div>
+          </div>
 
-      <div className="attempts-display">
-        <div className="banner-container">
-          <img src={require('./assets/total_attempts.png')} alt="Всего попыток" className="banner-icon" />
-          <span className="banner-text">{attempts}/{maxAttempts}</span>
-        </div>
-      </div>
+          <div className="attempts-display">
+            <div className="banner-container">
+              <img src={require('./assets/total_attempts.png')} alt="Всего попыток" className="banner-icon" />
+              <span className="banner-text">{attempts}/{maxAttempts}</span>
+            </div>
+          </div>
+        </>
+      )}
 
       <div className="main-content">
         {currentTab === 'circle' && (

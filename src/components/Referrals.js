@@ -6,7 +6,7 @@ import copyImage from '../assets/copy.png';
 import yourReferralsImage from '../assets/your_referrals.png';
 import linkImage from '../assets/link.png';
 
-const SERVER_URL = 'https://your-server-url.com';
+const SERVER_URL = 'http://45.153.69.251';
 
 const Referrals = ({ coins, onTaskComplete, completedTasks }) => {
   const [referrals, setReferrals] = useState([]);

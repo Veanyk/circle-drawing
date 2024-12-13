@@ -3,7 +3,7 @@ import './Leaderboards.css';
 import leaderboardText from '../assets/leaderboard_text.png';
 import boardImage from '../assets/board.png';
 
-const SERVER_URL = 'https://your-server-url.com';
+const SERVER_URL = 'http://45.153.69.251';
 
 const Leaderboards = () => {
   const [leaders, setLeaders] = useState([]);

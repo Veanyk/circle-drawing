@@ -12,20 +12,12 @@ const tasksData = [
   },
   {
     id: 2,
-    title: 'Приобрести буст',
-    descriptionImage: 'task_2.png',
-    action: 'buyBoost',
-    tokens: 20,
-    image: '2.png',
-  },
-  {
-    id: 3,
     title: 'Пригласить друга',
     descriptionImage: 'task_3.png',
     action: 'inviteFriend',
     tokens: 30,
-    image: '3.png',
-  },
+    image: '2.png',
+  }
 ];
 
 const Tasks = React.memo(({ onTaskComplete, completedTasks, setCurrentTab }) => {

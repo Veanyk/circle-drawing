@@ -13,6 +13,7 @@
   padding: 0;
   overflow-x: hidden;
 }
+
 .coins-display,
 .attempts-display {
   position: fixed;
@@ -20,6 +21,12 @@
   z-index: 1000;
   display: flex;
   align-items: center;
+}
+
+body {
+  font-family: 'Gloria Hallelujah', cursive;
+  margin: 0;
+  padding: 0;
 }
 
 .coins-display {
@@ -62,11 +69,27 @@
 }
 
 @media (max-width: 768px) {
-.banner-icon {
-  width: 100px;
-  height: auto;
-}
-.banner-text {
-  font-size: 16px;
-}
+  html, body {
+    overflow: hidden;
+  }
+
+  .banner-icon {
+    width: 100px;
+    height: auto;
+  }
+
+  .banner-text {
+    font-size: 16px;
+  }
+
+  /* Добавляем уменьшенные отступы для маленьких экранов */
+  .coins-display {
+    top: 5px; /* Уменьшаем верхний отступ */
+    right: 5px; /* Уменьшаем правый отступ */
+  }
+
+  .attempts-display {
+    top: 60px; /* Уменьшаем верхний отступ */
+    right: 5px; /* Уменьшаем правый отступ */
+  }
 }

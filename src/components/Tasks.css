@@ -91,20 +91,22 @@
 /* Адаптивность для мобильных устройств */
 @media (max-width: 768px) {
   .task-card {
-    width: 90%; /* Уменьшаем ширину карточки на мобильных устройствах */
+    width: 80%; /* Уменьшаем ширину карточки на мобильных устройствах */
     background-size: contain; /* Убедиться, что фон масштабируется */
+    padding: 5px;
+    margin-bottom: 5px;
   }
 
   .task-image {
-    width: 80px;
-    height: 80px;
+    width: 60px;
+    height: 60px;
   }
 
   .task-description-image {
-    width: 90%;
+    width: 80%;
   }
 
   .complete-button-image {
-    width: 120px;
+    width: 80px;
   }
 }
