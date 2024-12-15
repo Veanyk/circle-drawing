@@ -1,3 +1,4 @@
+// src/components/Tasks.js
 import React from 'react';
 import './Tasks.css';
 
@@ -32,7 +33,6 @@ const Tasks = React.memo(({ onTaskComplete, completedTasks, setCurrentTab }) => 
       if (confirmAction) {
         window.open(task.link, '_blank');
         onTaskComplete(task.id, task.tokens);
-        alert(`Вы получили ${task.tokens} токенов!`);
       }
     } else if (task.action === 'inviteFriend') {
       setCurrentTab('referrals');
@@ -41,7 +41,6 @@ const Tasks = React.memo(({ onTaskComplete, completedTasks, setCurrentTab }) => 
 
   return (
     <div className="tasks-container">
-      {/* Изображение заголовка */}
       <img
         src={process.env.PUBLIC_URL + '/assets/all_tasks.png'}
         alt="Все задания"
@@ -55,23 +54,18 @@ const Tasks = React.memo(({ onTaskComplete, completedTasks, setCurrentTab }) => 
             className={`task-card ${completedTasks.includes(task.id) ? 'completed' : ''}`}
           >
             <div className="task-content">
-              {/* Изображение задания */}
               <img
                 src={process.env.PUBLIC_URL + `/assets/${task.image}`}
                 alt={task.title}
                 className="task-image"
                 loading="lazy"
               />
-
-              {/* Изображение описания задания */}
               <img
                 src={process.env.PUBLIC_URL + `/assets/${task.descriptionImage}`}
                 alt={task.title}
                 className="task-description-image"
                 loading="lazy"
               />
-
-              {/* Кнопка "Complete" */}
               <button
                 onClick={() => handleTaskClick(task)}
                 disabled={completedTasks.includes(task.id)}

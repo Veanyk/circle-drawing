@@ -21,11 +21,29 @@
   margin-bottom: 20px;
 }
 
+/* Медиа-запрос для экранов шириной до 600px */
+@media (max-width: 600px) {
+  .draw-circle-image {
+    width: 80%; /* Уменьшаем ширину до 80% от родительского контейнера */
+    max-width: 300px; /* Максимальная ширина 300px */
+    margin-bottom: 15px; /* Возможно, уменьшение отступа */
+  }
+}
+
+/* Дополнительный медиа-запрос для ещё меньших экранов (например, до 400px) */
+@media (max-width: 400px) {
+  .draw-circle-image {
+    width: 90%; /* Ещё меньше ширина */
+    max-width: 250px; /* Максимальная ширина 250px */
+    margin-bottom: 10px; /* Дополнительное уменьшение отступа */
+  }
+}
+
 .drawing-canvas {
   border: none;
   border-radius: 10px;
   cursor: crosshair;
-  touch-action: none;
+  touch-action: none; /* Позволяет обрабатывать жесты на мобильных устройствах */
   width: 80vw;
   height: auto;
   max-width: 500px;
@@ -34,9 +52,18 @@
 }
 
 .chalk-image {
-  position: fixed;
+  position: fixed; /* Fixed, чтобы мел не пропадал при скролле */
   width: 30px;
   height: 30px;
   z-index: 10;
-  pointer-events: none;
+  pointer-events: none; /* Чтобы изображение не мешало событиям мыши/тачей */
+  display: none; /* По умолчанию скрыт */
+}
+/* Медиа-запрос для экранов шириной до 600px */
+@media (max-width: 768px) {
+  .draw-circle-image {
+    width: 80%; /* Уменьшаем ширину до 80% от родительского контейнера */
+    max-width: 340px; /* Максимальная ширина 300px */
+    margin-bottom: 15px; /* Возможно, уменьшение отступа */
+  }
 }

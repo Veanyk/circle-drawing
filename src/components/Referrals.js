@@ -1,3 +1,4 @@
+// src/components/Referrals.js
 import React, { useState, useEffect } from 'react';
 import './Referrals.css';
 import referralProgramImage from '../assets/referral_program.png';
@@ -6,30 +7,35 @@ import copyImage from '../assets/copy.png';
 import yourReferralsImage from '../assets/your_referrals.png';
 import linkImage from '../assets/link.png';
 
-const SERVER_URL = 'http://45.153.69.251';
+const SERVER_URL = 'http://45.153.69.251:8000';
 
 const Referrals = ({ coins, onTaskComplete, completedTasks }) => {
   const [referrals, setReferrals] = useState([]);
   const [referralLink, setReferralLink] = useState('');
 
-  // Получаем user_id из URL
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const userId = urlParams.get('user_id');
-    const baseUrl = window.location.origin;
-    setReferralLink(`${baseUrl}/?ref=${userId}`);
 
-    // Получаем список рефералов с сервера
-    fetch(`${SERVER_URL}/getReferrals`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId })
-    })
-    .then(res => res.json())
-    .then(data => {
-      setReferrals(data); // data - список рефералов с полями {user_id, coins}
-    })
-    .catch(err => console.error('Ошибка при получении рефералов:', err));
+    const baseUrl = window.location.origin;
+    // Реферальная ссылка — передаём ?ref=наш userId, чтобы новый пользователь прописывался в "рефералах".
+    if (userId) {
+      setReferralLink(`${baseUrl}/?ref=${userId}`);
+    }
+
+    if (userId) {
+      fetch(`${SERVER_URL}/getReferrals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId })
+      })
+      .then(res => res.json())
+      .then(data => {
+        // data - список рефералов [{user_id, coins, best_score}]
+        setReferrals(data);
+      })
+      .catch(err => console.error('Ошибка при получении рефералов:', err));
+    }
   }, []);
 
   const copyToClipboard = () => {
@@ -57,12 +63,12 @@ const Referrals = ({ coins, onTaskComplete, completedTasks }) => {
         <ul className="referrals-list">
           {referrals.map((ref) => (
             <li key={ref.user_id}>
-              Пользователь {ref.user_id}: {ref.coins} монет
+              Пользователь {ref.user_id}: {ref.coins.toFixed(2)} монет, лучший круг — {ref.best_score}%
             </li>
           ))}
         </ul>
       ) : (
-        <p>У вас пока нет рефералов.</p>
+        <p className="no-referrals-message">У вас пока нет рефералов.</p>
       )}
     </div>
   );

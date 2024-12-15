@@ -1,5 +1,5 @@
 /* src/components/Referrals.css */
-@import url('https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap');
 
 .referrals-container {
   padding: 20px;
@@ -19,6 +19,15 @@
   max-width: 100%;
   height: auto;
   display: block;
+}
+
+.no-referrals-message {
+  font-family: 'Patrick Hand', cursive;
+  font-size: 24px;
+  color: #ffffff;
+  margin-top: 20px;
+  text-align: center;
+  max-width: 400px;
 }
 
 .referral-link {

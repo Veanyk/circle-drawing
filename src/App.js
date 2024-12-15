@@ -8,7 +8,7 @@ import Referrals from './components/Referrals';
 import Leaderboards from './components/Leaderboards';
 import './App.css';
 
-const SERVER_URL = 'http://45.153.69.251'; // Замените на реальный адрес/порт вашего сервера
+const SERVER_URL = 'http://45.153.69.251:8000';
 
 function App() {
   const [score, setScore] = useState(null);
@@ -19,7 +19,7 @@ function App() {
   const [coins, setCoins] = useState(0);
   const [attempts, setAttempts] = useState(25);
   const [maxAttempts, setMaxAttempts] = useState(25);
-  const [attemptRecoveryTime, setAttemptRecoveryTime] = useState(60);
+  // REMOVED: attemptRecoveryTime, bestScore states
   const [completedTasks, setCompletedTasks] = useState([]);
 
   useEffect(() => {
@@ -30,65 +30,83 @@ function App() {
     }
   }, []);
 
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const uId = urlParams.get('user_id');
-    setUserId(uId);
-
-    if (uId) {
-      fetch(`${SERVER_URL}/getUserData`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ user_id: uId })
-      })
-      .then(res => res.json())
-      .then(data => {
-        setCoins(data.coins);
-        setAttempts(data.attempts);
-        setMaxAttempts(data.max_attempts);
-        setAttemptRecoveryTime(data.attempt_recovery_time);
-        setCompletedTasks(data.completed_tasks);
-      })
-      .catch(err => console.error('Ошибка при получении данных пользователя:', err));
-    }
-  }, []);
-
   const updateUserDataOnServer = (newData) => {
     if (!userId) return;
     fetch(`${SERVER_URL}/updateUserData`, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id: userId, data: newData })
     })
-    .then(res => res.text())
     .then(() => {
       return fetch(`${SERVER_URL}/getUserData`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ user_id: userId })
-      })
+      });
     })
     .then(res => res.json())
     .then(data => {
       setCoins(data.coins);
       setAttempts(data.attempts);
       setMaxAttempts(data.max_attempts);
-      setAttemptRecoveryTime(data.attempt_recovery_time);
       setCompletedTasks(data.completed_tasks);
     })
     .catch(err => console.error('Ошибка при обновлении данных пользователя:', err));
-  }
+  };
 
-  const onDrawEnd = (score, points, canvas, size) => {
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const uId = urlParams.get('user_id');
+    const refId = urlParams.get('ref');
+    let finalUserId = uId;
+
+    if (!finalUserId && refId) {
+      // Если пользователь вошел по ссылке ?ref=..., но без user_id (браузерная версия)
+      finalUserId = Date.now();
+    }
+
+    setUserId(finalUserId);
+
+    if (finalUserId) {
+      fetch(`${SERVER_URL}/getUserData`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: finalUserId })
+      })
+      .then(res => res.json())
+      .then(data => {
+        setCoins(data.coins);
+        setAttempts(data.attempts);
+        setMaxAttempts(data.max_attempts);
+        setCompletedTasks(data.completed_tasks || []);
+
+        // Если есть refId и он не совпадает с finalUserId, то добавим реферал
+        if (refId && refId !== String(finalUserId)) {
+          const refs = data.referrals || [];
+          if (!refs.includes(refId)) {
+            refs.push(refId);
+            updateUserDataOnServer({ referrals: refs });
+          }
+        }
+      })
+      .catch(err => console.error('Ошибка при получении данных пользователя:', err));
+    }
+  // добавили updateUserDataOnServer в зависимости
+  }, [updateUserDataOnServer]);
+
+  const onDrawEnd = (circleAccuracy, points, canvas, size) => {
     if (attempts > 0) {
-      setScore(score);
+      setScore(circleAccuracy);
       setDrawingData(canvas.toDataURL());
-      const newCoins = coins + parseFloat((0.01 * score).toFixed(2));
+
+      const tokensEarned = parseFloat((0.01 * circleAccuracy).toFixed(2));
+      const newCoins = coins + tokensEarned;
       const newAttempts = attempts - 1;
 
       updateUserDataOnServer({
         coins: newCoins,
-        attempts: newAttempts
+        attempts: newAttempts,
+        score: circleAccuracy
       });
     } else {
       alert('У вас закончились попытки!');
@@ -108,6 +126,9 @@ function App() {
         coins: newCoins,
         completed_tasks: newCompletedTasks
       });
+      alert(`Вы получили ${tokens} токенов!`);
+    } else {
+      alert('Это задание уже выполнено.');
     }
   };
 
