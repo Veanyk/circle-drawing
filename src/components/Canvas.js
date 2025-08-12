@@ -114,7 +114,7 @@ const Canvas = ({ onDrawEnd, attempts }) => {
   // Начало рисования
   const startDrawing = (event) => {
     if (attempts <= 0) {
-      alert('У вас закончились попытки!');
+      alert('You are out of attempts!');
       return;
     }
 

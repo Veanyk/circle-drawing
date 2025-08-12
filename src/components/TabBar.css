@@ -2,38 +2,55 @@
 
 .tab-bar {
   position: fixed;
-  bottom: 5px; /* Настройте отступ от нижнего края по необходимости */
+  bottom: 5px;
   left: 0;
   right: 0;
   display: flex;
-  flex-wrap: wrap; /* Позволяет элементам переноситься на новую строку */
   justify-content: center;
-  margin-bottom: 0;
-  padding-top: 0;
-  z-index: 1000; /* Чтобы TabBar был выше других элементов */
+  z-index: 1000;
 }
 
 .tab-item {
+  flex: 1; /* Равномерно распределяем пространство */
   display: flex;
-  flex-direction: column;
-  align-items: center; /* Центрирует элементы по горизонтали */
-  justify-content: center; /* Центрирует элементы по вертикали */
-  box-sizing: border-box;
+  justify-content: center;
+  align-items: center;
   cursor: pointer;
-  text-align: center;
-  flex: 1 1 50%; /* Заставляет каждый элемент занимать 50% ширины */
-  max-width: 50%; /* Ограничивает максимальную ширину до 50% */
 }
 
 .tab-item.active {
-  background-color: rgba(255, 255, 255, 0.1);
+  /* Можно добавить стиль для активной вкладки, если нужно */
+  /* например, легкую тень или свечение */
+}
+
+/* Новый контейнер для контента внутри кнопки */
+.tab-item-content {
+  position: relative; /* Очень важно для позиционирования "дыры" */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-width: 200px; /* Возвращаем большой размер иконок */
 }
 
 .tab-icon {
-  width: 100%; /* Относительная ширина относительно контейнера */
-  max-width: 200px; /* Максимальная ширина для больших экранов */
-  height: auto; /* Автоматическая высота для сохранения пропорций */
+  width: 100%;
+  height: auto;
   object-fit: contain;
-  margin-bottom: 0; /* Убраны отступы, связанные с метками */
+  /* Убедимся, что сама иконка не перехватывает клики */
+  pointer-events: none;
 }
+/* Вот и наша "мертвая зона" */
+.tab-item-dead-zone {
+  position: absolute; /* Позиционируем ее поверх всего */
+  top: 25%;
+  left: 25%;
+  width: 50%; /* Занимает центральные 50% ширины */
+  height: 50%; /* и высоты */
 
+  /* Самое главное свойство! */
+  pointer-events: none; /* Делает этот элемент "прозрачным" для кликов */
+
+  /* Раскомментируйте следующую строку, чтобы увидеть "дыру" во время отладки */
+  /* background-color: rgba(255, 0, 0, 0.5); */
+}

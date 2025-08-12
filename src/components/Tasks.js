@@ -2,22 +2,30 @@
 import React from 'react';
 import './Tasks.css';
 
+// Импортируем все необходимые изображения
+import allTasksHeader from '../assets/all_tasks.png';
+import task1Desc from '../assets/task_1.png';
+import task2Desc from '../assets/task_3.png';
+import task1Icon from '../assets/1.png';
+import task2Icon from '../assets/2.png';
+import completeBtn from '../assets/complete.png';
+
 const tasksData = [
   {
     id: 1,
     title: 'Подписаться на канал',
-    descriptionImage: 'task_1.png',
+    descriptionImage: task1Desc,
     link: 'https://t.me/durov',
     tokens: 10,
-    image: '1.png',
+    image: task1Icon,
   },
   {
     id: 2,
     title: 'Пригласить друга',
-    descriptionImage: 'task_3.png',
+    descriptionImage: task2Desc,
     action: 'inviteFriend',
     tokens: 30,
-    image: '2.png',
+    image: task2Icon,
   }
 ];
 
@@ -28,59 +36,50 @@ const Tasks = React.memo(({ onTaskComplete, completedTasks, setCurrentTab }) => 
       return;
     }
 
-    if (task.link) {
-      const confirmAction = window.confirm('Вы уверены, что хотите выполнить это задание?');
-      if (confirmAction) {
+      if (task.link) {
+        // We can remove the confirm for better user experience
         window.open(task.link, '_blank');
         onTaskComplete(task.id, task.tokens);
-      }
     } else if (task.action === 'inviteFriend') {
       setCurrentTab('referrals');
     }
   };
 
-  return (
+ return (
     <div className="tasks-container">
-      <img
-        src={process.env.PUBLIC_URL + '/assets/all_tasks.png'}
-        alt="Все задания"
-        className="tasks-header-image"
-      />
-
+      {/* Используем импортированные изображения */}
+      <img src={allTasksHeader} alt="Все задания" className="tasks-header-image" />
       <div className="tasks-list">
         {tasksData.map((task) => (
           <div
             key={task.id}
             className={`task-card ${completedTasks.includes(task.id) ? 'completed' : ''}`}
           >
-            <div className="task-content">
-              <img
-                src={process.env.PUBLIC_URL + `/assets/${task.image}`}
-                alt={task.title}
-                className="task-image"
-                loading="lazy"
-              />
-              <img
-                src={process.env.PUBLIC_URL + `/assets/${task.descriptionImage}`}
-                alt={task.title}
-                className="task-description-image"
-                loading="lazy"
-              />
-              <button
-                onClick={() => handleTaskClick(task)}
-                disabled={completedTasks.includes(task.id)}
-                className={`task-button ${completedTasks.includes(task.id) ? 'completed' : ''}`}
-              >
-                <img
-                  src={
-                    completedTasks.includes(task.id)
-                      ? process.env.PUBLIC_URL + '/assets/completed.png'
-                      : process.env.PUBLIC_URL + '/assets/complete.png'
-                  }
-                  alt={completedTasks.includes(task.id) ? 'Выполнено' : 'Выполнить'}
-                  className="complete-button-image"
-                />
-              </button>
+                <div className="task-content">
+                  <img
+                    src={task.image}
+                    alt={task.title}
+                    className="task-image"
+                    loading="lazy"
+                  />
+                  <img
+                    src={task.descriptionImage}
+                    alt={task.title}
+                    className="task-description-image"
+                    loading="lazy"
+                  />
+                <button
+                  onClick={() => handleTaskClick(task)}
+                  disabled={completedTasks.includes(task.id)}
+                  // Мы уже добавляем класс 'completed' на саму кнопку, это идеально
+                  className={`task-button ${completedTasks.includes(task.id) ? 'completed' : ''}`}
+                >
+                  <img
+                      src={completeBtn}
+                      alt={completedTasks.includes(task.id) ? 'Completed' : 'Complete'}
+                      className={`complete-button-image ${completedTasks.includes(task.id) ? 'completed' : ''}`}
+                    />
+                </button>
             </div>
           </div>
         ))}

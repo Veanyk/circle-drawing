@@ -7,10 +7,6 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  background-color: #0f0f0f;
-  background-image: url('../assets/background.png');
-  background-size: cover;
-  background-position: center;
   padding: 20px;
   min-height: calc(100vh - 70px);
   box-sizing: border-box;
@@ -21,9 +17,9 @@
 /* Родительский контейнер для круга, PNG и текста */
 .result-image {
   position: relative;
-  width: 150px; /* Диаметр круга/PNG */
-  height: 150px;
-  margin-bottom: 10px;
+  width: 100px; /* Уменьшили */
+  height: 100px; /* Уменьшили */
+  margin-bottom: 0px;
 }
 
 /* Динамический круг (градиент) — самый нижний слой */
@@ -31,8 +27,8 @@
   position: absolute;
   top: 0;
   left: 0;
-  width: 150px;
-  height: 150px;
+  width: 100px; /* Уменьшили */
+  height: 100px; /* Уменьшили */
   border-radius: 50%;
   z-index: 1; /* Ниже PNG и текста */
   background-color: #ffffff; /* Базовый цвет на случай отсутствия градиента */
@@ -44,8 +40,8 @@
   position: absolute;
   top: 0;
   left: 0;
-  width: 150px;
-  height: 150px;
+  width: 100px; /* Уменьшили */
+  height: 100px; /* Уменьшили */
   z-index: 2; /* Выше градиента, но ниже текста */
 }
 
@@ -57,7 +53,7 @@
   transform: translate(-50%, -50%);
   z-index: 3; /* Самый верхний слой */
   color: red;
-  font-size: 48px;
+  font-size: 28px; /* Уменьшили */
   font-weight: bold;
   text-shadow: none;
   font-family: 'Gloria Hallelujah', cursive;
@@ -68,21 +64,31 @@
 .earned-tokens-text {
   font-family: 'Gloria Hallelujah', cursive;
   color: #000000;
-  font-size: 28px;
-  margin: 8px 0;
+  font-size: 23px; /* Уменьшили размер */
+  margin: 2px 0;   /* Уменьшили вертикальные отступы */
   text-align: center;
+  line-height: 1.2; /* Сделали строки ближе друг к другу */
 }
 
-.result-canvas {
-  border: none;
-  border-radius: 10px;
-  background-color: transparent;
-  width: 80vw;
-  height: auto;
+.result-drawing-container {
+  position: relative; /* Нужно для позиционирования рисунка */
+  width: 80vw; /* Задаем те же размеры, что и у холста для рисования */
   max-width: 500px;
+  aspect-ratio: 1 / 1; /* Делаем контейнер квадратным */
   margin-top: 15px;
   margin-bottom: 20px;
-  box-shadow: none;
+  background-image: url('../assets/drawing_field.png'); /* Задаем фон-доску */
+  background-size: 100% 100%;
+  border-radius: 10px;
+}
+
+.result-drawing-preview {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* Вписываем рисунок в контейнер */
 }
 
 .buttons {
@@ -119,75 +125,68 @@
 
 /* Адаптивная верстка */
 @media (max-width: 768px) {
-  .result-image {
-    width: 120px;
-    height: 120px;
-  }
-
-  .result-circle-dynamic {
-    width: 120px;
-    height: 120px;
-  }
-
-  .result-circle-image {
-    width: 120px;
-    height: 120px;
-  }
-
-  .result-text-overlay {
-    font-size: 36px;
-  }
-
-  .circle-accuracy-text,
-  .earned-tokens-text {
+    .result-image {
+      width: 100px; /* Уменьшили */
+      height: 100px; /* Уменьшили */
+    }
+    .result-circle-dynamic {
+      width: 100px; /* Уменьшили */
+      height: 100px; /* Уменьшили */
+    }
+    .result-circle-image {
+      width: 100px; /* Уменьшили */
+      height: 100px; /* Уменьшили */
+    }
+    .result-text-overlay {
+      font-size: 32px; /* Уменьшили */
+    }
+    .circle-accuracy-text,
+    .earned-tokens-text {
     font-size: 22px;
     margin: 6px 0;
-  }
+    }
 
-  .button-icon {
+    .button-icon {
     width: 100px;
-  }
+    }
 
-  .share-results-image {
+    .share-results-image {
     max-width: 250px;
-  }
-}
+    }
+    }
 
 @media (max-width: 480px) {
-  .result-image {
-    width: 100px;
-    height: 100px;
-  }
+    .result-image {
+      width: 90px; /* Уменьшили */
+      height: 90px; /* Уменьшили */
+    }
+    .result-circle-dynamic {
+      width: 90px; /* Уменьшили */
+      height: 90px; /* Уменьшили */
+    }
+    .result-circle-image {
+      width: 90px; /* Уменьшили */
+      height: 90px; /* Уменьшили */
+    }
+    .result-text-overlay {
+      font-size: 28px; /* Уменьшили */
+    }
 
-  .result-circle-dynamic {
-    width: 100px;
-    height: 100px;
-  }
-
-  .result-circle-image {
-    width: 100px;
-    height: 100px;
-  }
-
-  .result-text-overlay {
-    font-size: 24px;
-  }
-
-  .circle-accuracy-text,
-  .earned-tokens-text {
+    .circle-accuracy-text,
+    .earned-tokens-text {
     font-size: 18px;
     margin: 4px 0;
-  }
+    }
 
-  .button-icon {
+    .button-icon {
     width: 80px;
-  }
+    }
 
-  .share-results-image {
+    .share-results-image {
     max-width: 200px;
     margin-bottom: 8px;
-  }
-}
+    }
+    }
 
 .social-icons {
   display: flex;

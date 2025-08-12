@@ -1,17 +1,39 @@
 /* src/App.css */
 @import url('https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap');
 
+body {
+  margin: 0;
+  font-family: 'Gloria Hallelujah', cursive;
+  background-color: #0f0f0f;
+}
+
+/* Удаляем старые стили фона с самого .App, если они там были */
 .App {
+  position: relative; /* Нужно для корректной работы z-index псевдоэлемента */
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background-color: #0f0f0f;
-  background-image: url('./assets/background.png');
-  background-size: cover;
-  background-position: center;
-  margin: 0;
-  padding: 0;
   overflow-x: hidden;
+  /* Убедитесь, что здесь НЕТ background-image или background-color */
+}
+
+/* А вот и магия: создаем отдельный слой для фона с помощью псевдоэлемента */
+.App::before {
+  content: ''; /* Обязательное свойство для псевдоэлементов */
+  position: fixed;   /* Самое главное: фон "прибит" к окну браузера и не двигается */
+  top: 0;
+  left: 0;
+  width: 100vw;      /* Ширина на весь экран */
+  height: 100vh;     /* Высота на весь экран */
+
+  /* Устанавливаем ВАШЕ изображение как фон */
+  background-image: url('./assets/background.png');
+
+  background-size: cover;       /* Растягивает изображение, чтобы оно покрыло весь экран */
+  background-position: center;  /* Центрирует изображение */
+  background-attachment: fixed; /* Дополнительная гарантия, что фон не будет скроллиться */
+
+  z-index: -1; /* Помещает этот слой-фон ПОД всем остальным контентом приложения */
 }
 
 .coins-display,
@@ -21,12 +43,6 @@
   z-index: 1000;
   display: flex;
   align-items: center;
-}
-
-body {
-  font-family: 'Gloria Hallelujah', cursive;
-  margin: 0;
-  padding: 0;
 }
 
 .coins-display {
@@ -92,4 +108,10 @@ body {
     top: 60px; /* Уменьшаем верхний отступ */
     right: 5px; /* Уменьшаем правый отступ */
   }
+}
+.main-content {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding-bottom: 90px; /* <-- Устанавливаем точный отступ, соответствующий новой высоте TabBar */
+  padding-top: 20px;
 }

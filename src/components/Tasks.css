@@ -2,10 +2,6 @@
 
 .tasks-container {
   padding: 20px;
-  background-color: #0f0f0f;
-  background-image: url('../assets/background.png');
-  background-size: cover;
-  background-position: center;
   min-height: 100vh;
   color: #ffffff;
   box-sizing: border-box;
@@ -41,8 +37,14 @@
   box-sizing: border-box;
 }
 
+/* Найдите в Tasks.css этот блок */
 .task-card.completed {
   opacity: 0.6; /* Затемнение выполненных заданий */
+}
+.task-card.completed .task-image,
+.task-card.completed .task-description-image,
+.task-card.completed .complete-button-image {
+  filter: grayscale(1);
 }
 
 .task-content {
@@ -109,4 +111,8 @@
   .complete-button-image {
     width: 80px;
   }
+}
+.complete-button-image.completed {
+  filter: grayscale(100%) opacity(0.6); /* Делает картинку серой и полупрозрачной */
+  transition: filter 0.3s ease; /* Плавный переход для красоты */
 }

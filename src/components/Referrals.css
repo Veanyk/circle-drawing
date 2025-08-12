@@ -3,10 +3,6 @@
 
 .referrals-container {
   padding: 20px;
-  background-color: #0f0f0f;
-  background-image: url('../assets/background.png');
-  background-size: cover;
-  background-position: center;
   min-height: 100vh;
   color: #ffffff;
   box-sizing: border-box;

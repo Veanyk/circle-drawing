@@ -35,12 +35,12 @@ const Leaderboards = () => {
         <ul className="leaders-list">
           {leaders.map((leader, index) => (
             <li key={leader.user_id}>
-              {index + 1}. Пользователь {leader.user_id}: {leader.coins.toFixed(2)} монет, лучший круг — {leader.best_score}%
+              {index + 1}. User {String(leader.user_id).substring(0, 8)}...: {leader.coins.toFixed(2)} coins, best circle — {leader.best_score}%
             </li>
           ))}
         </ul>
       ) : (
-        <p className="no-data-message">Пока нет данных для отображения.</p>
+        <p className="no-data-message">No data to display yet.</p>
       )}
     </div>
   );

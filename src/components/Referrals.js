@@ -7,7 +7,7 @@ import copyImage from '../assets/copy.png';
 import yourReferralsImage from '../assets/your_referrals.png';
 import linkImage from '../assets/link.png';
 
-const SERVER_URL = 'http://45.153.69.251:8000';
+const SERVER_URL = 'http://66.151.32.20:8000';
 
 const Referrals = ({ coins, onTaskComplete, completedTasks }) => {
   const [referrals, setReferrals] = useState([]);
@@ -38,10 +38,10 @@ const Referrals = ({ coins, onTaskComplete, completedTasks }) => {
     }
   }, []);
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(referralLink);
-    alert('Реферальная ссылка скопирована в буфер обмена!');
-  };
+    const copyToClipboard = () => {
+      navigator.clipboard.writeText(referralLink);
+      alert('Referral link copied to clipboard!');
+    };
 
   return (
     <div className="referrals-container">
@@ -63,12 +63,12 @@ const Referrals = ({ coins, onTaskComplete, completedTasks }) => {
         <ul className="referrals-list">
           {referrals.map((ref) => (
             <li key={ref.user_id}>
-              Пользователь {ref.user_id}: {ref.coins.toFixed(2)} монет, лучший круг — {ref.best_score}%
+              User {String(ref.user_id).substring(0, 8)}...: {ref.coins.toFixed(2)} coins, best circle — {ref.best_score}%
             </li>
           ))}
         </ul>
       ) : (
-        <p className="no-referrals-message">У вас пока нет рефералов.</p>
+        <p className="no-referrals-message">You don't have any referrals yet.</p>
       )}
     </div>
   );

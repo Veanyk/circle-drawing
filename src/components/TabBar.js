@@ -9,7 +9,10 @@ const TabBar = ({ currentTab, setCurrentTab }) => {
         className={`tab-item ${currentTab === 'circle' ? 'active' : ''}`}
         onClick={() => setCurrentTab('circle')}
       >
-        <img src={require('../assets/circle.png')} alt="Круг" className="tab-icon" />
+        <div className="tab-item-content">
+          <img src={require('../assets/circle.png')} alt="Circle" className="tab-icon" />
+          <div className="tab-item-dead-zone"></div> {/* Наша "дыра" */}
+        </div>
       </div>
 
       {/* Вкладка "Tasks" */}
@@ -17,7 +20,10 @@ const TabBar = ({ currentTab, setCurrentTab }) => {
         className={`tab-item ${currentTab === 'tasks' ? 'active' : ''}`}
         onClick={() => setCurrentTab('tasks')}
       >
-        <img src={require('../assets/tasks.png')} alt="Задания" className="tab-icon" />
+        <div className="tab-item-content">
+          <img src={require('../assets/tasks.png')} alt="Tasks" className="tab-icon" />
+          <div className="tab-item-dead-zone"></div>
+        </div>
       </div>
 
       {/* Вкладка "Referrals" */}
@@ -25,7 +31,10 @@ const TabBar = ({ currentTab, setCurrentTab }) => {
         className={`tab-item ${currentTab === 'referrals' ? 'active' : ''}`}
         onClick={() => setCurrentTab('referrals')}
       >
-        <img src={require('../assets/referrals.png')} alt="Рефералы" className="tab-icon" />
+        <div className="tab-item-content">
+          <img src={require('../assets/referrals.png')} alt="Referrals" className="tab-icon" />
+          <div className="tab-item-dead-zone"></div>
+        </div>
       </div>
 
       {/* Вкладка "Leaderboards" */}
@@ -33,7 +42,10 @@ const TabBar = ({ currentTab, setCurrentTab }) => {
         className={`tab-item ${currentTab === 'leaderboards' ? 'active' : ''}`}
         onClick={() => setCurrentTab('leaderboards')}
       >
-        <img src={require('../assets/leaderboard.png')} alt="Лидерборды" className="tab-icon" />
+        <div className="tab-item-content">
+          <img src={require('../assets/leaderboard.png')} alt="Leaderboards" className="tab-icon" />
+          <div className="tab-item-dead-zone"></div>
+        </div>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 // src/App.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Canvas from './components/Canvas';
 import Result from './components/Result';
 import Tasks from './components/Tasks';
@@ -9,6 +9,16 @@ import Leaderboards from './components/Leaderboards';
 import './App.css';
 
 const SERVER_URL = 'http://45.153.69.251:8000';
+
+const getBrowserUserId = () => {
+  let userId = localStorage.getItem('circleGameUserId');
+  if (!userId) {
+    // Создаем более уникальный ID на случай одновременного входа
+    userId = `browser_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem('circleGameUserId', userId);
+  }
+  return userId;
+};
 
 function App() {
   const [score, setScore] = useState(null);
@@ -30,7 +40,7 @@ function App() {
     }
   }, []);
 
-  const updateUserDataOnServer = (newData) => {
+const updateUserDataOnServer = useCallback((newData) => {
     if (!userId) return;
     fetch(`${SERVER_URL}/updateUserData`, {
       method: 'POST',
@@ -38,6 +48,7 @@ function App() {
       body: JSON.stringify({ user_id: userId, data: newData })
     })
     .then(() => {
+      // Можно убрать повторный fetch, если сервер возвращает обновленные данные
       return fetch(`${SERVER_URL}/getUserData`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -49,20 +60,23 @@ function App() {
       setCoins(data.coins);
       setAttempts(data.attempts);
       setMaxAttempts(data.max_attempts);
-      setCompletedTasks(data.completed_tasks);
+      setCompletedTasks(data.completed_tasks || []);
     })
     .catch(err => console.error('Ошибка при обновлении данных пользователя:', err));
-  };
+}, [userId]); // Теперь зависимость только от userId
 
-  useEffect(() => {
+useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const uId = urlParams.get('user_id');
+    // Попробуем получить ID из Telegram Web App
+    const tgUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
     const refId = urlParams.get('ref');
-    let finalUserId = uId;
+    let finalUserId;
 
-    if (!finalUserId && refId) {
-      // Если пользователь вошел по ссылке ?ref=..., но без user_id (браузерная версия)
-      finalUserId = Date.now();
+    if (tgUserId) {
+        finalUserId = tgUserId.toString();
+    } else {
+        // Если мы в браузере, используем ID из localStorage
+        finalUserId = getBrowserUserId();
     }
 
     setUserId(finalUserId);
@@ -94,46 +108,57 @@ function App() {
   // добавили updateUserDataOnServer в зависимости
   }, [updateUserDataOnServer]);
 
-  const onDrawEnd = (circleAccuracy, points, canvas, size) => {
-    if (attempts > 0) {
-      setScore(circleAccuracy);
-      setDrawingData(canvas.toDataURL());
+const onDrawEnd = (circleAccuracy, points, canvas, size) => {
+  if (attempts > 0) {
+    const tokensEarned = parseFloat((0.01 * circleAccuracy).toFixed(2));
+    const newCoins = coins + tokensEarned;
+    const newAttempts = attempts - 1;
 
-      const tokensEarned = parseFloat((0.01 * circleAccuracy).toFixed(2));
-      const newCoins = coins + tokensEarned;
-      const newAttempts = attempts - 1;
+    // 1. Сначала обновляем интерфейс локально (оптимистичное обновление)
+    setScore(circleAccuracy);
+    setDrawingData(canvas.toDataURL());
+    setCoins(newCoins);
+    setAttempts(newAttempts);
 
-      updateUserDataOnServer({
-        coins: newCoins,
-        attempts: newAttempts,
-        score: circleAccuracy
-      });
-    } else {
-      alert('У вас закончились попытки!');
-    }
-  };
+    // 2. Затем отправляем данные на сервер для синхронизации
+    updateUserDataOnServer({
+      coins: newCoins,
+      attempts: newAttempts,
+      score: circleAccuracy, // Можно также отправлять лучший результат
+    });
+  } else {
+    alert('You are out of attempts!');
+  }
+};
 
   const onReset = () => {
     setScore(null);
     setDrawingData(null);
   };
 
-  const onTaskComplete = (taskId, tokens) => {
-    if (!completedTasks.includes(taskId)) {
+    const onTaskComplete = (taskId, tokens) => {
+      if (completedTasks.includes(taskId)) {
+        alert('This task has already been completed.');
+        return; // Выходим из функции, если задание уже выполнено
+      }
+
+      // 1. Оптимистичное обновление: немедленно обновляем UI
       const newCompletedTasks = [...completedTasks, taskId];
       const newCoins = coins + tokens;
+      setCompletedTasks(newCompletedTasks); // Сразу добавляем в список выполненных
+      setCoins(newCoins); // Сразу обновляем монеты
+
+      alert(`You have earned ${tokens} tokens!`);
+
+      // 2. Отправляем данные на сервер в фоновом режиме
       updateUserDataOnServer({
         coins: newCoins,
-        completed_tasks: newCompletedTasks
+        completed_tasks: newCompletedTasks,
       });
-      alert(`Вы получили ${tokens} токенов!`);
-    } else {
-      alert('Это задание уже выполнено.');
-    }
-  };
+    };
 
   return (
-    <div className="App">
+     <div className="App">
       {currentTab === 'circle' && (
         <>
           <div className="coins-display">
@@ -158,7 +183,12 @@ function App() {
             {score === null ? (
               <Canvas onDrawEnd={onDrawEnd} attempts={attempts} />
             ) : (
-              <Result score={score} onReset={onReset} drawing={drawingData} />
+              <Result
+                  score={score}
+                  onReset={onReset}
+                  drawing={drawingData}
+                  userId={userId} // <-- ДОБАВЬТЕ ЭТУ СТРОКУ
+                />
             )}
           </>
         )}
