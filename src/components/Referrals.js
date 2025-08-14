@@ -1,4 +1,4 @@
-// src/components/Referrals.js
+
 import React, { useState, useEffect } from 'react';
 import './Referrals.css';
 import referralProgramImage from '../assets/referral_program.png';
@@ -7,23 +7,21 @@ import copyImage from '../assets/copy.png';
 import yourReferralsImage from '../assets/your_referrals.png';
 import linkImage from '../assets/link.png';
 
-const SERVER_URL = 'http://66.151.32.20:8000';
+const SERVER_URL = 'http://45.153.69.251:8000'; // Убедитесь, что URL верный
 
-const Referrals = ({ coins, onTaskComplete, completedTasks }) => {
+// 1. Принимаем userId как пропс
+const Referrals = ({ userId, coins, onTaskComplete, completedTasks }) => {
   const [referrals, setReferrals] = useState([]);
-  const [referralLink, setReferralLink] = useState('');
+  const [referralLink, setReferralLink] = useState('Generating link...'); // Начальный текст
 
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const userId = urlParams.get('user_id');
-
-    const baseUrl = window.location.origin;
-    // Реферальная ссылка — передаём ?ref=наш userId, чтобы новый пользователь прописывался в "рефералах".
+    // 2. Используем userId из пропсов, а не из URL
     if (userId) {
+      // Генерируем реферальную ссылку
+      const baseUrl = window.location.origin;
       setReferralLink(`${baseUrl}/?ref=${userId}`);
-    }
 
-    if (userId) {
+      // Загружаем список рефералов
       fetch(`${SERVER_URL}/getReferrals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -31,34 +29,35 @@ const Referrals = ({ coins, onTaskComplete, completedTasks }) => {
       })
       .then(res => res.json())
       .then(data => {
-        // data - список рефералов [{user_id, coins, best_score}]
         setReferrals(data);
       })
       .catch(err => console.error('Ошибка при получении рефералов:', err));
     }
-  }, []);
+  }, [userId]); // 3. Запускаем эффект, когда userId становится доступен
 
-    const copyToClipboard = () => {
+  const copyToClipboard = () => {
+    if (referralLink && !referralLink.includes('Generating')) {
       navigator.clipboard.writeText(referralLink);
       alert('Referral link copied to clipboard!');
-    };
+    }
+  };
 
   return (
     <div className="referrals-container">
-      <img src={referralProgramImage} alt="Реферальная программа" />
-      <img src={inviteImage} alt="Пригласите друзей" className="invite-image" />
+      <img src={referralProgramImage} alt="Referral Program" />
+      <img src={inviteImage} alt="Invite friends" className="invite-image" />
 
       <div className="referral-link">
         <div className="link-field">
-          <img src={linkImage} alt="Реферальная ссылка" className="link-image" />
+          <img src={linkImage} alt="Referral link" className="link-image" />
           <span className="link-text">{referralLink}</span>
         </div>
         <div className="copy-button" onClick={copyToClipboard}>
-          <img src={copyImage} alt="Скопировать" />
+          <img src={copyImage} alt="Copy" />
         </div>
       </div>
 
-      <img src={yourReferralsImage} alt="Ваши рефералы" className="your-referrals-image" />
+      <img src={yourReferralsImage} alt="Your Referrals" className="your-referrals-image" />
       {referrals.length > 0 ? (
         <ul className="referrals-list">
           {referrals.map((ref) => (

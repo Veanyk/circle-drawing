@@ -7,11 +7,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center; /* Центрируем контент по вертикали */
   padding: 20px;
-  min-height: calc(100vh - 70px);
   box-sizing: border-box;
-  overflow-y: auto;
-  padding-bottom: 150px;
+  width: 100%;
 }
 
 /* Родительский контейнер для круга, PNG и текста */

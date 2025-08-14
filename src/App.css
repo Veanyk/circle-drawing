@@ -115,3 +115,51 @@ body {
   padding-bottom: 90px; /* <-- Устанавливаем точный отступ, соответствующий новой высоте TabBar */
   padding-top: 20px;
 }
+.tab-pane {
+  display: none;
+}
+
+/* 2. Но вкладка, у которой есть класс "active", становится видимой. */
+.tab-pane.active {
+  display: block;
+}
+
+/* 4. Стили для окна результата, чтобы оно появлялось поверх канваса */
+.result-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+
+  /* Добавляем анимацию появления */
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.timer-display {
+  position: fixed;
+  top: 135px; /* Располагаем под баннером с попытками */
+  right: 10px;
+  width: 150px; /* Такая же ширина, как у баннера */
+  text-align: center;
+}
+
+.timer-text {
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: bold;
+  font-family: 'Gloria Hallelujah', cursive;
+  text-shadow: 2px 2px 4px #000000;
+}
+
+/* Адаптивность для мобильных */
+@media (max-width: 768px) {
+  .timer-display {
+    top: 110px; /* Подгоняем под мобильные размеры */
+    right: 5px;
+    width: 100px;
+  }
+  .timer-text {
+    font-size: 14px;
+  }
+}

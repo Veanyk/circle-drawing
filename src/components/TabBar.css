@@ -2,25 +2,32 @@
 
 .tab-bar {
   position: fixed;
-  bottom: 5px;
+  bottom: 0;
   left: 0;
   right: 0;
+
+  /* Используем Flexbox для создания сетки */
   display: flex;
-  justify-content: center;
+  flex-wrap: wrap; /* Разрешаем перенос */
+
   z-index: 1000;
+  pointer-events: none; /* Весь контейнер "прозрачен" для кликов */
 }
 
 .tab-item {
-  flex: 1; /* Равномерно распределяем пространство */
+  width: 50%; /* Каждая ячейка занимает 50% ширины */
+
+  /* Центрируем иконку внутри ячейки */
   display: flex;
   justify-content: center;
   align-items: center;
-  cursor: pointer;
+
+  /* Создаем отступы, которые поднимут нижние кнопки */
+  padding: 10px 0;
 }
 
-.tab-item.active {
-  /* Можно добавить стиль для активной вкладки, если нужно */
-  /* например, легкую тень или свечение */
+.tab-item:active {
+  background-color: rgba(255, 255, 255, 0.1); /* Легкая подсветка при нажатии */
 }
 
 /* Новый контейнер для контента внутри кнопки */
@@ -33,13 +40,37 @@
   max-width: 200px; /* Возвращаем большой размер иконок */
 }
 
+/* Позиционируем каждую из 4 кнопок в свой угол */
+.tab-item:nth-child(1) { /* Первая кнопка (Circle) */
+  bottom: 100px; /* Верхний ряд, левая сторона */
+  left: 0;
+}
+.tab-item:nth-child(2) { /* Вторая кнопка (Tasks) */
+  bottom: 100px; /* Верхний ряд, правая сторона */
+  right: 0;
+}
+.tab-item:nth-child(3) { /* Третья кнопка (Referrals) */
+  bottom: 0; /* Нижний ряд, левая сторона */
+  left: 0;
+}
+.tab-item:nth-child(4) { /* Четвертая кнопка (Leaderboards) */
+  bottom: 0; /* Нижний ряд, правая сторона */
+  right: 0;
+}
+
 .tab-icon {
   width: 100%;
+  max-width: 200px; /* Увеличили размер на ~10% (было 180px) */
   height: auto;
   object-fit: contain;
-  /* Убедимся, что сама иконка не перехватывает клики */
-  pointer-events: none;
+  cursor: pointer;
+  pointer-events: auto; /* Возвращаем иконке способность принимать клики */
+  transition: transform 0.2s ease;
 }
+.tab-icon:active {
+  transform: scale(0.95); /* Эффект "нажатия" для иконок */
+}
+
 /* Вот и наша "мертвая зона" */
 .tab-item-dead-zone {
   position: absolute; /* Позиционируем ее поверх всего */

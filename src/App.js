@@ -1,4 +1,3 @@
-// src/App.js
 import React, { useState, useEffect, useCallback } from 'react';
 import Canvas from './components/Canvas';
 import Result from './components/Result';
@@ -9,11 +8,11 @@ import Leaderboards from './components/Leaderboards';
 import './App.css';
 
 const SERVER_URL = 'http://45.153.69.251:8000';
+const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000; // 1 минута на одну попытку
 
 const getBrowserUserId = () => {
   let userId = localStorage.getItem('circleGameUserId');
   if (!userId) {
-    // Создаем более уникальный ID на случай одновременного входа
     userId = `browser_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     localStorage.setItem('circleGameUserId', userId);
   }
@@ -24,13 +23,17 @@ function App() {
   const [score, setScore] = useState(null);
   const [currentTab, setCurrentTab] = useState('circle');
   const [drawingData, setDrawingData] = useState(null);
-
   const [userId, setUserId] = useState(null);
   const [coins, setCoins] = useState(0);
-  const [attempts, setAttempts] = useState(25);
+  const [attempts, setAttempts] = useState(0);
   const [maxAttempts, setMaxAttempts] = useState(25);
-  // REMOVED: attemptRecoveryTime, bestScore states
   const [completedTasks, setCompletedTasks] = useState([]);
+
+  // Состояния для таймера
+  const [nextAttemptTimestamp, setNextAttemptTimestamp] = useState(null);
+  const [timeToNextAttempt, setTimeToNextAttempt] = useState(null);
+
+  // --- ЭФФЕКТЫ ---
 
   useEffect(() => {
     if (window.Telegram && window.Telegram.WebApp) {
@@ -40,180 +43,174 @@ function App() {
     }
   }, []);
 
-const updateUserDataOnServer = useCallback((newData) => {
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tgUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    let finalUserId;
+
+    if (tgUserId) {
+      finalUserId = tgUserId.toString();
+    } else {
+      finalUserId = getBrowserUserId();
+    }
+    setUserId(finalUserId);
+  }, []);
+
+  const updateUserDataOnServer = useCallback((newData) => {
     if (!userId) return;
     fetch(`${SERVER_URL}/updateUserData`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id: userId, data: newData })
     })
-    .then(() => {
-      // Можно убрать повторный fetch, если сервер возвращает обновленные данные
-      return fetch(`${SERVER_URL}/getUserData`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ user_id: userId })
-      });
+    .catch(err => console.error('Ошибка при обновлении данных на сервере:', err));
+  }, [userId]);
+
+  const fetchUserData = useCallback(() => {
+    if (!userId) return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const refId = urlParams.get('ref');
+
+    fetch(`${SERVER_URL}/getUserData`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId })
     })
     .then(res => res.json())
     .then(data => {
-      setCoins(data.coins);
-      setAttempts(data.attempts);
-      setMaxAttempts(data.max_attempts);
-      setCompletedTasks(data.completed_tasks || []);
-    })
-    .catch(err => console.error('Ошибка при обновлении данных пользователя:', err));
-}, [userId]); // Теперь зависимость только от userId
-
-useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    // Попробуем получить ID из Telegram Web App
-    const tgUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-    const refId = urlParams.get('ref');
-    let finalUserId;
-
-    if (tgUserId) {
-        finalUserId = tgUserId.toString();
-    } else {
-        // Если мы в браузере, используем ID из localStorage
-        finalUserId = getBrowserUserId();
-    }
-
-    setUserId(finalUserId);
-
-    if (finalUserId) {
-      fetch(`${SERVER_URL}/getUserData`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: finalUserId })
-      })
-      .then(res => res.json())
-      .then(data => {
-        setCoins(data.coins);
-        setAttempts(data.attempts);
-        setMaxAttempts(data.max_attempts);
+      if (data) {
+        setCoins(data.coins || 0);
+        setAttempts(data.attempts || 0);
+        setMaxAttempts(data.max_attempts || 25);
         setCompletedTasks(data.completed_tasks || []);
+        setNextAttemptTimestamp(data.nextAttemptTimestamp || null);
 
-        // Если есть refId и он не совпадает с finalUserId, то добавим реферал
-        if (refId && refId !== String(finalUserId)) {
+        if (refId && refId !== String(userId)) {
           const refs = data.referrals || [];
           if (!refs.includes(refId)) {
-            refs.push(refId);
-            updateUserDataOnServer({ referrals: refs });
+            updateUserDataOnServer({ referrals: [...refs, refId] });
           }
         }
-      })
-      .catch(err => console.error('Ошибка при получении данных пользователя:', err));
+      }
+    })
+    .catch(err => console.error('Ошибка при получении данных пользователя:', err));
+  }, [userId, updateUserDataOnServer]);
+
+  useEffect(() => {
+    fetchUserData();
+  }, [userId, fetchUserData]);
+
+  useEffect(() => {
+    if (attempts >= maxAttempts || !nextAttemptTimestamp) {
+      setTimeToNextAttempt(null);
+      return;
     }
-  // добавили updateUserDataOnServer в зависимости
-  }, [updateUserDataOnServer]);
 
-const onDrawEnd = (circleAccuracy, points, canvas, size) => {
-  if (attempts > 0) {
-    const tokensEarned = parseFloat((0.01 * circleAccuracy).toFixed(2));
-    const newCoins = coins + tokensEarned;
-    const newAttempts = attempts - 1;
+    const intervalId = setInterval(() => {
+      const now = Date.now();
+      const timeLeft = Math.round((nextAttemptTimestamp - now) / 1000);
 
-    // 1. Сначала обновляем интерфейс локально (оптимистичное обновление)
-    setScore(circleAccuracy);
-    setDrawingData(canvas.toDataURL());
-    setCoins(newCoins);
-    setAttempts(newAttempts);
-
-    // 2. Затем отправляем данные на сервер для синхронизации
-    updateUserDataOnServer({
-      coins: newCoins,
-      attempts: newAttempts,
-      score: circleAccuracy, // Можно также отправлять лучший результат
-    });
-  } else {
-    alert('You are out of attempts!');
-  }
-};
-
-  const onReset = () => {
-    setScore(null);
-    setDrawingData(null);
-  };
-
-    const onTaskComplete = (taskId, tokens) => {
-      if (completedTasks.includes(taskId)) {
-        alert('This task has already been completed.');
-        return; // Выходим из функции, если задание уже выполнено
+      if (timeLeft <= 0) {
+        // Время вышло, просто перезапрашиваем данные с сервера.
+        // Сервер сам начислит попытки.
+        fetchUserData();
+        return;
       }
 
-      // 1. Оптимистичное обновление: немедленно обновляем UI
-      const newCompletedTasks = [...completedTasks, taskId];
-      const newCoins = coins + tokens;
-      setCompletedTasks(newCompletedTasks); // Сразу добавляем в список выполненных
-      setCoins(newCoins); // Сразу обновляем монеты
+      const minutes = Math.floor(timeLeft / 60);
+      const seconds = timeLeft % 60;
+      setTimeToNextAttempt(`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
+    }, 1000);
 
-      alert(`You have earned ${tokens} tokens!`);
+    return () => clearInterval(intervalId);
+  }, [attempts, maxAttempts, nextAttemptTimestamp, fetchUserData]);
 
-      // 2. Отправляем данные на сервер в фоновом режиме
+  const onDrawEnd = (circleAccuracy, points, canvas, size) => {
+    if (attempts > 0) {
+      const newAttempts = attempts - 1;
+      const tokensEarned = parseFloat((0.01 * circleAccuracy).toFixed(2));
+      const newCoins = coins + tokensEarned;
+
+      let newTimestamp = nextAttemptTimestamp;
+      if (attempts === maxAttempts) {
+        newTimestamp = Date.now() + ATTEMPT_REGEN_INTERVAL_MS;
+        setNextAttemptTimestamp(newTimestamp);
+      }
+
+      setScore(circleAccuracy);
+      setDrawingData(canvas.toDataURL());
+      setCoins(newCoins);
+      setAttempts(newAttempts);
+
       updateUserDataOnServer({
         coins: newCoins,
-        completed_tasks: newCompletedTasks,
+        attempts: newAttempts,
+        score: circleAccuracy,
+        nextAttemptTimestamp: newTimestamp
       });
-    };
+    } else {
+      alert('You are out of attempts!');
+    }
+  };
+
+  const onReset = () => { setScore(null); setDrawingData(null); };
+
+  const onTaskComplete = (taskId, tokens) => {
+    if (completedTasks.includes(taskId)) {
+      alert('This task has already been completed.'); return;
+    }
+    const newCompletedTasks = [...completedTasks, taskId];
+    const newCoins = coins + tokens;
+    setCompletedTasks(newCompletedTasks); setCoins(newCoins);
+    alert(`You have earned ${tokens} tokens!`);
+    updateUserDataOnServer({ coins: newCoins, completed_tasks: newCompletedTasks });
+  };
 
   return (
-     <div className="App">
+    <div className="App">
       {currentTab === 'circle' && (
         <>
           <div className="coins-display">
             <div className="banner-container">
-              <img src={require('./assets/total_coins.png')} alt="Всего монет" className="banner-icon" />
+              <img src={require('./assets/total_coins.png')} alt="Total coins" className="banner-icon" />
               <span className="banner-text">{coins.toFixed(2)}</span>
             </div>
           </div>
-
           <div className="attempts-display">
             <div className="banner-container">
-              <img src={require('./assets/total_attempts.png')} alt="Всего попыток" className="banner-icon" />
+              <img src={require('./assets/total_attempts.png')} alt="Total attempts" className="banner-icon" />
               <span className="banner-text">{attempts}/{maxAttempts}</span>
             </div>
+            {/* --- БЛОК ДЛЯ ОТОБРАЖЕНИЯ ТАЙМЕРА --- */}
+            {timeToNextAttempt && (
+              <div className="timer-display">
+                <span className="timer-text">{timeToNextAttempt}</span>
+              </div>
+            )}
           </div>
         </>
       )}
 
       <div className="main-content">
-        {currentTab === 'circle' && (
-          <>
-            {score === null ? (
-              <Canvas onDrawEnd={onDrawEnd} attempts={attempts} />
-            ) : (
-              <Result
-                  score={score}
-                  onReset={onReset}
-                  drawing={drawingData}
-                  userId={userId} // <-- ДОБАВЬТЕ ЭТУ СТРОКУ
-                />
-            )}
-          </>
-        )}
-
-        {currentTab === 'tasks' && (
-          <Tasks
-            onTaskComplete={onTaskComplete}
-            completedTasks={completedTasks}
-            setCurrentTab={setCurrentTab}
-          />
-        )}
-
-        {currentTab === 'referrals' && (
-          <Referrals
-            coins={coins}
-            onTaskComplete={onTaskComplete}
-            completedTasks={completedTasks}
-          />
-        )}
-
-        {currentTab === 'leaderboards' && (
+        {/* ... остальная разметка без изменений ... */}
+        <div className={`tab-pane ${currentTab === 'circle' ? 'active' : ''}`}>
+          {score === null ? (
+            <Canvas onDrawEnd={onDrawEnd} attempts={attempts} />
+          ) : (
+            <Result score={score} onReset={onReset} drawing={drawingData} userId={userId} />
+          )}
+        </div>
+        <div className={`tab-pane ${currentTab === 'tasks' ? 'active' : ''}`}>
+          <Tasks onTaskComplete={onTaskComplete} completedTasks={completedTasks} setCurrentTab={setCurrentTab} />
+        </div>
+        <div className={`tab-pane ${currentTab === 'referrals' ? 'active' : ''}`}>
+          <Referrals userId={userId} coins={coins} onTaskComplete={onTaskComplete} completedTasks={completedTasks} />
+        </div>
+        <div className={`tab-pane ${currentTab === 'leaderboards' ? 'active' : ''}`}>
           <Leaderboards />
-        )}
+        </div>
       </div>
-
       <TabBar currentTab={currentTab} setCurrentTab={setCurrentTab} />
     </div>
   );

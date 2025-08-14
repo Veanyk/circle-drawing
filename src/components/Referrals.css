@@ -30,7 +30,8 @@
   display: flex;
   align-items: center;
   margin-top: 50px;
-  width: 400px; /* Фиксированная ширина поля для ссылки */
+  width: 90%; /* Занимает 90% ширины родителя */
+  max-width: 450px; /* Но не больше 450px на больших экранах */
 }
 
 .link-field {
