@@ -12,12 +12,12 @@
 }
 
 .no-data-message {
-  font-family: 'Patrick Hand', cursive;
+  font-family: 'Gloria Hallelujah', cursive; /* <-- Применяем нужный шрифт */
   font-size: 20px;
   color: #ffffff;
   margin-top: 20px;
   text-align: center;
-  max-width: 600px; /* Align with .leaderboards-board-image max-width */
+  max-width: 600px;
 }
 
 .leaderboards-title-image {

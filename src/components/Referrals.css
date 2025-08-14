@@ -3,12 +3,13 @@
 
 .referrals-container {
   padding: 20px;
-  min-height: 100vh;
   color: #ffffff;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-items: center; /* Центрируем элементы по оси X */
+  align-items: center;
+  /* Убираем min-height, чтобы контент не растягивался на всю высоту */
+  /* Убираем justify-content, чтобы контент прижался к верху */
 }
 
 .referrals-container img {
@@ -18,8 +19,8 @@
 }
 
 .no-referrals-message {
-  font-family: 'Patrick Hand', cursive;
-  font-size: 24px;
+  font-family: 'Gloria Hallelujah', cursive; /* <-- Применяем нужный шрифт */
+  font-size: 20px; /* Можно немного уменьшить для гармонии */
   color: #ffffff;
   margin-top: 20px;
   text-align: center;

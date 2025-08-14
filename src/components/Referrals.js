@@ -12,16 +12,16 @@ const SERVER_URL = 'http://45.153.69.251:8000'; // Убедитесь, что UR
 // 1. Принимаем userId как пропс
 const Referrals = ({ userId, coins, onTaskComplete, completedTasks }) => {
   const [referrals, setReferrals] = useState([]);
-  const [referralLink, setReferralLink] = useState('Generating link...'); // Начальный текст
+  // Изменил начальное значение, чтобы не было ошибок при копировании
+  const [referralLink, setReferralLink] = useState('');
 
   useEffect(() => {
-    // 2. Используем userId из пропсов, а не из URL
     if (userId) {
-      // Генерируем реферальную ссылку
       const baseUrl = window.location.origin;
-      setReferralLink(`${baseUrl}/?ref=${userId}`);
+      const refLink = `${baseUrl}/?ref=${userId}`;
+      setReferralLink(refLink);
 
-      // Загружаем список рефералов
+      // ... (ваш код для fetch запроса к getReferrals)
       fetch(`${SERVER_URL}/getReferrals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -33,7 +33,7 @@ const Referrals = ({ userId, coins, onTaskComplete, completedTasks }) => {
       })
       .catch(err => console.error('Ошибка при получении рефералов:', err));
     }
-  }, [userId]); // 3. Запускаем эффект, когда userId становится доступен
+  }, [userId]);
 
   const copyToClipboard = () => {
     if (referralLink && !referralLink.includes('Generating')) {
