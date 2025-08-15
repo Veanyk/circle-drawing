@@ -6,7 +6,7 @@ import copyImage from '../assets/copy.png';
 import yourReferralsImage from '../assets/your_referrals.png';
 import linkImage from '../assets/link.png';
 
-const SERVER_URL = 'http://66.151.32.20/api';
+const SERVER_URL = 'https://draw-a-circle.chickenkiller.com';
 
 const Referrals = ({ userId }) => {
   const [referrals, setReferrals] = useState([]);

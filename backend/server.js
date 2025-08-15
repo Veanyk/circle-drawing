@@ -14,8 +14,9 @@ const ALLOWED = new Set([
   'http://localhost:3000',
   'http://127.0.0.1:3000',
   // прод-URL(ы):
-  'https://circle-drawing.vercel.app',      // замените
-  'https://web.telegram.org', // если открываете в Telegram WebView
+  'https://circle-drawing.vercel.app',
+  'https://draw-a-circle.chickenkiller.com',
+  'https://web.telegram.org',
 ]);
 
 const corsOptions = {

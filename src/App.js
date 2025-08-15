@@ -7,7 +7,7 @@ import Referrals from './components/Referrals';
 import Leaderboards from './components/Leaderboards';
 import './App.css';
 
-const SERVER_URL = 'http://66.151.32.20/api';
+const SERVER_URL = 'https://draw-a-circle.chickenkiller.com';
 const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000;
 
 const getBrowserUserId = () => {

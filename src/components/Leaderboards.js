@@ -3,7 +3,7 @@ import './Leaderboards.css';
 import leaderboardText from '../assets/leaderboard_text.png';
 import boardImage from '../assets/board.png';
 
-const SERVER_URL = 'http://66.151.32.20/api';
+const SERVER_URL = 'https://draw-a-circle.chickenkiller.com';
 
 function shortId(id) {
   const s = String(id || '');
