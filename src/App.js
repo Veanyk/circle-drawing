@@ -7,7 +7,7 @@ import Referrals from './components/Referrals';
 import Leaderboards from './components/Leaderboards';
 import './App.css';
 
-const SERVER_URL = 'http://45.153.69.251:8000';
+const SERVER_URL = 'http://66.151.32.20/api';
 const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000;
 
 const getBrowserUserId = () => {
@@ -198,7 +198,7 @@ function App() {
           <Referrals userId={userId} coins={coins} onTaskComplete={onTaskComplete} completedTasks={completedTasks} />
         </div>
         <div className={`tab-pane ${currentTab === 'leaderboards' ? 'active' : ''}`}>
-          <Leaderboards />
+          <Leaderboards userId={userId} />
         </div>
       </div>
       <TabBar currentTab={currentTab} setCurrentTab={setCurrentTab} />

@@ -1,129 +1,135 @@
+// server.js
 const express = require('express');
+const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
-const cors = require('cors');
-const bodyParser = require('body-parser');
 
 const app = express();
-const PORT = 8000;
+const PORT = Number(process.env.PORT) || 8000;
 const DB_PATH = path.join(__dirname, 'database.json');
-const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000; // 1 минута на одну попытку
+const ATTEMPT_REGEN_INTERVAL_MS = 60_000;
 
-app.use(cors());
-app.use(bodyParser.json());
+// --- CORS ---
+const ALLOWED = new Set([
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  // прод-URL(ы):
+  'https://circle-drawing.vercel.app',      // замените
+  'https://web.telegram.org', // если открываете в Telegram WebView
+]);
 
-// --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (без изменений) ---
-const readDatabase = () => {
-    try {
-        const data = fs.readFileSync(DB_PATH, 'utf8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error("Ошибка чтения базы данных!", error);
-        return {};
-    }
+const corsOptions = {
+  origin(origin, cb) {
+    if (!origin) return cb(null, true);            // Postman/health
+    if (ALLOWED.has(origin)) return cb(null, true);
+    if (/^https?:\/\/66\.151\.32\.20(?::\d+)?$/.test(origin)) return cb(null, true);
+    if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return cb(null, true);
+    cb(new Error(`CORS: ${origin} not allowed`));
+  },
+  methods: ['GET','POST','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 204,
 };
 
-const writeDatabase = (data) => {
-    try {
-        fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), 'utf8');
-    } catch (error) {
-        console.error("Ошибка записи в базу данных!", error);
-    }
-};
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions)); // обработка preflight для всех путей
+app.use(express.json());
 
-// --- МАРШРУТЫ (С ИЗМЕНЕНИЯМИ) ---
+// --- DB helpers ---
+function ensureDb() { if (!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, '{}'); }
+function readDb() { ensureDb(); return JSON.parse(fs.readFileSync(DB_PATH,'utf8') || '{}'); }
+function writeDb(data) { fs.writeFileSync(DB_PATH, JSON.stringify(data,null,2)); }
 
-app.post('/getUserData', (req, res) => {
-    const { user_id } = req.body;
-    if (!user_id) {
-        return res.status(400).json({ error: 'user_id не предоставлен' });
-    }
+// --- логика восстановления попыток ---
+function regenAttempts(u){
+  const now = Date.now();
+  if (u.attempts < u.max_attempts && u.nextAttemptTimestamp && now >= u.nextAttemptTimestamp) {
+    const elapsed = now - u.nextAttemptTimestamp;
+    const cnt = Math.floor(elapsed / ATTEMPT_REGEN_INTERVAL_MS) + 1;
+    u.attempts = Math.min(u.max_attempts, u.attempts + cnt);
+    u.nextAttemptTimestamp = (u.attempts < u.max_attempts)
+      ? u.nextAttemptTimestamp + cnt*ATTEMPT_REGEN_INTERVAL_MS
+      : null;
+  }
+}
 
-    const db = readDatabase();
-    let userData = db[user_id];
+// --- ROUTES ---
+app.get('/health', (req,res) => res.json({ok:true}));
 
-    if (!userData) {
-        userData = {
-            user_id: user_id,
-            coins: 0,
-            attempts: 25,
-            max_attempts: 25,
-            best_score: 0,
-            completed_tasks: [],
-            referrals: [],
-            nextAttemptTimestamp: null, // Поле для времени следующей попытки
-        };
-        db[user_id] = userData;
-        writeDatabase(db);
-    }
-
-    // --- ГЛАВНАЯ ЛОГИКА ВОССТАНОВЛЕНИЯ ПОПЫТОК ---
-    const now = Date.now();
-    // Проверяем, нужно ли восстанавливать попытки
-    if (userData.attempts < userData.max_attempts && userData.nextAttemptTimestamp && now >= userData.nextAttemptTimestamp) {
-        // Рассчитываем, сколько попыток должно было восстановиться за прошедшее время
-        const elapsedTime = now - userData.nextAttemptTimestamp;
-        const attemptsToRestore = Math.floor(elapsedTime / ATTEMPT_REGEN_INTERVAL_MS) + 1;
-
-        const newAttempts = Math.min(userData.max_attempts, userData.attempts + attemptsToRestore);
-
-        userData.attempts = newAttempts;
-
-        // Если попытки все еще не полные, вычисляем новый таймстамп для следующей
-        if (newAttempts < userData.max_attempts) {
-            userData.nextAttemptTimestamp = userData.nextAttemptTimestamp + (attemptsToRestore * ATTEMPT_REGEN_INTERVAL_MS);
-        } else {
-            // Если попытки восстановились до максимума, сбрасываем таймер
-            userData.nextAttemptTimestamp = null;
-        }
-
-        // Сохраняем обновленные данные в базу
-        db[user_id] = userData;
-        writeDatabase(db);
-    }
-    // ---------------------------------------------
-
-    console.log(`Отправлены данные для пользователя ${user_id}`);
-    res.json(userData);
+app.post('/getUserData', (req,res) => {
+  try {
+    const { user_id } = req.body || {};
+    if (!user_id) return res.status(400).json({error:'user_id не предоставлен'});
+    const db = readDb();
+    let u = db[user_id] || (db[user_id] = {
+      user_id, coins:0, attempts:25, max_attempts:25, best_score:0,
+      completed_tasks:[], referrals:[], nextAttemptTimestamp:null
+    });
+    regenAttempts(u); writeDb(db); res.json(u);
+  } catch (e) { console.error(e); res.status(500).json({error:'internal_error'}); }
 });
 
-app.post('/updateUserData', (req, res) => {
-    const { user_id, data: newData } = req.body;
-    if (!user_id || !newData) {
-        return res.status(400).json({ error: 'Некорректные данные' });
-    }
-    const db = readDatabase();
-    if (!db[user_id]) {
-        return res.status(404).json({ error: 'Пользователь не найден' });
-    }
-
-    db[user_id] = { ...db[user_id], ...newData };
-
-    if (newData.score && newData.score > (db[user_id].best_score || 0)) {
-        db[user_id].best_score = newData.score;
-    }
-
-    writeDatabase(db);
-    console.log(`Обновлены данные для пользователя ${user_id}`);
-    res.json(db[user_id]);
+app.get('/getUserData', (req,res) => {
+  const user_id = req.query.user_id;
+  if (!user_id) return res.status(400).json({error:'user_id не предоставлен'});
+  const db = readDb();
+  let u = db[user_id] || (db[user_id] = {
+    user_id, coins:0, attempts:25, max_attempts:25, best_score:0,
+    completed_tasks:[], referrals:[], nextAttemptTimestamp:null
+  });
+  regenAttempts(u); writeDb(db); res.json(u);
 });
 
-// ... остальные маршруты (getLeaderboard, getReferrals) остаются без изменений ...
-app.get('/getLeaderboard', (req, res) => {
-    const db = readDatabase();
-    const leaders = Object.values(db).sort((a, b) => b.coins - a.coins).slice(0, 10);
+app.post('/updateUserData', (req,res) => {
+  try {
+    const { user_id, data } = req.body || {};
+    if (!user_id || !data) return res.status(400).json({error:'Некорректные данные'});
+    const db = readDb();
+    if (!db[user_id]) return res.status(404).json({error:'Пользователь не найден'});
+    const prev = db[user_id];
+    db[user_id] = { ...prev, ...data };
+    if (typeof data.score === 'number' && data.score > (prev.best_score||0)) {
+      db[user_id].best_score = data.score;
+    }
+    writeDb(db); res.json(db[user_id]);
+  } catch (e) { console.error(e); res.status(500).json({error:'internal_error'}); }
+});
+
+app.get('/getLeaderboard', (req,res) => {
+  try {
+    const db = readDb();
+    const leaders = Object.values(db)
+      .filter(v => v && typeof v.coins === 'number')
+      .sort((a,b) => b.coins - a.coins)
+      .slice(0, 10);
     res.json(leaders);
-});
-app.post('/getReferrals', (req, res) => {
-    const { user_id } = req.body;
-    if (!user_id) return res.status(400).json({ error: 'user_id не предоставлен' });
-    const db = readDatabase();
-    const user = db[user_id];
-    if (!user || !user.referrals) return res.json([]);
-    const referralsData = user.referrals.map(refId => db[refId]).filter(Boolean);
-    res.json(referralsData);
+  } catch (e) { console.error(e); res.status(500).json({error:'internal_error'}); }
 });
 
-app.listen(PORT, () => {
-    console.log(`Сервер запущен на порту ${PORT}`);
+app.post('/getReferrals', (req,res) => {
+  try {
+    const { user_id } = req.body || {};
+    if (!user_id) return res.status(400).json({error:'user_id не предоставлен'});
+    const db = readDb();
+    const u = db[user_id];
+    if (!u || !Array.isArray(u.referrals)) return res.json([]);
+    const refs = u.referrals.map(id => db[id]).filter(Boolean);
+    res.json(refs);
+  } catch (e) { console.error(e); res.status(500).json({error:'internal_error'}); }
+});
+
+// — глобальный обработчик: добавим CORS даже на неожиданных ошибках
+app.use((err, req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && (ALLOWED.has(origin) || /^https?:\/\/66\.151\.32\.20/.test(origin) || /^http:\/\/(localhost|127\.0\.0\.1)/.test(origin))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
+  console.error('Unhandled:', err);
+  res.status(500).json({error:'internal_error'});
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`API on http://0.0.0.0:${PORT}`);
 });

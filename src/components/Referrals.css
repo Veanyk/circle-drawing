@@ -3,13 +3,12 @@
 
 .referrals-container {
   padding: 20px;
+  min-height: 100vh;
   color: #ffffff;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  /* Убираем min-height, чтобы контент не растягивался на всю высоту */
-  /* Убираем justify-content, чтобы контент прижался к верху */
+  align-items: center; /* Центрируем элементы по оси X */
 }
 
 .referrals-container img {
@@ -19,8 +18,8 @@
 }
 
 .no-referrals-message {
-  font-family: 'Gloria Hallelujah', cursive; /* <-- Применяем нужный шрифт */
-  font-size: 20px; /* Можно немного уменьшить для гармонии */
+  font-family: 'Patrick Hand', cursive;
+  font-size: 24px;
   color: #ffffff;
   margin-top: 20px;
   text-align: center;
@@ -31,8 +30,7 @@
   display: flex;
   align-items: center;
   margin-top: 50px;
-  width: 90%; /* Занимает 90% ширины родителя */
-  max-width: 450px; /* Но не больше 450px на больших экранах */
+  width: 400px; /* Фиксированная ширина поля для ссылки */
 }
 
 .link-field {
@@ -59,29 +57,29 @@
   width: calc(100% - 20px); /* Учитываем отступы внутри поля */
 }
 
-.copy-button {
+.copy-button{
+  background: transparent;
+  border: none;
+  padding: 0;
   cursor: pointer;
-  width: 120px; /* Фиксированная ширина кнопки копирования */
+  width: 120px;
   height: auto;
   margin-left: 10px;
 }
+.copy-button img{ display:block; }
 
-.copy-button img {
-  width: 100%;
-  height: auto;
-}
-
-.referrals-list {
-  list-style-type: none;
+.referrals-list{
+  list-style: none;
   padding: 0;
-  margin: 20px 0 0;
-  font-family: 'Gloria Hallelujah', cursive;
-  width: 300px; /* Фиксированная ширина списка рефералов */
+  margin: 12px 0 0;
+  width: 300px;
 }
-
-.referrals-list li {
-  padding: 10px 0;
-  border-bottom: 1px solid #444444;
+.referrals-list li{
+  padding: 8px 0;
+  border: none;               /* убираем чёрную линию */
+  white-space: nowrap;        /* без переноса строки */
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .invite-image {
