@@ -8,7 +8,7 @@ import Leaderboards from './components/Leaderboards';
 import './App.css';
 
 const SERVER_URL = 'https://draw-a-circle.chickenkiller.com';
-const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000;
+const ATTEMPT_REGEN_INTERVAL_MS = 5 * 60 * 1000; // 5 минут
 
 const getBrowserUserId = () => {
   let userId = localStorage.getItem('circleGameUserId');
@@ -20,18 +20,39 @@ const getBrowserUserId = () => {
 };
 
 function App() {
+  // --- Состояния компонента ---
   const [score, setScore] = useState(null);
   const [currentTab, setCurrentTab] = useState('circle');
   const [drawingData, setDrawingData] = useState(null);
   const [userId, setUserId] = useState(null);
   const [coins, setCoins] = useState(0);
-  const [attempts, setAttempts] = useState(0); // Начинаем с 0, пока не загрузим
+  const [attempts, setAttempts] = useState(0); // Начинаем с 0, пока не загрузим данные
   const [maxAttempts, setMaxAttempts] = useState(25);
   const [completedTasks, setCompletedTasks] = useState([]);
   const [nextAttemptTimestamp, setNextAttemptTimestamp] = useState(null);
   const [timeToNextAttempt, setTimeToNextAttempt] = useState(null);
 
-  // 1. Эффект для определения ID пользователя (выполняется один раз)
+  // --- Эффект для работы с Telegram API (выполняется один раз) ---
+  useEffect(() => {
+    if (window.Telegram && window.Telegram.WebApp) {
+      const tg = window.Telegram.WebApp;
+      tg.expand();
+      document.body.style.backgroundColor = tg.themeParams.bg_color || '#0f0f0f';
+    }
+  }, []);
+
+  // --- Функция для отправки обновлений на сервер ---
+  const updateUserDataOnServer = useCallback((newData) => {
+    if (!userId) return; // Не отправляем ничего, если ID пользователя еще не определен
+    fetch(`${SERVER_URL}/updateUserData`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId, data: newData })
+    })
+    .catch(err => console.error('Ошибка при обновлении данных на сервере:', err));
+  }, [userId]); // Эта функция пересоздается только если изменился userId
+
+  // --- Главный эффект для определения ID и ЗАГРУЗКИ данных (выполняется один раз) ---
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
@@ -43,22 +64,20 @@ function App() {
     } else {
       finalUserId = getBrowserUserId();
     }
-    setUserId(finalUserId);
+    setUserId(finalUserId); // Устанавливаем ID пользователя
 
+    // После того как ID установлен, загружаем данные
     if (finalUserId) {
-      // Теперь мы собираем все данные для отправки на сервер
       const initialUserData = {
         user_id: finalUserId,
         ref_id: refId || null,
-        // Передаем username без символа @, если он есть.
-        // Если нет, передаем first_name.
         username: tgUser?.username ? tgUser.username.replace('@', '') : tgUser?.first_name,
       };
 
       fetch(`${SERVER_URL}/getUserData`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(initialUserData) // <-- Отправляем весь объект
+        body: JSON.stringify(initialUserData)
       })
       .then(res => res.json())
       .then(data => {
@@ -68,109 +87,80 @@ function App() {
           setMaxAttempts(data.max_attempts || 25);
           setCompletedTasks(data.completed_tasks || []);
           setNextAttemptTimestamp(data.nextAttemptTimestamp || null);
-          // Логика добавления реферала теперь полностью на сервере, здесь она не нужна
         }
       })
       .catch(err => console.error('Ошибка при получении данных пользователя:', err));
     }
-}, [updateUserDataOnServer]); // updateUserDataOnServer теперь единственная зависимость
+    // Пустой массив зависимостей `[]` гарантирует, что этот код выполнится ТОЛЬКО ОДИН раз
+  }, []);
 
-  // 2. Функция для отправки данных на сервер
-  const updateUserDataOnServer = useCallback((newData) => {
-    if (!userId) return;
-    fetch(`${SERVER_URL}/updateUserData`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId, data: newData })
-    })
-    .catch(err => console.error('Ошибка при обновлении данных на сервере:', err));
-  }, [userId]);
+  // --- Отдельный эффект для ТАЙМЕРА восстановления попыток ---
+  useEffect(() => {
+    if (attempts >= maxAttempts || !nextAttemptTimestamp) {
+      setTimeToNextAttempt(null);
+      return; // Выходим, если таймер не нужен
+    }
 
-      // 3. Главный эффект для ЗАГРУЗКИ данных (выполняется, когда появляется userId)
-      useEffect(() => {
-      if (!userId) return; // Не делаем ничего, пока нет ID
+    const timerInterval = setInterval(() => {
+      const now = Date.now();
+      const timeLeft = Math.round((nextAttemptTimestamp - now) / 1000);
 
-      const fetchUserData = () => {
-        // Получаем first_name прямо перед запросом
-        const tgFirstName = window.Telegram?.WebApp?.initDataUnsafe?.user?.first_name;
-        const refId = new URLSearchParams(window.location.search).get('ref');
-
+      if (timeLeft <= 0) {
+        // Время вышло. Мы могли бы сделать еще один fetch для синхронизации,
+        // но проще просто попросить пользователя перезагрузить приложение,
+        // так как сервер сам начислит попытки при следующем заходе.
+        // Для лучшего UX, можно просто обновить данные.
+        // Перезагружаем данные с сервера, чтобы получить новые попытки
         fetch(`${SERVER_URL}/getUserData`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          // Добавляем first_name в тело запроса
-          body: JSON.stringify({ user_id: userId, first_name: tgFirstName, ref_id: refId })
+          body: JSON.stringify({ user_id: userId })
         })
         .then(res => res.json())
         .then(data => {
           if (data) {
-            setCoins(data.coins || 0);
-            setAttempts(data.attempts || 0);
-            setMaxAttempts(data.max_attempts || 25);
-            setCompletedTasks(data.completed_tasks || []);
-            setNextAttemptTimestamp(data.nextAttemptTimestamp || null);
-
-            // Логика рефералов
-            const refId = new URLSearchParams(window.location.search).get('ref');
-            if (refId && refId !== String(userId) && !data.referrals?.includes(refId)) {
-              updateUserDataOnServer({ referrals: [...(data.referrals || []), refId] });
-            }
+            setAttempts(data.attempts);
+            setNextAttemptTimestamp(data.nextAttemptTimestamp);
           }
-        })
-        .catch(err => console.error('Ошибка при получении данных пользователя:', err));
-      };
-
-      fetchUserData();
-      const syncInterval = setInterval(fetchUserData, 30000);
-      return () => clearInterval(syncInterval);
-
-    }, [userId, updateUserDataOnServer]);
-
-  // 4. Эффект для ТАЙМЕРА (отдельный и более простой)
-  useEffect(() => {
-    if (attempts >= maxAttempts || !nextAttemptTimestamp) {
-      setTimeToNextAttempt(null);
-      return;
-    }
-
-    const timerInterval = setInterval(() => {
-      const timeLeft = Math.round((nextAttemptTimestamp - Date.now()) / 1000);
-      if (timeLeft <= 0) {
-        // Не перезагружаем страницу, а просто сбрасываем таймер.
-        // Следующая синхронизация (из эффекта #3) сама обновит попытки.
+        });
         setTimeToNextAttempt(null);
         clearInterval(timerInterval);
         return;
       }
+
       const minutes = Math.floor(timeLeft / 60);
       const seconds = timeLeft % 60;
       setTimeToNextAttempt(`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
     }, 1000);
 
     return () => clearInterval(timerInterval);
-  }, [attempts, maxAttempts, nextAttemptTimestamp]);
+  }, [attempts, maxAttempts, nextAttemptTimestamp, userId]);
 
-  // --- ОБРАБОТЧИКИ СОБЫТИЙ (без критических изменений) ---
+  // --- Обработчики событий ---
   const onDrawEnd = (circleAccuracy, points, canvas, size) => {
     if (attempts <= 0) {
       alert('You are out of attempts!');
       return;
     }
+
     const newAttempts = attempts - 1;
     const tokensEarned = parseFloat((0.01 * circleAccuracy).toFixed(2));
     const newCoins = coins + tokensEarned;
 
     let newTimestamp = nextAttemptTimestamp;
+    // Если мы только что потратили попытку, когда они были полные, запускаем таймер
     if (attempts === maxAttempts) {
       newTimestamp = Date.now() + ATTEMPT_REGEN_INTERVAL_MS;
       setNextAttemptTimestamp(newTimestamp); // Немедленно обновляем, чтобы запустить таймер
     }
 
+    // Оптимистичное обновление UI
     setScore(circleAccuracy);
     setDrawingData(canvas.toDataURL());
     setCoins(newCoins);
     setAttempts(newAttempts);
 
+    // Отправка данных на сервер
     updateUserDataOnServer({
       coins: newCoins,
       attempts: newAttempts,
@@ -179,21 +169,29 @@ function App() {
     });
   };
 
-  const onReset = () => { setScore(null); setDrawingData(null); };
+  const onReset = () => {
+    setScore(null);
+    setDrawingData(null);
+  };
 
   const onTaskComplete = (taskId, tokens) => {
     if (completedTasks.includes(taskId)) {
-      alert('This task has already been completed.'); return;
+      alert('This task has already been completed.');
+      return;
     }
+
     const newCompletedTasks = [...completedTasks, taskId];
     const newCoins = coins + tokens;
-    setCompletedTasks(newCompletedTasks); setCoins(newCoins);
+    setCompletedTasks(newCompletedTasks);
+    setCoins(newCoins);
     alert(`You have earned ${tokens} tokens!`);
-    updateUserDataOnServer({ coins: newCoins, completed_tasks: newCompletedTasks });
+    updateUserDataOnServer({
+      coins: newCoins,
+      completed_tasks: newCompletedTasks,
+    });
   };
 
   return (
-    // ... ваш JSX без изменений ...
     <div className="App">
       {currentTab === 'circle' && (
         <>
@@ -221,14 +219,28 @@ function App() {
           {score === null ? (
             <Canvas onDrawEnd={onDrawEnd} attempts={attempts} />
           ) : (
-            <Result score={score} onReset={onReset} drawing={drawingData} userId={userId} />
+            <Result
+              score={score}
+              onReset={onReset}
+              drawing={drawingData}
+              userId={userId}
+            />
           )}
         </div>
         <div className={`tab-pane ${currentTab === 'tasks' ? 'active' : ''}`}>
-          <Tasks onTaskComplete={onTaskComplete} completedTasks={completedTasks} setCurrentTab={setCurrentTab} />
+          <Tasks
+            onTaskComplete={onTaskComplete}
+            completedTasks={completedTasks}
+            setCurrentTab={setCurrentTab}
+          />
         </div>
         <div className={`tab-pane ${currentTab === 'referrals' ? 'active' : ''}`}>
-          <Referrals userId={userId} coins={coins} onTaskComplete={onTaskComplete} completedTasks={completedTasks} />
+          <Referrals
+            userId={userId}
+            coins={coins}
+            onTaskComplete={onTaskComplete}
+            completedTasks={completedTasks}
+          />
         </div>
         <div className={`tab-pane ${currentTab === 'leaderboards' ? 'active' : ''}`}>
           <Leaderboards userId={userId} />
