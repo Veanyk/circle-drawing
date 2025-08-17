@@ -55,43 +55,45 @@ function App() {
     .catch(err => console.error('Ошибка при обновлении данных на сервере:', err));
   }, [userId]);
 
-  // 3. Главный эффект для ЗАГРУЗКИ данных (выполняется, когда появляется userId)
-  useEffect(() => {
-    if (!userId) return; // Не делаем ничего, пока нет ID
+      // 3. Главный эффект для ЗАГРУЗКИ данных (выполняется, когда появляется userId)
+      useEffect(() => {
+      if (!userId) return; // Не делаем ничего, пока нет ID
 
-    const fetchUserData = () => {
-      fetch(`${SERVER_URL}/getUserData`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data) {
-          setCoins(data.coins || 0);
-          setAttempts(data.attempts || 0); // Устанавливаем реальное количество попыток
-          setMaxAttempts(data.max_attempts || 25);
-          setCompletedTasks(data.completed_tasks || []);
-          setNextAttemptTimestamp(data.nextAttemptTimestamp || null);
+      const fetchUserData = () => {
+        // Получаем first_name прямо перед запросом
+        const tgFirstName = window.Telegram?.WebApp?.initDataUnsafe?.user?.first_name;
+        const refId = new URLSearchParams(window.location.search).get('ref');
 
-          // Логика рефералов перенесена сюда для надежности
-          const refId = new URLSearchParams(window.location.search).get('ref');
-          if (refId && refId !== String(userId) && !data.referrals?.includes(refId)) {
-            updateUserDataOnServer({ referrals: [...(data.referrals || []), refId] });
+        fetch(`${SERVER_URL}/getUserData`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          // Добавляем first_name в тело запроса
+          body: JSON.stringify({ user_id: userId, first_name: tgFirstName, ref_id: refId })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data) {
+            setCoins(data.coins || 0);
+            setAttempts(data.attempts || 0);
+            setMaxAttempts(data.max_attempts || 25);
+            setCompletedTasks(data.completed_tasks || []);
+            setNextAttemptTimestamp(data.nextAttemptTimestamp || null);
+
+            // Логика рефералов
+            const refId = new URLSearchParams(window.location.search).get('ref');
+            if (refId && refId !== String(userId) && !data.referrals?.includes(refId)) {
+              updateUserDataOnServer({ referrals: [...(data.referrals || []), refId] });
+            }
           }
-        }
-      })
-      .catch(err => console.error('Ошибка при получении данных пользователя:', err));
-    };
+        })
+        .catch(err => console.error('Ошибка при получении данных пользователя:', err));
+      };
 
-    fetchUserData(); // Вызываем сразу при появлении userId
+      fetchUserData();
+      const syncInterval = setInterval(fetchUserData, 30000);
+      return () => clearInterval(syncInterval);
 
-    // Устанавливаем интервал для периодической синхронизации с сервером
-    const syncInterval = setInterval(fetchUserData, 30000); // Синхронизация каждые 30 секунд
-
-    return () => clearInterval(syncInterval); // Очищаем интервал при размонтировании
-
-  }, [userId, updateUserDataOnServer]);
+    }, [userId, updateUserDataOnServer]);
 
   // 4. Эффект для ТАЙМЕРА (отдельный и более простой)
   useEffect(() => {

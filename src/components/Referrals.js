@@ -113,10 +113,15 @@ const Referrals = ({ userId }) => {
           {referrals.map((ref) => {
             const coins = typeof ref.coins === 'number' ? ref.coins.toFixed(2) : '0.00';
             const best = typeof ref.best_score === 'number' ? Math.round(ref.best_score) : 0;
+
+            // Отображаем username, если он есть, иначе - ID
+            const displayName = ref.username || ref.user_id;
+
             return (
-              <li key={ref.user_id}>
-                User {String(ref.user_id).slice(0, 8)}… — {coins} coins • best {best}%
-              </li>
+            <li key={ref.user_id} className="ref-item">
+              <span className="ref-name">{displayName}</span>
+              <span className="ref-stats">{coins} coins • best {best}%</span>
+            </li>
             );
           })}
         </ul>

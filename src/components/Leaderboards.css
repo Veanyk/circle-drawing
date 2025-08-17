@@ -60,49 +60,80 @@
 }
 
 /* область “мела” поверх доски */
-.lb-overlay{
-  left: 7%;
-  right: 7%;
-  top: 9%;        /* было 12% */
-  bottom: 13%;    /* было 12% */
+.lb-overlay {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Gloria Hallelujah', cursive;
+  color: #ffffff;
+
+  left: 11%;
+  right: 6%;
+
+  top: 13%;
+
+  bottom: 13%;
   gap: 4px;
-  font-size: clamp(12px, 2.4vw, 16px);
+
+  font-size: clamp(14px, 2.7vw, 18px);
 }
 
 /* строки компактнее и без разделительных линий */
-.lb-row{
-  grid-template-columns: 36px 1fr 90px 90px;  /* уже */
-  padding: 1px 2px;
-  border-bottom: none;                        /* без линий */
+.lb-row {
+  display: grid;
+  /* ↓↓↓ ВОТ ГЛАВНЫЙ ПАРАМЕТР ДЛЯ НАСТРОЙКИ ↓↓↓ */
+  grid-template-columns: 50px 1fr 100px 100px;
+  padding: 2px 4px;
+  align-items: center;
+  border-bottom: none;
+}
+/* прячем шапку столбцов */
+.lb-head {
+  display: none;
 }
 
-/* прячем шапку столбцов */
-.lb-head{ display: none; }
-
-.col-rank { text-align: left; }
-.col-name { padding-left: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.col-acc  { text-align: right; padding-right: 8px; }
-.col-tok  { text-align: right; }
-
+.col-rank {
+  text-align: center;
+}
+.col-name {
+  padding-left: 45px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.col-acc {
+  text-align: right;
+  padding-right: 100px;
+}
+.col-tok {
+  text-align: right;
+  padding-right: 80px;
+}
 .lb-empty {
   opacity: .85;
   font-style: italic;
-  padding-top: 4px;
+  padding-top: 10px;
+  text-align: center;
 }
 
 /* подпись снизу под доской */
-.lb-me{
-  margin-top: 6px;
-  justify-content: flex-start;
+.lb-me {
+  margin-top: 10px;
+  font-family: 'Gloria Hallelujah', cursive;
+  color: #3a3a3a;
+  font-size: clamp(14px, 2.5vw, 18px);
+  text-align: center;
+  width: 100%;
 }
-.lb-me .dot{ display: none; }
-.lb-me::before{
-  content: "Your position";
+.lb-me .dot {
+  display: none;
+}
+.lb-me::before {
+  content: "Your position:"; /* Added a colon for clarity */
   margin-right: 8px;
-  font-weight: 600;
+  font-weight: bold; /* Make the label stand out */
   opacity: .95;
 }
-
 .lb-me .faded {
   opacity: .75;
   font-style: italic;

@@ -68,18 +68,58 @@
 }
 .copy-button img{ display:block; }
 
-.referrals-list{
+.referrals-list {
   list-style: none;
   padding: 0;
-  margin: 12px 0 0;
-  width: 300px;
+  margin: 20px 0 0;
+  width: 90%; /* Делаем ширину адаптивной */
+  max-width: 400px;
+  font-family: 'Gloria Hallelujah', cursive; /* Применяем фирменный шрифт */
+  counter-reset: referral-counter; /* Инициализируем счетчик для нумерации */
 }
+
+.referrals-list li.ref-item {
+  display: grid; /* Используем Grid для идеального выравнивания колонок */
+  grid-template-columns: 30px 1fr auto; /* 3 колонки: Номер, Имя, Статистика */
+  align-items: center; /* Вертикальное выравнивание по центру */
+  gap: 12px; /* Пространство между колонками */
+  padding: 12px 0; /* Увеличиваем отступы для лучшей читаемости */
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.3); /* Стильная линия-разделитель */
+}
+
+/* Убираем линию у последнего элемента */
+.referrals-list li.ref-item:last-child {
+  border-bottom: none;
+}
+
+/* Создаем номер с помощью псевдоэлемента ::before */
+.referrals-list li.ref-item::before {
+  counter-increment: referral-counter; /* Увеличиваем счетчик на 1 */
+  content: counter(referral-counter) "."; /* Отображаем "1.", "2." и т.д. */
+  text-align: right;
+  opacity: 0.7; /* Делаем номер чуть менее заметным */
+  font-size: 0.9em; /* И немного меньше основного текста */
+}
+
 .referrals-list li{
   padding: 8px 0;
   border: none;               /* убираем чёрную линию */
   white-space: nowrap;        /* без переноса строки */
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Стили для имени реферала */
+.ref-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis; /* Сокращаем длинные имена многоточием */
+}
+
+/* Стили для статистики (монеты и проценты) */
+.ref-stats {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .invite-image {

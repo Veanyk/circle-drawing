@@ -7,7 +7,7 @@ const SERVER_URL = 'https://draw-a-circle.chickenkiller.com';
 
 function shortId(id) {
   const s = String(id || '');
-  return s.length > 8 ? `${s.slice(0, 8)}…` : s;
+  return s.length > 10 ? `${s.slice(0, 10)}…` : s;
 }
 
 const Leaderboards = ({ userId }) => {
@@ -15,23 +15,29 @@ const Leaderboards = ({ userId }) => {
   const [me, setMe] = useState(null);
 
   // загрузка ТОП-10 с автообновлением
-  useEffect(() => {
-    let stop = false;
+    useEffect(() => {
+      let stop = false;
 
-    const loadLeaders = async () => {
-      try {
-        const res = await fetch(`${SERVER_URL}/getLeaderboard`);
-        const data = await res.json();
-        if (!stop) setLeaders(Array.isArray(data) ? data.slice(0, 10) : []);
-      } catch (e) {
-        console.error('Ошибка при получении таблицы лидеров:', e);
-      }
-    };
+      const loadLeaders = async () => {
+        try {
+          const res = await fetch(`${SERVER_URL}/getLeaderboard`);
+          const data = await res.json();
+          if (!stop) {
+            // Filter out browser users BEFORE slicing the top 10
+            const telegramUsers = Array.isArray(data)
+              ? data.filter(user => !String(user.user_id).startsWith('browser_'))
+              : [];
+            setLeaders(telegramUsers.slice(0, 10));
+          }
+        } catch (e) {
+          console.error('Ошибка при получении таблицы лидеров:', e);
+        }
+      };
 
-    loadLeaders();
-    const t = setInterval(loadLeaders, 30000);
-    return () => { stop = true; clearInterval(t); };
-  }, []);
+  loadLeaders();
+  const t = setInterval(loadLeaders, 30000);
+  return () => { stop = true; clearInterval(t); };
+}, []);
 
   // мои текущие данные (для подписи под доской)
   useEffect(() => {
@@ -75,7 +81,7 @@ const Leaderboards = ({ userId }) => {
             leaders.map((u, i) => (
               <div className="lb-row" key={u.user_id || i}>
                 <div className="col-rank">{i + 1}</div>
-                <div className="col-name">User {shortId(u.user_id)}</div>
+                <div className="col-name">{u.username || shortId(u.user_id)}</div>
                 <div className="col-acc">
                   {typeof u.best_score === 'number' ? `${Math.round(u.best_score)}%` : '—'}
                 </div>
@@ -96,7 +102,7 @@ const Leaderboards = ({ userId }) => {
           <>
             <span className="dot">•</span>{' '}
             <span>
-              User {shortId(me.user_id)}:&nbsp;
+              {me.username || shortId(me.user_id)}:&nbsp;
               {Number(me.coins || 0).toFixed(2)} coins,&nbsp;
               best circle — {Math.round(me.best_score || 0)}%
             </span>

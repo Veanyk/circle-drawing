@@ -43,15 +43,27 @@ function readDb() { ensureDb(); return JSON.parse(fs.readFileSync(DB_PATH,'utf8'
 function writeDb(data) { fs.writeFileSync(DB_PATH, JSON.stringify(data,null,2)); }
 
 // --- логика восстановления попыток ---
-function regenAttempts(u){
+function regenAttempts(u) {
   const now = Date.now();
-  if (u.attempts < u.max_attempts && u.nextAttemptTimestamp && now >= u.nextAttemptTimestamp) {
-    const elapsed = now - u.nextAttemptTimestamp;
-    const cnt = Math.floor(elapsed / ATTEMPT_REGEN_INTERVAL_MS) + 1;
-    u.attempts = Math.min(u.max_attempts, u.attempts + cnt);
-    u.nextAttemptTimestamp = (u.attempts < u.max_attempts)
-      ? u.nextAttemptTimestamp + cnt*ATTEMPT_REGEN_INTERVAL_MS
-      : null;
+
+  // Запускаем цикл, который будет работать, пока есть что восстанавливать
+  while (
+    u.attempts < u.max_attempts &&       // Если попытки не полные
+    u.nextAttemptTimestamp &&            // Если таймер вообще был запущен
+    now >= u.nextAttemptTimestamp      // И если время восстановления уже наступило
+  ) {
+    // Добавляем СТРОГО ОДНУ попытку
+    u.attempts += 1;
+
+    // Сдвигаем время следующего восстановления на один интервал вперед
+    // Это ключевой момент: мы не сбрасываем таймер, а продолжаем его с того места, где он был.
+    u.nextAttemptTimestamp += ATTEMPT_REGEN_INTERVAL_MS;
+  }
+
+  // Если после всех восстановлений попытки заполнились до максимума,
+  // то полностью сбрасываем таймер.
+  if (u.attempts >= u.max_attempts) {
+    u.nextAttemptTimestamp = null;
   }
 }
 
@@ -60,28 +72,58 @@ app.get('/health', (req,res) => res.json({ok:true}));
 
 app.post('/getUserData', (req,res) => {
   try {
-    const { user_id } = req.body || {};
+    const { user_id, first_name } = req.body; // Принимаем и user_id, и first_name
     if (!user_id) return res.status(400).json({error:'user_id не предоставлен'});
+
     const db = readDb();
-    let u = db[user_id] || (db[user_id] = {
-      user_id, coins:0, attempts:25, max_attempts:25, best_score:0,
-      completed_tasks:[], referrals:[], nextAttemptTimestamp:null
-    });
-    regenAttempts(u); writeDb(db); res.json(u);
+    let u = db[user_id];
+
+    // Если пользователя нет, создаем его С НОВЫМ ПОЛЕМ `username`
+    if (!u) {
+      u = db[user_id] = {
+        user_id,
+        username: first_name || user_id, // Используем first_name, если есть, иначе user_id
+        coins: 0,
+        attempts: 25,
+        max_attempts: 25,
+        best_score: 0,
+        completed_tasks: [],
+        referrals: [],
+        nextAttemptTimestamp: null
+      };
+    }
+
+    regenAttempts(u);
+    writeDb(db);
+    res.json(u);
   } catch (e) { console.error(e); res.status(500).json({error:'internal_error'}); }
 });
 
 app.get('/getUserData', (req,res) => {
-  const user_id = req.query.user_id;
+  const { user_id, first_name, ref_id } = req.body;
   if (!user_id) return res.status(400).json({error:'user_id не предоставлен'});
   const db = readDb();
-  let u = db[user_id] || (db[user_id] = {
-    user_id, coins:0, attempts:25, max_attempts:25, best_score:0,
-    completed_tasks:[], referrals:[], nextAttemptTimestamp:null
-  });
-  regenAttempts(u); writeDb(db); res.json(u);
-});
+  let u = db[user_id];
 
+  if (!u) {
+    u = db[user_id] = {
+      user_id,
+      username: user_id,
+      referrer_id: ref_id || null,
+      coins: 0,
+      attempts: 25,
+      max_attempts: 25,
+      best_score: 0,
+      completed_tasks: [],
+      referrals: [],
+      nextAttemptTimestamp: null
+    };
+  }
+
+  regenAttempts(u);
+  writeDb(db);
+  res.json(u);
+});
 app.post('/updateUserData', (req,res) => {
   try {
     const { user_id, data } = req.body || {};
@@ -93,7 +135,22 @@ app.post('/updateUserData', (req,res) => {
     if (typeof data.score === 'number' && data.score > (prev.best_score||0)) {
       db[user_id].best_score = data.score;
     }
-    writeDb(db); res.json(db[user_id]);
+
+    const earnedCoins = (data.coins || 0) - (prevUserData.coins || 0);
+    // Если пользователь заработал монеты (не потратил) и у него есть реферер
+    if (earnedCoins > 0 && prevUserData.referrer_id) {
+      const referrer = db[prevUserData.referrer_id];
+
+      // Если реферер существует в базе
+      if (referrer) {
+        const bonus = earnedCoins * 0.05; // 5% от заработка
+        referrer.coins = (referrer.coins || 0) + bonus;
+        console.log(`Начислен бонус ${bonus.toFixed(4)} монет пользователю ${referrer.user_id} от реферала ${user_id}`);
+      }
+    }
+
+    writeDb(db);
+    res.json(db[user_id]);
   } catch (e) { console.error(e); res.status(500).json({error:'internal_error'}); }
 });
 
