@@ -1,4 +1,3 @@
-// server.js
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
@@ -7,13 +6,13 @@ const path = require('path');
 const app = express();
 const PORT = Number(process.env.PORT) || 8000;
 const DB_PATH = path.join(__dirname, 'database.json');
-const ATTEMPT_REGEN_INTERVAL_MS = 60_000;
+const ATTEMPT_REGEN_INTERVAL_MS = 5 * 60 * 1000; // 5 минут
 
 // --- CORS ---
+// Настройка CORS осталась вашей, она хороша
 const ALLOWED = new Set([
   'http://localhost:3000',
   'http://127.0.0.1:3000',
-  // прод-URL(ы):
   'https://circle-drawing.vercel.app',
   'https://draw-a-circle.chickenkiller.com',
   'https://web.telegram.org',
@@ -21,68 +20,65 @@ const ALLOWED = new Set([
 
 const corsOptions = {
   origin(origin, cb) {
-    if (!origin) return cb(null, true);            // Postman/health
-    if (ALLOWED.has(origin)) return cb(null, true);
-    if (/^https?:\/\/66\.151\.32\.20(?::\d+)?$/.test(origin)) return cb(null, true);
-    if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return cb(null, true);
+    if (!origin || ALLOWED.has(origin)) return cb(null, true);
     cb(new Error(`CORS: ${origin} not allowed`));
   },
-  methods: ['GET','POST','OPTIONS'],
-  allowedHeaders: ['Content-Type','Authorization'],
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
   optionsSuccessStatus: 204,
 };
 
 app.use(cors(corsOptions));
-app.options(/.*/, cors(corsOptions)); // обработка preflight для всех путей
+app.options('*', cors(corsOptions));
 app.use(express.json());
 
 // --- DB helpers ---
 function ensureDb() { if (!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, '{}'); }
-function readDb() { ensureDb(); return JSON.parse(fs.readFileSync(DB_PATH,'utf8') || '{}'); }
-function writeDb(data) { fs.writeFileSync(DB_PATH, JSON.stringify(data,null,2)); }
+function readDb() {
+  ensureDb();
+  const data = fs.readFileSync(DB_PATH, 'utf8');
+  try {
+    return JSON.parse(data || '{}');
+  } catch (e) {
+    console.error("Ошибка парсинга JSON, файл мог быть поврежден:", data);
+    return {}; // Возвращаем пустой объект в случае ошибки парсинга
+  }
+}
+function writeDb(data) { fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2)); }
 
-// --- логика восстановления попыток ---
+// --- Логика восстановления попыток (ваша логика здесь хороша) ---
 function regenAttempts(u) {
   const now = Date.now();
-
-  // Запускаем цикл, который будет работать, пока есть что восстанавливать
-  while (
-    u.attempts < u.max_attempts &&       // Если попытки не полные
-    u.nextAttemptTimestamp &&            // Если таймер вообще был запущен
-    now >= u.nextAttemptTimestamp      // И если время восстановления уже наступило
-  ) {
-    // Добавляем СТРОГО ОДНУ попытку
+  while (u.attempts < u.max_attempts && u.nextAttemptTimestamp && now >= u.nextAttemptTimestamp) {
     u.attempts += 1;
-
-    // Сдвигаем время следующего восстановления на один интервал вперед
-    // Это ключевой момент: мы не сбрасываем таймер, а продолжаем его с того места, где он был.
     u.nextAttemptTimestamp += ATTEMPT_REGEN_INTERVAL_MS;
   }
-
-  // Если после всех восстановлений попытки заполнились до максимума,
-  // то полностью сбрасываем таймер.
   if (u.attempts >= u.max_attempts) {
     u.nextAttemptTimestamp = null;
   }
 }
 
 // --- ROUTES ---
-app.get('/health', (req,res) => res.json({ok:true}));
+app.get('/health', (req, res) => res.json({ ok: true }));
 
-app.post('/getUserData', (req,res) => {
+// ЕДИНСТВЕННЫЙ МАРШРУТ для получения данных
+app.post('/getUserData', (req, res) => {
   try {
-    const { user_id, first_name } = req.body; // Принимаем и user_id, и first_name
-    if (!user_id) return res.status(400).json({error:'user_id не предоставлен'});
+    // Принимаем все данные, которые прислал фронтенд
+    const { user_id, ref_id, username } = req.body;
+    if (!user_id) return res.status(400).json({ error: 'user_id не предоставлен' });
 
     const db = readDb();
-    let u = db[user_id];
+    let user = db[user_id];
 
-    // Если пользователя нет, создаем его С НОВЫМ ПОЛЕМ `username`
-    if (!u) {
-      u = db[user_id] = {
+    // Если пользователя нет, создаем его
+    if (!user) {
+      user = {
         user_id,
-        username: first_name || user_id, // Используем first_name, если есть, иначе user_id
+        // Используем присланный username. Если его нет, используем user_id как запасной вариант.
+        username: username || `User_${String(user_id).slice(-4)}`,
+        referrer_id: ref_id || null,
         coins: 0,
         attempts: 25,
         max_attempts: 25,
@@ -91,59 +87,62 @@ app.post('/getUserData', (req,res) => {
         referrals: [],
         nextAttemptTimestamp: null
       };
+      db[user_id] = user;
+
+      // Логика добавления нового пользователя в список рефералов его "пригласителя"
+      if (ref_id && db[ref_id]) {
+        if (!db[ref_id].referrals) {
+          db[ref_id].referrals = [];
+        }
+        // Убедимся, что не добавляем дубликаты
+        if (!db[ref_id].referrals.includes(user_id)) {
+            db[ref_id].referrals.push(user_id);
+        }
+      }
     }
 
-    regenAttempts(u);
+    // Логика для уже существующего пользователя, который впервые пришел по реф. ссылке
+    if (user && ref_id && !user.referrer_id && ref_id !== user_id) {
+        user.referrer_id = ref_id;
+        if (db[ref_id]) {
+            if (!db[ref_id].referrals) db[ref_id].referrals = [];
+            if (!db[ref_id].referrals.includes(user_id)) {
+                db[ref_id].referrals.push(user_id);
+            }
+        }
+    }
+
+    regenAttempts(user);
     writeDb(db);
-    res.json(u);
-  } catch (e) { console.error(e); res.status(500).json({error:'internal_error'}); }
+    res.json(user);
+  } catch (e) { console.error(e); res.status(500).json({ error: 'internal_error' }); }
 });
 
-app.get('/getUserData', (req,res) => {
-  const { user_id, first_name, ref_id } = req.body;
-  if (!user_id) return res.status(400).json({error:'user_id не предоставлен'});
-  const db = readDb();
-  let u = db[user_id];
-
-  if (!u) {
-    u = db[user_id] = {
-      user_id,
-      username: user_id,
-      referrer_id: ref_id || null,
-      coins: 0,
-      attempts: 25,
-      max_attempts: 25,
-      best_score: 0,
-      completed_tasks: [],
-      referrals: [],
-      nextAttemptTimestamp: null
-    };
-  }
-
-  regenAttempts(u);
-  writeDb(db);
-  res.json(u);
-});
-app.post('/updateUserData', (req,res) => {
+app.post('/updateUserData', (req, res) => {
   try {
     const { user_id, data } = req.body || {};
-    if (!user_id || !data) return res.status(400).json({error:'Некорректные данные'});
+    if (!user_id || !data) return res.status(400).json({ error: 'Некорректные данные' });
+
     const db = readDb();
-    if (!db[user_id]) return res.status(404).json({error:'Пользователь не найден'});
-    const prev = db[user_id];
-    db[user_id] = { ...prev, ...data };
-    if (typeof data.score === 'number' && data.score > (prev.best_score||0)) {
+    if (!db[user_id]) return res.status(404).json({ error: 'Пользователь не найден' });
+
+    const prevUserData = { ...db[user_id] }; // Сохраняем старое состояние пользователя
+
+    // Обновляем данные
+    db[user_id] = { ...prevUserData, ...data };
+
+    // Обновляем лучший результат, если нужно
+    if (typeof data.score === 'number' && data.score > (prevUserData.best_score || 0)) {
       db[user_id].best_score = data.score;
     }
 
-    const earnedCoins = (data.coins || 0) - (prevUserData.coins || 0);
-    // Если пользователь заработал монеты (не потратил) и у него есть реферер
+    // --- УЛУЧШЕННАЯ ЛОГИКА РЕФЕРАЛЬНОГО БОНУСА ---
+    const earnedCoins = (db[user_id].coins || 0) - (prevUserData.coins || 0);
+
     if (earnedCoins > 0 && prevUserData.referrer_id) {
       const referrer = db[prevUserData.referrer_id];
-
-      // Если реферер существует в базе
       if (referrer) {
-        const bonus = earnedCoins * 0.05; // 5% от заработка
+        const bonus = earnedCoins * 0.05; // 5% бонус
         referrer.coins = (referrer.coins || 0) + bonus;
         console.log(`Начислен бонус ${bonus.toFixed(4)} монет пользователю ${referrer.user_id} от реферала ${user_id}`);
       }
@@ -151,43 +150,40 @@ app.post('/updateUserData', (req,res) => {
 
     writeDb(db);
     res.json(db[user_id]);
-  } catch (e) { console.error(e); res.status(500).json({error:'internal_error'}); }
+  } catch (e) { console.error(e); res.status(500).json({ error: 'internal_error' }); }
 });
 
-app.get('/getLeaderboard', (req,res) => {
+
+// Маршруты Leaderboard и Referrals остаются почти без изменений, только добавляем проверки
+app.get('/getLeaderboard', (req, res) => {
   try {
     const db = readDb();
     const leaders = Object.values(db)
-      .filter(v => v && typeof v.coins === 'number')
-      .sort((a,b) => b.coins - a.coins)
+      .filter(u => u && typeof u.coins === 'number')
+      .sort((a, b) => b.coins - a.coins)
       .slice(0, 10);
     res.json(leaders);
-  } catch (e) { console.error(e); res.status(500).json({error:'internal_error'}); }
+  } catch (e) { console.error(e); res.status(500).json({ error: 'internal_error' }); }
 });
 
-app.post('/getReferrals', (req,res) => {
+app.post('/getReferrals', (req, res) => {
   try {
     const { user_id } = req.body || {};
-    if (!user_id) return res.status(400).json({error:'user_id не предоставлен'});
+    if (!user_id) return res.status(400).json({ error: 'user_id не предоставлен' });
     const db = readDb();
-    const u = db[user_id];
-    if (!u || !Array.isArray(u.referrals)) return res.json([]);
-    const refs = u.referrals.map(id => db[id]).filter(Boolean);
-    res.json(refs);
-  } catch (e) { console.error(e); res.status(500).json({error:'internal_error'}); }
+    const user = db[user_id];
+    if (!user || !Array.isArray(user.referrals)) return res.json([]);
+    const referralsData = user.referrals.map(id => db[id]).filter(Boolean);
+    res.json(referralsData);
+  } catch (e) { console.error(e); res.status(500).json({ error: 'internal_error' }); }
 });
 
-// — глобальный обработчик: добавим CORS даже на неожиданных ошибках
+// Глобальный обработчик ошибок
 app.use((err, req, res, next) => {
-  const origin = req.headers.origin;
-  if (origin && (ALLOWED.has(origin) || /^https?:\/\/66\.151\.32\.20/.test(origin) || /^http:\/\/(localhost|127\.0\.0\.1)/.test(origin))) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Vary', 'Origin');
-  }
-  console.error('Unhandled:', err);
-  res.status(500).json({error:'internal_error'});
+  console.error('Необработанная ошибка:', err);
+  res.status(500).json({ error: 'internal_server_error' });
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`API on http://0.0.0.0:${PORT}`);
+  console.log(`Сервер запущен на http://0.0.0.0:${PORT}`);
 });

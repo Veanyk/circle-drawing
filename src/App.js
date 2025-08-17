@@ -34,15 +34,46 @@ function App() {
   // 1. Эффект для определения ID пользователя (выполняется один раз)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const tgUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-    setUserId(tgUserId ? tgUserId.toString() : getBrowserUserId());
+    const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    const refId = urlParams.get('ref');
+    let finalUserId;
 
-    if (window.Telegram && window.Telegram.WebApp) {
-      const tg = window.Telegram.WebApp;
-      tg.expand();
-      document.body.style.backgroundColor = tg.themeParams.bg_color || '#0f0f0f';
+    if (tgUser?.id) {
+      finalUserId = tgUser.id.toString();
+    } else {
+      finalUserId = getBrowserUserId();
     }
-  }, []);
+    setUserId(finalUserId);
+
+    if (finalUserId) {
+      // Теперь мы собираем все данные для отправки на сервер
+      const initialUserData = {
+        user_id: finalUserId,
+        ref_id: refId || null,
+        // Передаем username без символа @, если он есть.
+        // Если нет, передаем first_name.
+        username: tgUser?.username ? tgUser.username.replace('@', '') : tgUser?.first_name,
+      };
+
+      fetch(`${SERVER_URL}/getUserData`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(initialUserData) // <-- Отправляем весь объект
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data) {
+          setCoins(data.coins || 0);
+          setAttempts(data.attempts || 0);
+          setMaxAttempts(data.max_attempts || 25);
+          setCompletedTasks(data.completed_tasks || []);
+          setNextAttemptTimestamp(data.nextAttemptTimestamp || null);
+          // Логика добавления реферала теперь полностью на сервере, здесь она не нужна
+        }
+      })
+      .catch(err => console.error('Ошибка при получении данных пользователя:', err));
+    }
+}, [updateUserDataOnServer]); // updateUserDataOnServer теперь единственная зависимость
 
   // 2. Функция для отправки данных на сервер
   const updateUserDataOnServer = useCallback((newData) => {
