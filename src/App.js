@@ -106,11 +106,7 @@ function App() {
       const timeLeft = Math.round((nextAttemptTimestamp - now) / 1000);
 
       if (timeLeft <= 0) {
-        // Время вышло. Мы могли бы сделать еще один fetch для синхронизации,
-        // но проще просто попросить пользователя перезагрузить приложение,
-        // так как сервер сам начислит попытки при следующем заходе.
-        // Для лучшего UX, можно просто обновить данные.
-        // Перезагружаем данные с сервера, чтобы получить новые попытки
+        // Время вышло. Перезагружаем данные с сервера, чтобы получить новые попытки
         fetch(`${SERVER_URL}/getUserData`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -236,14 +232,11 @@ function App() {
         </div>
         <div className={`tab-pane ${currentTab === 'referrals' ? 'active' : ''}`}>
           <Referrals
-            userId={userId}
-            coins={coins}
-            onTaskComplete={onTaskComplete}
-            completedTasks={completedTasks}
+            userId={userId} // Передаем userId в Referrals, если он там нужен
           />
         </div>
         <div className={`tab-pane ${currentTab === 'leaderboards' ? 'active' : ''}`}>
-          <Leaderboards userId={userId} />
+          <Leaderboards />
         </div>
       </div>
       <TabBar currentTab={currentTab} setCurrentTab={setCurrentTab} />
