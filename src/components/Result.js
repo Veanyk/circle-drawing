@@ -8,20 +8,20 @@ import twitterIcon from '../assets/twitter_icon.png';
 import telegramIcon from '../assets/telegram_icon.png';
 import shareResultsImage from '../assets/share_results.png';
 
-function ScoreRing({ value, size = 160, thickness = 14, radiusDelta = 5, color = '#C85A0A' }) {
+function ScoreRing({ value, thickness = 14, radiusDelta = 5, color = '#C85A0A' }) {
   const pct = Math.max(0, Math.min(100, Math.round(value)));
-  const c = size / 2;
-  const r = c - thickness / 2 - radiusDelta; // радиус меньше на 5 px
+  // Рисуем в viewBox 200x200, масштабируется на 100% контейнера
+  const c = 100;
+  const r = c - thickness / 2 - radiusDelta;     // радиус на ~5px меньше
   const circ = 2 * Math.PI * r;
   const offset = circ * (1 - pct / 100);
 
   return (
-    <div className="score-ring" style={{ width: size, height: size }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        {/* Белый диск, полностью закрашивает внутреннюю область */}
+    <div className="score-ring">
+      <svg className="score-ring__svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet">
+        {/* Белый диск: полностью заливает центр */}
         <circle cx={c} cy={c} r={r - thickness / 2} fill="#fff" />
-
-        {/* Рыжая дуга прогресса – только обводка */}
+        {/* Рыжая дуга прогресса */}
         <circle
           cx={c}
           cy={c}
@@ -32,31 +32,23 @@ function ScoreRing({ value, size = 160, thickness = 14, radiusDelta = 5, color =
           strokeLinecap="round"
           strokeDasharray={circ}
           strokeDashoffset={offset}
-          transform={`rotate(-90 ${c} ${c})`} // старт сверху
+          transform={`rotate(-90 ${c} ${c})`}
         />
       </svg>
-
-      {/* Процент по центру круга */}
       <div className="score-ring__label">{pct}%</div>
     </div>
   );
 }
 
-const Result = ({ score, onReset, drawing, userId }) => {
+const Result = ({ score, onReset, userId }) => {
   const BOT_USERNAME = 'circle_drawing_bot';
   const deepLink = `https://t.me/${BOT_USERNAME}?startapp=ref_${userId}`;
   const shareText = `I drew a circle with ${Math.round(score)}% accuracy! Can you beat me?`;
-
-  // FIX: здесь раньше был ReferenceError из-за simpleRefLink
   const simpleRefLink = `${window.location.origin}?ref=${userId ?? ''}`;
-
   const decimalTokens = (score / 100).toFixed(2);
 
   return (
     <div className="result-container">
-      {/* Круг с процентом внутри */}
-      <ScoreRing value={score} size={160} thickness={14} radiusDelta={5} />
-
       <p className="circle-accuracy-text">
         Your circle is {Math.round(score)}% accurate
       </p>
@@ -64,8 +56,9 @@ const Result = ({ score, onReset, drawing, userId }) => {
         You've earned {decimalTokens} tokens
       </p>
 
+      {/* ЕДИНСТВЕННЫЙ круг — здесь */}
       <div className="result-drawing-container">
-        {drawing && <img src={drawing} alt="Your drawing" className="result-drawing-preview" />}
+        <ScoreRing value={score} thickness={14} radiusDelta={5} />
       </div>
 
       <div className="buttons">
