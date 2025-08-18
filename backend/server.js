@@ -6,7 +6,7 @@ const path = require('path');
 const app = express();
 const PORT = Number(process.env.PORT) || 8000;
 const DB_PATH = path.join(__dirname, 'database.json');
-const ATTEMPT_REGEN_INTERVAL_MS = 5 * 60 * 1000; // 5 минут
+const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000; // 1 минута
 
 // --- CORS ---
 // Настройка CORS осталась вашей, она хороша

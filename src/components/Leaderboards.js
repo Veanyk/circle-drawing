@@ -3,7 +3,10 @@ import './Leaderboards.css';
 import leaderboardText from '../assets/leaderboard_text.png';
 import boardImage from '../assets/board.png';
 
-const SERVER_URL = 'https://draw-a-circle.chickenkiller.com';
+const SERVER_URL =
+  process.env.NODE_ENV === 'development'
+    ? 'http://localhost:8000'  // локально бьёмся напрямую в ваш backend
+    : '/api';                  // на Vercel ходим на тот же origin, а rewrites прокинут дальше
 
 function shortId(id) {
   const s = String(id || '');

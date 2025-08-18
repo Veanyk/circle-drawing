@@ -11,7 +11,7 @@ const SERVER_URL =
   process.env.NODE_ENV === 'development'
     ? 'http://localhost:8000'  // локально бьёмся напрямую в ваш backend
     : '/api';                  // на Vercel ходим на тот же origin, а rewrites прокинут дальше
-const ATTEMPT_REGEN_INTERVAL_MS = 5 * 60 * 1000; // 5 минут
+const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000; // 1 минута
 
 const getBrowserUserId = () => {
   let userId = localStorage.getItem('circleGameUserId');

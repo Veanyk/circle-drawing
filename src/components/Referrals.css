@@ -1,17 +1,17 @@
-/* src/components/Referrals.css */
 @import url('https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap');
 
 .referrals-container {
   padding: 20px;
-  min-height: 100vh;
+  /* Убираем min-height, чтобы контейнер занимал ровно столько места, сколько нужно */
   color: #ffffff;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-items: center; /* Центрируем элементы по оси X */
+  align-items: center;
+  width: 100%; /* Занимаем всю доступную ширину */
 }
 
-.referrals-container img {
+.referrals-container > img { /* Применяем стили только к прямым потомкам-картинкам */
   max-width: 100%;
   height: auto;
   display: block;
@@ -26,26 +26,29 @@
   max-width: 400px;
 }
 
+/* --- КЛЮЧЕВЫЕ ИЗМЕНЕНИЯ ДЛЯ АДАПТИВНОСТИ --- */
 .referral-link {
   display: flex;
   align-items: center;
   margin-top: 50px;
-  width: 400px; /* Фиксированная ширина поля для ссылки */
+  width: 90%; /* Используем проценты вместо фиксированной ширины */
+  max-width: 450px; /* Ограничиваем максимальную ширину на больших экранах */
 }
 
 .link-field {
   position: relative;
-  width: calc(100% - 50px); /* Учитываем ширину кнопки копирования и отступы */
+  flex-grow: 1; /* Поле для ссылки будет занимать все доступное пространство */
 }
 
 .link-field img.link-image {
   width: 100%;
-  object-fit: cover;
+  height: 100%; /* Растягиваем фон по высоте */
+  object-fit: fill; /* Заполняем все пространство */
 }
 
 .link-field .link-text {
   position: absolute;
-  left: 10px;
+  left: 15px;
   top: 50%;
   transform: translateY(-50%);
   font-family: 'Gloria Hallelujah', cursive;
@@ -54,78 +57,74 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  width: calc(100% - 20px); /* Учитываем отступы внутри поля */
+  /* Ограничиваем ширину текста, чтобы он не вылезал */
+  max-width: calc(100% - 30px); 
 }
 
-.copy-button{
+.copy-button {
   background: transparent;
   border: none;
   padding: 0;
   cursor: pointer;
-  width: 120px;
-  height: auto;
+  flex-shrink: 0; /* Кнопка не будет сжиматься */
   margin-left: 10px;
+  height: auto;
 }
-.copy-button img{ display:block; }
 
+.copy-button img {
+  display: block;
+  max-width: 100px; /* Ограничиваем максимальную ширину кнопки */
+  width: 25vw; /* Делаем ширину кнопки адаптивной */
+  height: auto;
+}
+
+/* --- УЛУЧШЕННЫЙ СПИСОК РЕФЕРАЛОВ --- */
 .referrals-list {
   list-style: none;
   padding: 0;
   margin: 20px 0 0;
-  width: 90%; /* Делаем ширину адаптивной */
-  max-width: 400px;
-  font-family: 'Gloria Hallelujah', cursive; /* Применяем фирменный шрифт */
+  width: 90%;
+  max-width: 450px;
+  font-family: 'Gloria Hallelujah', cursive;
   counter-reset: referral-counter; /* Инициализируем счетчик для нумерации */
 }
 
 .referrals-list li.ref-item {
-  display: grid; /* Используем Grid для идеального выравнивания колонок */
+  display: grid;
   grid-template-columns: 30px 1fr auto; /* 3 колонки: Номер, Имя, Статистика */
-  align-items: center; /* Вертикальное выравнивание по центру */
-  gap: 12px; /* Пространство между колонками */
-  padding: 12px 0; /* Увеличиваем отступы для лучшей читаемости */
-  border-bottom: 1px dashed rgba(255, 255, 255, 0.3); /* Стильная линия-разделитель */
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.3);
 }
 
-/* Убираем линию у последнего элемента */
 .referrals-list li.ref-item:last-child {
   border-bottom: none;
 }
 
-/* Создаем номер с помощью псевдоэлемента ::before */
 .referrals-list li.ref-item::before {
-  counter-increment: referral-counter; /* Увеличиваем счетчик на 1 */
-  content: counter(referral-counter) "."; /* Отображаем "1.", "2." и т.д. */
+  counter-increment: referral-counter;
+  content: counter(referral-counter) ".";
   text-align: right;
-  opacity: 0.7; /* Делаем номер чуть менее заметным */
-  font-size: 0.9em; /* И немного меньше основного текста */
+  opacity: 0.7;
+  font-size: 0.9em;
 }
 
-.referrals-list li{
-  padding: 8px 0;
-  border: none;               /* убираем чёрную линию */
-  white-space: nowrap;        /* без переноса строки */
+.ref-name {
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Стили для имени реферала */
-.ref-name {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis; /* Сокращаем длинные имена многоточием */
-}
-
-/* Стили для статистики (монеты и проценты) */
 .ref-stats {
   white-space: nowrap;
-  flex-shrink: 0;
+  text-align: right;
 }
 
 .invite-image {
-  margin-top: 100px; /* Отступ сверху для invite.png */
+  margin-top: 50px; /* Уменьшили отступ */
 }
 
 .your-referrals-image {
-  margin-top: 25px; /* Отступ сверху для your_referrals.png */
+  margin-top: 25px;
 }

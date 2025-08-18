@@ -7,10 +7,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center; /* Центрируем контент по вертикали */
+  justify-content: flex-start;
   padding: 20px;
   box-sizing: border-box;
   width: 100%;
+  min-height: 80vh; /* Гарантируем, что контейнер достаточно высокий, чтобы центрирование работало */
 }
 
 /* Родительский контейнер для круга, PNG и текста */

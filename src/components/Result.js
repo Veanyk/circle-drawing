@@ -11,10 +11,7 @@ import shareResultsImage from '../assets/share_results.png';
 const Result = ({ score, onReset, drawing, userId }) => {
   const simpleRefLink = `${window.location.origin}?ref=${userId}`;
   const shareText = `I drew a circle with ${score}% accuracy! Can you beat me?`;
-  const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(simpleRefLink)}&text=${encodeURIComponent(shareText)}`;
-  <TelegramShareButton url={shareUrl} title={shareText}>
-  const title = `I drew a circle with ${score}% accuracy! Can you beat me?`;
-  </TelegramShareButton>
+  const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(simpleRefLink)}&text=${encodeURIComponent(shareText)}`;
 
   const decimalTokens = (score / 100).toFixed(2);
   const angle = (score / 100) * 360;
@@ -59,14 +56,16 @@ const Result = ({ score, onReset, drawing, userId }) => {
             alt="Share results"
             className="share-results-image"
           />
-            <div className="social-icons">
-              <TwitterShareButton url={shareUrl} title={shareText}> {/* <-- Используем shareText */}
-                <img src={twitterIcon} alt="Twitter" className="social-icon" />
-              </TwitterShareButton>
-              <TelegramShareButton url={shareUrl} title={shareText}> {/* <-- Используем shareText */}
-                <img src={telegramIcon} alt="Telegram" className="social-icon" />
-              </TelegramShareButton>
-            </div>
+          <div className="social-icons">
+            {/* Twitter использует простую ссылку и текст */}
+            <TwitterShareButton url={simpleRefLink} title={shareText}>
+              <img src={twitterIcon} alt="Twitter" className="social-icon" />
+            </TwitterShareButton>
+            {/* Для Telegram мы используем нашу специальную ссылку, чтобы передать оба параметра */}
+            <a href={telegramShareUrl} target="_blank" rel="noopener noreferrer">
+              <img src={telegramIcon} alt="Telegram" className="social-icon" />
+            </a>
+          </div>
         </div>
       </div>
     </div>

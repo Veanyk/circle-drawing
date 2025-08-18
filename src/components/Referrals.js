@@ -6,7 +6,10 @@ import copyImage from '../assets/copy.png';
 import yourReferralsImage from '../assets/your_referrals.png';
 import linkImage from '../assets/link.png';
 
-const SERVER_URL = 'https://draw-a-circle.chickenkiller.com';
+const SERVER_URL =
+  process.env.NODE_ENV === 'development'
+    ? 'http://localhost:8000'  // локально бьёмся напрямую в ваш backend
+    : '/api';                  // на Vercel ходим на тот же origin, а rewrites прокинут дальше
 
 const Referrals = ({ userId }) => {
   const [referrals, setReferrals] = useState([]);
@@ -19,75 +22,54 @@ const Referrals = ({ userId }) => {
     setReferralLink(`${baseUrl}/?ref=${userId}`);
   }, [userId]);
 
-  // 2) Если мы пришли по чьей-то ссылке — добавить ТЕКУЩЕГО пользователя в список рефералов РЕФЕРЕРА
-  useEffect(() => {
-    if (!userId) return;
-    const refId = new URLSearchParams(window.location.search).get('ref');
+  // 2) Мои рефералы для списка (автообновление)
+    useEffect(() => {
+        if (!userId) return;
 
-    // валидность + не считать самореферал
-    if (!refId || refId === String(userId)) return;
+        const loadMyRefs = async () => {
+          try {
+            const res = await fetch(`${SERVER_URL}/getReferrals`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ user_id: userId }),
+            });
+            const data = await res.json();
+            // Проверяем, что data это массив, прежде чем обновлять состояние
+            if (Array.isArray(data)) {
+              setReferrals(data);
+            }
+          } catch (e) {
+            console.error('Ошибка при получении рефералов:', e);
+          }
+        };
 
-    (async () => {
+        loadMyRefs();
+        // Интервал убран. Данные загрузятся один раз при монтировании компонента.
+      }, [userId]);
+
+const copyToClipboard = async () => {
+    if (!navigator.clipboard) {
+      // Fallback для очень старых или небезопасных (не HTTPS) контекстов
+      const textArea = document.createElement("textarea");
+      textArea.value = referralLink;
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
       try {
-        // получаем данные реферера
-        const r1 = await fetch(`${SERVER_URL}/getUserData`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: refId }),
-        });
-        const referrer = await r1.json();
-        const list = Array.isArray(referrer?.referrals) ? referrer.referrals : [];
-
-        // если этого пользователя ещё нет у реферера — добавляем
-        if (!list.includes(userId)) {
-          const updated = [...list, userId];
-          await fetch(`${SERVER_URL}/updateUserData`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: refId, data: { referrals: updated } }),
-          });
-          // по желанию можно добавить вознаграждение рефереру тут
-        }
-      } catch (e) {
-        console.error('Ошибка добавления реферала:', e);
+        document.execCommand('copy');
+        alert('Referral link copied to clipboard!');
+      } catch (err) {
+        console.error('Fallback copy failed: ', err);
       }
-    })();
-  }, [userId]);
+      document.body.removeChild(textArea);
+      return;
+    }
 
-  // 3) Мои рефералы для списка (автообновление)
-  useEffect(() => {
-    if (!userId) return;
-
-    let stop = false;
-    const loadMyRefs = async () => {
-      try {
-        const res = await fetch(`${SERVER_URL}/getReferrals`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: userId }),
-        });
-        const data = await res.json();
-        if (!stop) setReferrals(Array.isArray(data) ? data : []);
-      } catch (e) {
-        console.error('Ошибка при получении рефералов:', e);
-      }
-    };
-
-    loadMyRefs();
-    const t = setInterval(loadMyRefs, 30000);
-    return () => { stop = true; clearInterval(t); };
-  }, [userId]);
-
-  const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(referralLink);
       alert('Referral link copied to clipboard!');
-    } catch {
-      // fallback
-      const area = document.createElement('textarea');
-      area.value = referralLink; document.body.appendChild(area);
-      area.select(); document.execCommand('copy'); area.remove();
-      alert('Referral link copied to clipboard!');
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
     }
   };
 
