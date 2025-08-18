@@ -48,6 +48,7 @@ function App() {
   const [score, setScore] = useState(null);
   const [currentTab, setCurrentTab] = useState('circle');
   const [drawingData, setDrawingData] = useState(null);
+
   const [userId, setUserId] = useState(null);
   const [coins, setCoins] = useState(0);
   const [attempts, setAttempts] = useState(0);
@@ -60,7 +61,7 @@ function App() {
     if (window.Telegram && window.Telegram.WebApp) {
       const tg = window.Telegram.WebApp;
       tg.expand();
-      document.body.style.backgroundColor = tg.themeParams.bg_color || '#0f0f0f';
+      document.body.style.backgroundColor = tg.themeParams?.bg_color || '#0f0f0f';
     }
   }, []);
 
@@ -70,28 +71,29 @@ function App() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id: userId, data: newData })
-    })
-    .catch(err => console.error('Ошибка при обновлении данных на сервере:', err));
+    }).catch(err => console.error('Ошибка при обновлении данных на сервере:', err));
   }, [userId]);
 
+  // Инициализация пользователя и первичная загрузка
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
     const refId = urlParams.get('ref');
-    let finalUserId;
 
+    let finalUserId;
     if (tgUser?.id) {
-      finalUserId = tgUser.id.toString();
+      finalUserId = String(tgUser.id);
     } else {
       finalUserId = getBrowserUserId();
     }
     setUserId(finalUserId);
 
     if (finalUserId) {
+      const handle = tgUser?.username ? tgUser.username.replace(/^@/, '') : null;
       const initialUserData = {
         user_id: finalUserId,
         ref_id: refId || null,
-        username: tgUser?.username ? tgUser.username.replace('@', '') : tgUser?.first_name,
+        username: handle,
       };
 
       fetch(`${SERVER_URL}/getUserData`, {
@@ -99,58 +101,85 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(initialUserData)
       })
-      .then(res => res.json())
-      .then(data => {
-        if (data) {
-          setCoins(data.coins || 0);
-          setAttempts(data.attempts || 0);
-          setMaxAttempts(data.max_attempts || 25);
-          setCompletedTasks(data.completed_tasks || []);
-          const rawTs = data?.nextAttemptTimestamp;
-          const parsedTs = typeof rawTs === 'number'
-            ? rawTs
-            : (typeof rawTs === 'string' ? parseInt(rawTs, 10) : NaN);
+        .then(res => res.json())
+        .then(data => {
+          if (!data) return;
+          setCoins(Number.isFinite(Number(data.coins)) ? Number(data.coins) : 0);
+          setAttempts(Number.isFinite(Number(data.attempts)) ? Number(data.attempts) : 0);
+          setMaxAttempts(Number.isFinite(Number(data.max_attempts)) ? Number(data.max_attempts) : 25);
+          setCompletedTasks(Array.isArray(data.completed_tasks) ? data.completed_tasks : []);
+
+          const rawTs = data.nextAttemptTimestamp;
+          const parsedTs =
+            typeof rawTs === 'number' ? rawTs :
+              (typeof rawTs === 'string' ? parseInt(rawTs, 10) : NaN);
           setNextAttemptTimestamp(Number.isFinite(parsedTs) && parsedTs > 0 ? parsedTs : null);
-        }
-      })
-      .catch(err => console.error('Ошибка при получении данных пользователя:', err));
+        })
+        .catch(err => console.error('Ошибка при получении данных пользователя:', err));
     }
   }, []);
 
+  // Таймер восстановления попыток (тик каждую секунду)
   useEffect(() => {
     if (attempts >= maxAttempts || !nextAttemptTimestamp) {
       setTimeToNextAttempt(null);
       return;
     }
-
-    const timerInterval = setInterval(() => {
-      const timeLeft = Math.max(0, Math.ceil((nextAttemptTimestamp - Date.now()) / 1000));
-
-      if (timeLeft <= 0) {
+    const timer = setInterval(() => {
+      const timeLeftMs = Math.max(0, nextAttemptTimestamp - Date.now());
+      if (timeLeftMs <= 0) {
+        // подхватим новые значения с сервера
         fetch(`${SERVER_URL}/getUserData`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ user_id: userId })
         })
-        .then(res => res.json())
-        .then(data => {
-          if (data) {
-            setAttempts(data.attempts);
-            setNextAttemptTimestamp(data.nextAttemptTimestamp);
-          }
-        });
+          .then(res => res.json())
+          .then(data => {
+            if (!data) return;
+            setAttempts(Number.isFinite(Number(data.attempts)) ? Number(data.attempts) : attempts);
+            const rawTs = data.nextAttemptTimestamp;
+            const parsedTs =
+              typeof rawTs === 'number' ? rawTs :
+                (typeof rawTs === 'string' ? parseInt(rawTs, 10) : NaN);
+            setNextAttemptTimestamp(Number.isFinite(parsedTs) && parsedTs > 0 ? parsedTs : null);
+          })
+          .catch(() => { /* no-op */ });
         setTimeToNextAttempt(null);
-        clearInterval(timerInterval);
+        clearInterval(timer);
         return;
       }
-
-      const minutes = Math.floor(timeLeft / 60);
-      const seconds = timeLeft % 60;
+      const totalSec = Math.ceil(timeLeftMs / 1000);
+      const minutes = Math.floor(totalSec / 60);
+      const seconds = totalSec % 60;
       setTimeToNextAttempt(`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
     }, 1000);
 
-    return () => clearInterval(timerInterval);
+    return () => clearInterval(timer);
   }, [attempts, maxAttempts, nextAttemptTimestamp, userId]);
+
+  // Автообновление монет/статуса заданий, пока открыт экран рефералов
+  useEffect(() => {
+    if (currentTab !== 'referrals' || !userId) return;
+    let stop = false;
+    const tick = async () => {
+      try {
+        const res = await fetch(`${SERVER_URL}/getUserData`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: userId }),
+        });
+        const data = await res.json();
+        if (!stop && data) {
+          setCoins(Number.isFinite(Number(data.coins)) ? Number(data.coins) : 0);
+          setCompletedTasks(Array.isArray(data.completed_tasks) ? data.completed_tasks : []);
+        }
+      } catch { /* ignore */ }
+    };
+    tick();
+    const iv = setInterval(tick, 5000);
+    return () => { stop = true; clearInterval(iv); };
+  }, [currentTab, userId]);
 
   const onDrawEnd = (circleAccuracy, points, canvas, size) => {
     if (attempts <= 0) {
@@ -161,11 +190,11 @@ function App() {
     const newAttempts = attempts - 1;
     const tokensEarned = parseFloat((0.01 * circleAccuracy).toFixed(2));
     const newCoins = coins + tokensEarned;
-    let newTimestamp = nextAttemptTimestamp;
 
+    // если тратим с полного запаса — запускаем локальный таймер
     if (attempts === maxAttempts) {
-      newTimestamp = Date.now() + ATTEMPT_REGEN_INTERVAL_MS;
-      setNextAttemptTimestamp(newTimestamp);
+      const ts = Date.now() + ATTEMPT_REGEN_INTERVAL_MS;
+      setNextAttemptTimestamp(ts);
     }
 
     setScore(circleAccuracy);
@@ -173,10 +202,11 @@ function App() {
     setCoins(newCoins);
     setAttempts(newAttempts);
 
+    // сервер сам управляет nextAttemptTimestamp, не передаём его
     updateUserDataOnServer({
       coins: newCoins,
       attempts: newAttempts,
-      score: circleAccuracy
+      score: circleAccuracy,
     });
   };
 
@@ -190,7 +220,6 @@ function App() {
       alert('This task has already been completed.');
       return;
     }
-
     const newCompletedTasks = [...completedTasks, taskId];
     const newCoins = coins + tokens;
     setCompletedTasks(newCompletedTasks);
@@ -230,6 +259,7 @@ function App() {
           </div>
         </div>
       )}
+
       <div className="main-content">
         <div className={`tab-pane ${currentTab === 'circle' ? 'active' : ''}`}>
           {score === null ? (
@@ -243,6 +273,7 @@ function App() {
             />
           )}
         </div>
+
         <div className={`tab-pane ${currentTab === 'tasks' ? 'active' : ''}`}>
           <Tasks
             onTaskComplete={onTaskComplete}
@@ -250,13 +281,16 @@ function App() {
             setCurrentTab={setCurrentTab}
           />
         </div>
+
         <div className={`tab-pane ${currentTab === 'referrals' ? 'active' : ''}`}>
           <Referrals userId={userId} />
         </div>
+
         <div className={`tab-pane ${currentTab === 'leaderboards' ? 'active' : ''}`}>
-          <Leaderboards />
+          <Leaderboards userId={userId} />
         </div>
       </div>
+
       <TabBar currentTab={currentTab} setCurrentTab={setCurrentTab} />
     </div>
   );

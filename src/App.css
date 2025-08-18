@@ -138,10 +138,11 @@ body {
 
 .timer-display {
   position: fixed;
-  top: 135px; /* Располагаем под баннером с попытками */
+  top: 100px;            /* было 135px — подняли ближе к блоку попыток */
   right: 10px;
-  width: 150px; /* Такая же ширина, как у баннера */
+  width: 150px;
   text-align: center;
+  z-index: 1001;         /* чтобы гарантированно быть поверх фона/элементов */
 }
 
 .timer-text {
@@ -155,9 +156,10 @@ body {
 /* Адаптивность для мобильных */
 @media (max-width: 768px) {
   .timer-display {
-    top: 110px; /* Подгоняем под мобильные размеры */
+    top: 80px;   /* было 110px — тоже поднимаем ближе */
     right: 5px;
     width: 100px;
+    z-index: 1001;
   }
   .timer-text {
     font-size: 14px;

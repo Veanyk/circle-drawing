@@ -110,11 +110,15 @@
 .col-acc {
   text-align: right;
   padding-right: 25px;
+  position: relative;
+  right: 40px;   /* << сдвиг влево на 40px */
 }
 
 .col-tok {
   text-align: right;
   padding-right: 10px;
+  position: relative;
+  right: 20px;   /* << сдвиг влево на 20px */
 }
 
 /* прячем шапку столбцов */

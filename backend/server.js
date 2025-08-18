@@ -11,6 +11,8 @@ const DB_PATH = path.join(__dirname, 'database.json');
 
 // Восстановление ОДНОЙ попытки
 const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000; // 1 минута
+const REFERRAL_TASK_ID = 2;
+const REFERRAL_TASK_REWARD = 30;
 
 // ------ Admin auth ------
 const ADMIN_KEYS = (process.env.ADMIN_KEYS || '779077474')
@@ -96,6 +98,26 @@ function normalizeUser(u) {
   return n;
 }
 
+function sanitizeTelegramUsername(name) {
+  if (typeof name !== 'string') return null;
+  let v = name.trim().replace(/^@+/, ''); // убрать ведущие @
+  if (!v) return null;
+  // Оставляем буквы/цифры/подчёркивания (официально Telegram так и разрешает)
+  v = v.replace(/[^\w]/g, '');
+  // Рекомендуемая длина у Telegram 5–32, но жёстко не валидируем, просто ограничим сверху:
+  if (v.length > 32) v = v.slice(0, 32);
+  return v || null;
+}
+
+function awardInviteIfNeeded(refUser) {
+  refUser.completed_tasks = Array.isArray(refUser.completed_tasks) ? refUser.completed_tasks : [];
+  if (!refUser.completed_tasks.includes(REFERRAL_TASK_ID)) {
+    refUser.completed_tasks.push(REFERRAL_TASK_ID);
+    refUser.coins = (refUser.coins || 0) + REFERRAL_TASK_REWARD;
+    console.log(`Referral task awarded: +${REFERRAL_TASK_REWARD} tokens to ${refUser.user_id}`);
+  }
+}
+
 // ---------- Regen attempts (ровно 1 за тик) ----------
 function regenAttempts(u) {
   // на всякий случай — ещё раз страховка
@@ -136,13 +158,53 @@ app.post('/getUserData', (req, res) => {
     const { user_id, ref_id, username } = req.body || {};
     if (!user_id) return res.status(400).json({ error: 'user_id не предоставлен' });
 
+    // локальные хелперы, чтобы роут работал «сам по себе»
+    const sanitizeTelegramUsername = (name) => {
+      if (typeof name !== 'string') return null;
+      let v = name.trim().replace(/^@+/, '');
+      if (!v) return null;
+      v = v.replace(/[^\w]/g, '');
+      if (v.length > 32) v = v.slice(0, 32);
+      return v || null;
+    };
+
+    const normalizeUser = (u) => {
+      const n = { ...u };
+      n.max_attempts = Number.isFinite(n.max_attempts) && n.max_attempts > 0 ? Math.floor(n.max_attempts) : 25;
+
+      if (!Number.isFinite(n.attempts) || n.attempts < 0) n.attempts = n.max_attempts;
+      n.attempts = Math.min(n.max_attempts, Math.floor(n.attempts));
+
+      if (!Array.isArray(n.completed_tasks)) n.completed_tasks = [];
+      if (!Array.isArray(n.referrals)) n.referrals = [];
+      if (!Number.isFinite(n.best_score)) n.best_score = 0;
+      if (!Number.isFinite(n.coins)) n.coins = 0;
+
+      if (!(typeof n.nextAttemptTimestamp === 'number' && isFinite(n.nextAttemptTimestamp) && n.nextAttemptTimestamp > 0)) {
+        n.nextAttemptTimestamp = null;
+      }
+      return n;
+    };
+
+    const REFERRAL_TASK_ID = 2;
+    const REFERRAL_TASK_REWARD = 30;
+    const awardInviteIfNeeded = (refUser) => {
+      refUser.completed_tasks = Array.isArray(refUser.completed_tasks) ? refUser.completed_tasks : [];
+      if (!refUser.completed_tasks.includes(REFERRAL_TASK_ID)) {
+        refUser.completed_tasks.push(REFERRAL_TASK_ID);
+        refUser.coins = (refUser.coins || 0) + REFERRAL_TASK_REWARD;
+        console.log(`Referral task awarded: +${REFERRAL_TASK_REWARD} tokens to ${refUser.user_id}`);
+      }
+    };
+
     const db = readDb();
+    const providedUsername = sanitizeTelegramUsername(username);
     let user = db[user_id];
 
     if (!user) {
       user = {
         user_id,
-        username: username || `User_${String(user_id).slice(-4)}`,
+        username: providedUsername || `User_${String(user_id).slice(-4)}`,
         referrer_id: ref_id || null,
         coins: 0,
         attempts: 25,
@@ -156,30 +218,43 @@ app.post('/getUserData', (req, res) => {
       };
       db[user_id] = user;
 
+      // привязка к рефереру и награда
       if (ref_id && db[ref_id]) {
-        db[ref_id].referrals = Array.isArray(db[ref_id].referrals) ? db[ref_id].referrals : [];
-        if (!db[ref_id].referrals.includes(user_id)) db[ref_id].referrals.push(user_id);
+        const ref = normalizeUser(db[ref_id]);
+        ref.referrals = Array.isArray(ref.referrals) ? ref.referrals : [];
+        if (!ref.referrals.includes(user_id)) {
+          ref.referrals.push(user_id);
+          awardInviteIfNeeded(ref);
+          db[ref_id] = ref;
+        }
       }
     } else {
-      // NEW: нормализация на чтении (лечит сломанные записи)
+      // существующий: нормализуем, обновим username при наличии
       user = normalizeUser(user);
+      if (providedUsername && providedUsername !== user.username) {
+        user.username = providedUsername;
+      }
 
-      if (ref_id && !user.referrer_id && ref_id !== user_id) {
+      // «задним числом» привязка реферала и награда
+      if (ref_id && !user.referrer_id && ref_id !== user_id && db[ref_id]) {
         user.referrer_id = ref_id;
-        if (db[ref_id]) {
-          db[ref_id].referrals = Array.isArray(db[ref_id].referrals) ? db[ref_id].referrals : [];
-          if (!db[ref_id].referrals.includes(user_id)) db[ref_id].referrals.push(user_id);
+        const ref = normalizeUser(db[ref_id]);
+        ref.referrals = Array.isArray(ref.referrals) ? ref.referrals : [];
+        if (!ref.referrals.includes(user_id)) {
+          ref.referrals.push(user_id);
+          awardInviteIfNeeded(ref);
+          db[ref_id] = ref;
         }
       }
     }
 
+    // реген попыток
     regenAttempts(user);
 
-    db[user_id] = user; // зафиксируем миграцию/регент
+    db[user_id] = user;
     writeDb(db);
 
-    const response = { ...user, walletEligible: (user.coins || 0) >= 100 };
-    res.json(response);
+    res.json({ ...user, walletEligible: (user.coins || 0) >= 100 });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'internal_error' });
@@ -215,6 +290,13 @@ app.post('/updateUserData', (req, res) => {
     }
     if (typeof data.score === 'number' && data.score > (u.best_score || 0)) {
       u.best_score = data.score;
+    }
+
+    if (typeof data.username === 'string') {
+      const uName = sanitizeTelegramUsername(data.username);
+      if (uName && uName !== u.username) {
+        u.username = uName;
+      }
     }
 
     // Реф. бонус
