@@ -11,8 +11,7 @@
   padding: 20px;
   box-sizing: border-box;
   width: 100%;
-  padding-top: 10vh; /* <-- ДОБАВЛЯЕМ ТАКОЙ ЖЕ ВЕРХНИЙ ОТСТУП, как в Canvas */
-  /* min-height убираем, он больше не нужен */
+  padding-top: 180px;
 }
 
 /* Родительский контейнер для круга, PNG и текста */
@@ -126,84 +125,37 @@
 
 /* Адаптивная верстка */
 @media (max-width: 768px) {
+    .social-icon {
+    width: 40px;
+    height: 40px;
+    }
+    .result-container { padding-top: 160px; }
     .result-image {
-      width: 80px; /* Уменьшили */
-      height: 80px; /* Уменьшили */
+      width: 70px; /* Уменьшили */
+      height: 70px; /* Уменьшили */
     }
     .result-circle-dynamic {
-      width: 80px; /* Уменьшили */
-      height: 80px; /* Уменьшили */
+      width: 70px; /* Уменьшили */
+      height: 70px; /* Уменьшили */
     }
     .result-circle-image {
-      width: 80px; /* Уменьшили */
-      height: 80px; /* Уменьшили */
+      width: 70px; /* Уменьшили */
+      height: 70px; /* Уменьшили */
     }
     .result-text-overlay {
-      font-size: 30px; /* Уменьшили */
+      font-size: 28px; /* Уменьшили */
     }
     .circle-accuracy-text,
     .earned-tokens-text {
-    font-size: 20px;
+    font-size: 18px;
     margin: 6px 0;
     }
 
     .button-icon {
-    width: 120px;
-    }
-
-    .share-results-image {
-    max-width: 250px;
-    }
-    }
-
-@media (max-width: 480px) {
-    .result-image {
-      width: 70px; /* Уменьшили */
-      height: 70px; /* Уменьшили */
-    }
-    .result-circle-dynamic {
-      width: 70px; /* Уменьшили */
-      height: 70px; /* Уменьшили */
-    }
-    .result-circle-image {
-      width: 70px; /* Уменьшили */
-      height: 70px; /* Уменьшили */
-    }
-    .result-text-overlay {
-      font-size: 26px; /* Уменьшили */
-    }
-
-    .circle-accuracy-text,
-    .earned-tokens-text {
-    font-size:16px;
-    margin: 4px 0;
-    }
-
-    .button-icon {
-    width: 86px;
+    width: 150px;
     }
 
     .share-results-image {
     max-width: 200px;
-    margin-bottom: 8px;
     }
-    }
-
-.social-icons {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-}
-
-.social-icon {
-  width: 48px;
-  height: 48px;
-}
-
-/* Дополнительные медиа-запросы для социальных иконок */
-@media (max-width: 768px) {
-  .social-icon {
-    width: 40px;
-    height: 40px;
-  }
 }
