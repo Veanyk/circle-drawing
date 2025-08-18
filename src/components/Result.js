@@ -13,6 +13,7 @@ const Result = ({ score, onReset, drawing, userId }) => {
   const deepLink = `https://t.me/${BOT_USERNAME}?startapp=ref_${userId}`;
   const shareText = `I drew a circle with ${Math.round(score)}% accuracy! Can you beat me?`;
   const telegramShareUrl = deepLink; // телега открывает сразу мини-апп с параметром
+  const shareUrl = `https://t.me/${BOT_USERNAME}?startapp=ref_${userId}`;
 
   // токены совпадают с логикой onDrawEnd (0.01 * score)
   const decimalTokens = (score / 100).toFixed(2);
