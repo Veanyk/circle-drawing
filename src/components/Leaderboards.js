@@ -24,6 +24,7 @@ const Leaderboards = ({ userId }) => {
       const loadLeaders = async () => {
         try {
           const res = await fetch(`${SERVER_URL}/getLeaderboard`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json();
           if (!stop) {
             // Filter out browser users BEFORE slicing the top 10

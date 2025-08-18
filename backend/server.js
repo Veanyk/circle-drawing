@@ -47,15 +47,23 @@ function readDb() {
 }
 function writeDb(data) { fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2)); }
 
-// --- Логика восстановления попыток (ваша логика здесь хороша) ---
+// --- Логика восстановления попыток ---
 function regenAttempts(u) {
   const now = Date.now();
-  while (u.attempts < u.max_attempts && u.nextAttemptTimestamp && now >= u.nextAttemptTimestamp) {
+
+  // Если пришло время — добавляем РОВНО 1 попытку
+  if (u.attempts < u.max_attempts && u.nextAttemptTimestamp && now >= u.nextAttemptTimestamp) {
     u.attempts += 1;
-    u.nextAttemptTimestamp += ATTEMPT_REGEN_INTERVAL_MS;
-  }
-  if (u.attempts >= u.max_attempts) {
-    u.nextAttemptTimestamp = null;
+
+    if (u.attempts >= u.max_attempts) {
+      // Полный стак — обнуляем таймер
+      u.nextAttemptTimestamp = null;
+    } else {
+      // Переносим на следующий тик. Если был большой дрейф (сервер/клиент спали долго),
+      // чтобы не догонять пачкой, просто ставим "сейчас + интервал".
+      const next = u.nextAttemptTimestamp + ATTEMPT_REGEN_INTERVAL_MS;
+      u.nextAttemptTimestamp = next > now ? next : now + ATTEMPT_REGEN_INTERVAL_MS;
+    }
   }
 }
 

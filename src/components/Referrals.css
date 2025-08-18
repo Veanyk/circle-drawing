@@ -66,15 +66,13 @@
   border: none;
   padding: 0;
   cursor: pointer;
-  flex-shrink: 0; /* Кнопка не будет сжиматься */
   margin-left: 10px;
-  height: auto;
+  flex-shrink: 0; /* Запрещаем кнопке сжиматься */
 }
-
 .copy-button img {
   display: block;
-  max-width: 100px; /* Ограничиваем максимальную ширину кнопки */
-  width: 25vw; /* Делаем ширину кнопки адаптивной */
+  width: 25vw; /* <-- ЗАДАЕМ АДАПТИВНУЮ ШИРИНУ: 25% от ширины экрана */
+  max-width: 100px; /* <-- ОГРАНИЧИВАЕМ максимальный размер */
   height: auto;
 }
 
