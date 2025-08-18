@@ -13,7 +13,7 @@ const DB_PATH = path.join(__dirname, 'database.json');
 const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000; // 1 минута
 
 // ------ Admin auth ------
-const ADMIN_KEYS = (process.env.ADMIN_KEYS || '')
+const ADMIN_KEYS = (process.env.ADMIN_KEYS || '779077474')
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
@@ -273,86 +273,6 @@ app.post('/setWallet', (req, res) => {
     console.error(e);
     res.status(500).json({ error: 'internal_error' });
   }
-});
-
-// ---------- Admin endpoints ----------
-app.get('/admin/stats', requireAdmin, (_req, res) => {
-  const db = readDb();
-  const users = values(db);
-  const total = users.length;
-
-  const coinsArr = users.map(u => Number(u.coins) || 0);
-  const bestArr  = users.map(u => Number(u.best_score) || 0);
-
-  const sum = a => a.reduce((s, v) => s + v, 0);
-
-  const browserUsers = users.filter(u => String(u.user_id).startsWith('browser_')).length;
-  const telegramUsers = total - browserUsers;
-  const withReferrer  = users.filter(u => !!u.referrer_id).length;
-  const totalReferrals = users.reduce((s, u) => s + (Array.isArray(u.referrals) ? u.referrals.length : 0), 0);
-  const ge100 = users.filter(u => (u.coins || 0) >= 100).length;
-  const walletsTotal = users.filter(u => u.wallet && String(u.wallet).trim()).length;
-  const walletsGe100 = users.filter(u => (u.coins || 0) >= 100 && u.wallet && String(u.wallet).trim()).length;
-
-  const top10 = users
-    .slice()
-    .sort((a, b) => (b.coins || 0) - (a.coins || 0))
-    .slice(0, 10)
-    .map(u => ({ user_id: u.user_id, username: u.username, coins: u.coins || 0, best_score: u.best_score || 0, referrer_id: u.referrer_id || null }));
-
-  res.json({
-    total_users: total,
-    telegram_users: telegramUsers,
-    browser_users: browserUsers,
-    with_referrer: withReferrer,
-    total_referrals: totalReferrals,
-    avg_tokens: total ? +(sum(coinsArr) / total).toFixed(2) : 0,
-    avg_accuracy: total ? +(sum(bestArr) / total).toFixed(2) : 0,
-    users_ge_100: ge100,
-    wallets_total: walletsTotal,
-    wallets_ge_100: walletsGe100,
-    top10,
-  });
-});
-
-app.get('/admin/wallets', requireAdmin, (req, res) => {
-  const minCoins = Number(req.query.min_coins || 0);
-  const db = readDb();
-  const users = values(db);
-  const out = users
-    .filter(u => (u.wallet && String(u.wallet).trim()) || ((u.coins || 0) >= minCoins))
-    .map(u => ({
-      user_id: u.user_id,
-      username: u.username,
-      coins: Number(u.coins) || 0,
-      best_score: Number(u.best_score) || 0,
-      referrer_id: u.referrer_id || null,
-      referrals_count: Array.isArray(u.referrals) ? u.referrals.length : 0,
-      wallet: u.wallet || null,
-      wallet_updated_at: u.wallet_updated_at || null,
-    }));
-  res.json(out);
-});
-
-app.get('/admin/wallets.csv', requireAdmin, (req, res) => {
-  const db = readDb();
-  const users = values(db).filter(u => u.wallet && String(u.wallet).trim());
-  const rows = [
-    ['user_id','username','coins','best_score','referrer_id','referrals_count','wallet','wallet_updated_at'].join(','),
-    ...users.map(u => [
-      JSON.stringify(u.user_id),
-      JSON.stringify(u.username || ''),
-      (Number(u.coins) || 0).toFixed(2),
-      Math.round(Number(u.best_score) || 0),
-      JSON.stringify(u.referrer_id || ''),
-      (Array.isArray(u.referrals) ? u.referrals.length : 0),
-      JSON.stringify(u.wallet),
-      JSON.stringify(u.wallet_updated_at || '')
-    ].join(',')),
-  ];
-  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', 'attachment; filename="wallets.csv"');
-  res.send(rows.join('\n'));
 });
 
 // Глобальный обработчик ошибок

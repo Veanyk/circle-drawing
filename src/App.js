@@ -192,40 +192,42 @@ function App() {
 
   return (
     <div className="App">
-      {currentTab === 'circle' && (
-        <>
-          <div className="coins-display">
-            <div className="banner-container">
-              <img src={require('./assets/total_coins.png')} alt="Total coins" className="banner-icon" />
-              <span className="banner-text">{coins.toFixed(2)}</span>
-            </div>
+    {currentTab === 'circle' && (
+      <>
+        <div className="coins-display">
+          <div className="banner-container">
+            <img src={require('./assets/total_coins.png')} alt="Total coins" className="banner-icon" />
+            <span className="banner-text">{coins.toFixed(2)}</span>
           </div>
-          <div className="attempts-display">
-            <div className="banner-container">
-              <img src={require('./assets/total_attempts.png')} alt="Total attempts" className="banner-icon" />
-              <span className="banner-text">{attempts}/{maxAttempts}</span>
-            </div>
-            {timeToNextAttempt && (
-              <div className="timer-display">
-                <span className="timer-text">{timeToNextAttempt}</span>
-              </div>
-            )}
+        </div>
+        <div className="attempts-display">
+          <div className="banner-container">
+            <img src={require('./assets/total_attempts.png')} alt="Total attempts" className="banner-icon" />
+            <span className="banner-text">{attempts}/{maxAttempts}</span>
           </div>
-        </>
-      )}
-      <div className="main-content">
-        <div className={`tab-pane ${currentTab === 'circle' ? 'active' : ''}`}>
-          {score === null ? (
-            <Canvas onDrawEnd={onDrawEnd} attempts={attempts} />
-          ) : (
-            <Result
-              score={score}
-              onReset={onReset}
-              drawing={drawingData}
-              userId={userId}
-            />
+          {/* Вот наш таймер, теперь он в правильном месте */}
+          {timeToNextAttempt && (
+            <div className="timer-display">
+              <span className="timer-text">{timeToNextAttempt}</span>
+            </div>
           )}
         </div>
+      </>
+    )}
+    <div className="main-content">
+      <div className={`tab-pane ${currentTab === 'circle' ? 'active' : ''}`}>
+        {score === null ? (
+          <Canvas onDrawEnd={onDrawEnd} attempts={attempts} />
+        ) : (
+          <Result
+            score={score}
+            onReset={onReset}
+            drawing={drawingData}
+            userId={userId}
+          />
+        )}
+      </div>
+
         <div className={`tab-pane ${currentTab === 'tasks' ? 'active' : ''}`}>
           <Tasks
             onTaskComplete={onTaskComplete}

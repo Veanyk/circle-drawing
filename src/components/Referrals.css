@@ -104,12 +104,13 @@
 }
 
 .referrals-list li.ref-item {
-  display: flex; /* Заставляет дочерние элементы выстраиваться в строку */
-  justify-content: space-between; /* Расталкивает имя влево, а статистику вправо */
-  align-items: center; /* Выравнивает их по центру по вертикали */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: 10px 0;
   border-bottom: 1px dashed rgba(255, 255, 255, 0.3);
   font-size: 16px;
+  gap: 15px; /* Добавляем общий зазор между элементами */
 }
 
 .referrals-list li.ref-item:last-child {
@@ -125,7 +126,8 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding-right: 15px;
+  flex-grow: 1; /* <-- КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Имя теперь будет растягиваться */
+  min-width: 0; /* Технический трюк, чтобы text-overflow работал в flex-контейнере */
 }
 
 /* Контейнер для статистики */
@@ -133,9 +135,8 @@
   display: flex;
   gap: 15px;
   white-space: nowrap;
-  flex-shrink: 0;
+  flex-shrink: 0; /* Статистика не будет сжиматься */
 }
-
 
 .invite-image {
   margin-top: 50px; /* Уменьшили отступ */
