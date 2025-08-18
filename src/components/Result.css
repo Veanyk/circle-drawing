@@ -8,10 +8,10 @@
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding: 20px; /* Оставляем боковые отступы */
+  padding: 20px;
   box-sizing: border-box;
   width: 100%;
-  padding-top: 14vh; /* <-- УСТАНАВЛИВАЕМ ТОЧНО ТАКОЕ ЖЕ ЗНАЧЕНИЕ, КАК В CANVAS.CSS */
+  padding-top: 0; /* <-- УБИРАЕМ ВЕРХНИЙ ОТСТУП */
 }
 
 /* Родительский контейнер для круга, PNG и текста */

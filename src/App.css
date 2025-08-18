@@ -140,6 +140,35 @@ body {
   text-shadow: 2px 2px 4px #000000;
 }
 
+.app-header {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  z-index: 1000;
+  pointer-events: none; /* Делаем шапку "прозрачной" для кликов, чтобы не мешать канвасу */
+}
+
+/* Переносим стили для баннеров из position: fixed в обычные */
+.coins-display,
+.attempts-display {
+  position: relative;
+  top: 0;
+  right: 0;
+  pointer-events: auto; /* Возвращаем кликабельность баннерам */
+}
+
+/* Стили для нового круга в шапке */
+.result-image-header {
+  position: relative;
+  width: 150px;
+  height: auto;
+  pointer-events: auto;
+}
+
 /* Адаптивность для мобильных */
 @media (max-width: 768px) {
   .timer-display {
@@ -149,5 +178,13 @@ body {
   }
   .timer-text {
     font-size: 14px;
+  }
+  .app-header {
+    top: 5px;
+    left: 5px;
+    right: 5px;
+  }
+  .result-image-header {
+    width: 100px;
   }
 }

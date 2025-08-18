@@ -78,13 +78,33 @@ const values = obj => Object.values(obj || {}).filter(v => v && typeof v === 'ob
 // ---------- Regen attempts (ровно 1 за тик) ----------
 function regenAttempts(u) {
   const now = Date.now();
-  if (u.attempts < u.max_attempts && u.nextAttemptTimestamp && now >= u.nextAttemptTimestamp) {
-    u.attempts += 1;
-    if (u.attempts >= u.max_attempts) {
-      u.nextAttemptTimestamp = null;
-    } else {
-      const next = u.nextAttemptTimestamp + ATTEMPT_REGEN_INTERVAL_MS;
-      u.nextAttemptTimestamp = next > now ? next : now + ATTEMPT_REGEN_INTERVAL_MS;
+
+  // Полны — таймер не нужен
+  if (u.attempts >= u.max_attempts) {
+    u.nextAttemptTimestamp = null;
+    return;
+  }
+
+  // Таймера нет — стартуем его
+  if (!u.nextAttemptTimestamp) {
+    u.nextAttemptTimestamp = now + ATTEMPT_REGEN_INTERVAL_MS;
+    return;
+  }
+
+  // Ещё не пора — выходим
+  if (now < u.nextAttemptTimestamp) return;
+
+  // Сколько «тиков» прошло с момента следующего восстановления
+  const ticks = Math.floor((now - u.nextAttemptTimestamp) / ATTEMPT_REGEN_INTERVAL_MS) + 1;
+
+  u.attempts = Math.min(u.max_attempts, u.attempts + ticks);
+
+  if (u.attempts >= u.max_attempts) {
+    u.nextAttemptTimestamp = null;
+  } else {
+    u.nextAttemptTimestamp = u.nextAttemptTimestamp + ticks * ATTEMPT_REGEN_INTERVAL_MS;
+    if (u.nextAttemptTimestamp <= now) {
+      u.nextAttemptTimestamp = now + ATTEMPT_REGEN_INTERVAL_MS;
     }
   }
 }

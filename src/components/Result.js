@@ -21,18 +21,6 @@ const Result = ({ score, onReset, drawing, userId }) => {
 
   return (
     <div className="result-container">
-      <div className="result-image">
-        <div className="result-circle-dynamic" style={circleStyle}></div>
-        <img
-          src={resultCircleImage}
-          alt="Result"
-          className="result-circle-image"
-        />
-        <div className="result-text-overlay">
-          {score}%
-        </div>
-      </div>
-
       <p className="circle-accuracy-text">
         Your circle is {score}% accurate
       </p>

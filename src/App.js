@@ -22,6 +22,25 @@ const getBrowserUserId = () => {
   return userId;
 };
 
+const ScoreCircle = ({ score }) => {
+  const angle = (score / 100) * 360;
+  const circleStyle = {
+    backgroundImage: `conic-gradient(#BE5200 ${angle}deg, #ffffff ${angle}deg 360deg)`,
+  };
+
+  return (
+    <div className="result-image-header">
+      <div className="result-circle-dynamic" style={circleStyle}></div>
+      <img
+        src={require('./assets/result_circle.png')}
+        alt="Result"
+        className="result-circle-image"
+      />
+      <div className="result-text-overlay">{score}%</div>
+    </div>
+  );
+};
+
 function App() {
   // --- Состояния компонента ---
   const [score, setScore] = useState(null);
@@ -89,7 +108,9 @@ function App() {
           setAttempts(data.attempts || 0);
           setMaxAttempts(data.max_attempts || 25);
           setCompletedTasks(data.completed_tasks || []);
-          setNextAttemptTimestamp(data.nextAttemptTimestamp || null);
+          setNextAttemptTimestamp(
+              Number.isFinite(Number(data.nextAttemptTimestamp)) ? Number(data.nextAttemptTimestamp) : null
+            );
         }
       })
       .catch(err => console.error('Ошибка при получении данных пользователя:', err));
@@ -106,7 +127,8 @@ function App() {
 
     const timerInterval = setInterval(() => {
       const now = Date.now();
-      const timeLeft = Math.round((nextAttemptTimestamp - now) / 1000);
+      const ts = Number(nextAttemptTimestamp);
+      const timeLeft = Math.max(0, Math.ceil((ts - Date.now()) / 1000));
 
       if (timeLeft <= 0) {
         // Время вышло. Перезагружаем данные с сервера, чтобы получить новые попытки
@@ -163,10 +185,8 @@ function App() {
     updateUserDataOnServer({
       coins: newCoins,
       attempts: newAttempts,
-      score: circleAccuracy,
-      nextAttemptTimestamp: newTimestamp
+      score: circleAccuracy
     });
-  };
 
   const onReset = () => {
     setScore(null);
@@ -192,58 +212,42 @@ function App() {
 
   return (
     <div className="App">
-    {currentTab === 'circle' && (
-      <>
-        <div className="coins-display">
-          <div className="banner-container">
-            <img src={require('./assets/total_coins.png')} alt="Total coins" className="banner-icon" />
-            <span className="banner-text">{coins.toFixed(2)}</span>
-          </div>
-        </div>
-        <div className="attempts-display">
-          <div className="banner-container">
-            <img src={require('./assets/total_attempts.png')} alt="Total attempts" className="banner-icon" />
-            <span className="banner-text">{attempts}/{maxAttempts}</span>
-          </div>
-          {/* Вот наш таймер, теперь он в правильном месте */}
-          {timeToNextAttempt && (
-            <div className="timer-display">
-              <span className="timer-text">{timeToNextAttempt}</span>
+      {/* --- ШАПКА ПРИЛОЖЕНИЯ --- */}
+      {currentTab === 'circle' && (
+        <div className="app-header">
+          {/* Если есть результат, показываем круг с процентами */}
+          {score !== null ? (
+            <ScoreCircle score={score} />
+          ) : (
+            /* Если результата нет, показываем баннер с монетами */
+            <div className="coins-display">
+              <div className="banner-container">
+                <img src={require('./assets/total_coins.png')} alt="Total coins" className="banner-icon" />
+                <span className="banner-text">{coins.toFixed(2)}</span>
+              </div>
             </div>
           )}
+
+          {/* Баннер с попытками и таймер показываем всегда на этой вкладке */}
+          <div className="attempts-display">
+            <div className="banner-container">
+              <img src={require('./assets/total_attempts.png')} alt="Total attempts" className="banner-icon" />
+              <span className="banner-text">{attempts}/{maxAttempts}</span>
+            </div>
+            {timeToNextAttempt && (
+              <div className="timer-display">
+                <span className="timer-text">{timeToNextAttempt}</span>
+              </div>
+            )}
+          </div>
         </div>
-      </>
-    )}
-    <div className="main-content">
-      <div className={`tab-pane ${currentTab === 'circle' ? 'active' : ''}`}>
-        {score === null ? (
-          <Canvas onDrawEnd={onDrawEnd} attempts={attempts} />
-        ) : (
-          <Result
-            score={score}
-            onReset={onReset}
-            drawing={drawingData}
-            userId={userId}
-          />
-        )}
+      )}
+
+      {/* --- ОСНОВНОЙ КОНТЕНТ --- */}
+      <div className="main-content">
+        {/* ... остальная часть вашего return без изменений ... */}
       </div>
 
-        <div className={`tab-pane ${currentTab === 'tasks' ? 'active' : ''}`}>
-          <Tasks
-            onTaskComplete={onTaskComplete}
-            completedTasks={completedTasks}
-            setCurrentTab={setCurrentTab}
-          />
-        </div>
-        <div className={`tab-pane ${currentTab === 'referrals' ? 'active' : ''}`}>
-          <Referrals
-            userId={userId} // Передаем userId в Referrals, если он там нужен
-          />
-        </div>
-        <div className={`tab-pane ${currentTab === 'leaderboards' ? 'active' : ''}`}>
-          <Leaderboards userId={userId} />
-        </div>
-      </div>
       <TabBar currentTab={currentTab} setCurrentTab={setCurrentTab} />
     </div>
   );
