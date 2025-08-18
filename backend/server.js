@@ -37,6 +37,8 @@ const ORIGIN_PATTERNS = [
   /^https?:\/\/web\.telegram\.org$/i,
   /^https?:\/\/t\.me$/i,
   /^https?:\/\/desktop\.telegram\.org$/i,
+  /^https?:\/\/appassets\.androidplatform\.net$/i,
+  /^https?:\/\/webapp\.telegram\.org$/i,
 ];
 
 const corsOptions = {
@@ -75,37 +77,53 @@ function readDb() {
 function writeDb(data) { fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2)); }
 const values = obj => Object.values(obj || {}).filter(v => v && typeof v === 'object');
 
+function normalizeUser(u) {
+  const n = { ...u };
+  n.max_attempts = Number.isFinite(n.max_attempts) && n.max_attempts > 0 ? Math.floor(n.max_attempts) : 25;
+
+  if (!Number.isFinite(n.attempts) || n.attempts < 0) n.attempts = n.max_attempts;
+  n.attempts = Math.min(n.max_attempts, Math.floor(n.attempts));
+
+  if (!Array.isArray(n.completed_tasks)) n.completed_tasks = [];
+  if (!Array.isArray(n.referrals)) n.referrals = [];
+  if (!Number.isFinite(n.best_score)) n.best_score = 0;
+  if (!Number.isFinite(n.coins)) n.coins = 0;
+
+  // Чётко: либо number>0, либо null
+  if (!(typeof n.nextAttemptTimestamp === 'number' && isFinite(n.nextAttemptTimestamp) && n.nextAttemptTimestamp > 0)) {
+    n.nextAttemptTimestamp = null;
+  }
+  return n;
+}
+
 // ---------- Regen attempts (ровно 1 за тик) ----------
 function regenAttempts(u) {
+  // на всякий случай — ещё раз страховка
+  u.max_attempts = Math.max(1, Math.floor(u.max_attempts || 25));
+  u.attempts = Math.max(0, Math.min(u.max_attempts, Math.floor(u.attempts || 0)));
+
   const now = Date.now();
 
-  // Полны — таймер не нужен
   if (u.attempts >= u.max_attempts) {
     u.nextAttemptTimestamp = null;
     return;
   }
 
-  // Таймера нет — стартуем его
   if (!u.nextAttemptTimestamp) {
     u.nextAttemptTimestamp = now + ATTEMPT_REGEN_INTERVAL_MS;
     return;
   }
 
-  // Ещё не пора — выходим
   if (now < u.nextAttemptTimestamp) return;
 
-  // Сколько «тиков» прошло с момента следующего восстановления
   const ticks = Math.floor((now - u.nextAttemptTimestamp) / ATTEMPT_REGEN_INTERVAL_MS) + 1;
-
   u.attempts = Math.min(u.max_attempts, u.attempts + ticks);
 
   if (u.attempts >= u.max_attempts) {
     u.nextAttemptTimestamp = null;
   } else {
     u.nextAttemptTimestamp = u.nextAttemptTimestamp + ticks * ATTEMPT_REGEN_INTERVAL_MS;
-    if (u.nextAttemptTimestamp <= now) {
-      u.nextAttemptTimestamp = now + ATTEMPT_REGEN_INTERVAL_MS;
-    }
+    if (u.nextAttemptTimestamp <= now) u.nextAttemptTimestamp = now + ATTEMPT_REGEN_INTERVAL_MS;
   }
 }
 
@@ -142,19 +160,24 @@ app.post('/getUserData', (req, res) => {
         db[ref_id].referrals = Array.isArray(db[ref_id].referrals) ? db[ref_id].referrals : [];
         if (!db[ref_id].referrals.includes(user_id)) db[ref_id].referrals.push(user_id);
       }
-    } else if (ref_id && !user.referrer_id && ref_id !== user_id) {
-      user.referrer_id = ref_id;
-      if (db[ref_id]) {
-        db[ref_id].referrals = Array.isArray(db[ref_id].referrals) ? db[ref_id].referrals : [];
-        if (!db[ref_id].referrals.includes(user_id)) db[ref_id].referrals.push(user_id);
+    } else {
+      // NEW: нормализация на чтении (лечит сломанные записи)
+      user = normalizeUser(user);
+
+      if (ref_id && !user.referrer_id && ref_id !== user_id) {
+        user.referrer_id = ref_id;
+        if (db[ref_id]) {
+          db[ref_id].referrals = Array.isArray(db[ref_id].referrals) ? db[ref_id].referrals : [];
+          if (!db[ref_id].referrals.includes(user_id)) db[ref_id].referrals.push(user_id);
+        }
       }
     }
 
-    // regen
     regenAttempts(user);
 
+    db[user_id] = user; // зафиксируем миграцию/регент
     writeDb(db);
-    // не засоряем БД вычисляемым полем
+
     const response = { ...user, walletEligible: (user.coins || 0) >= 100 };
     res.json(response);
   } catch (e) {
@@ -173,49 +196,34 @@ app.post('/updateUserData', (req, res) => {
     const prev = db[user_id];
     if (!prev) return res.status(404).json({ error: 'Пользователь не найден' });
 
-    const now = Date.now();
-    const u = { ...prev };
+    // NEW: нормализуем предыдущее состояние
+    const u = normalizeUser({ ...prev });
 
-    // Попытки: только уменьшение
-    if (typeof data.attempts === 'number' && Number.isFinite(data.attempts)) {
-      const nextAttempts = Math.max(0, Math.min(prev.max_attempts, Math.floor(data.attempts)));
-      if (nextAttempts < prev.attempts) {
-        u.attempts = nextAttempts;
-        if (prev.attempts === prev.max_attempts && nextAttempts === prev.max_attempts - 1 && !prev.nextAttemptTimestamp) {
-          u.nextAttemptTimestamp = now + ATTEMPT_REGEN_INTERVAL_MS;
-        }
+    // попытки
+    if (typeof data.attempts === 'number' && data.attempts < u.attempts) {
+      u.attempts = Math.max(0, Math.floor(data.attempts));
+      if (u.attempts < u.max_attempts && !u.nextAttemptTimestamp) {
+        u.nextAttemptTimestamp = Date.now() + ATTEMPT_REGEN_INTERVAL_MS;
       }
     }
 
-    // Coins
     if (typeof data.coins === 'number' && Number.isFinite(data.coins)) {
       u.coins = Math.max(0, data.coins);
     }
-
-    // Completed tasks
     if (Array.isArray(data.completed_tasks)) {
       u.completed_tasks = Array.from(new Set(data.completed_tasks));
     }
-
-    // Best score
-    if (typeof data.score === 'number' && Number.isFinite(data.score) && data.score > (prev.best_score || 0)) {
+    if (typeof data.score === 'number' && data.score > (u.best_score || 0)) {
       u.best_score = data.score;
     }
-
-    // Не позволяем менять кошелёк через этот маршрут
-    if (typeof data.wallet !== 'undefined' || typeof data.wallet_updated_at !== 'undefined') {
-      console.warn('Ignored wallet field in updateUserData');
-    }
-
-    // regen
-    regenAttempts(u);
 
     // Реф. бонус
     const earned = (u.coins || 0) - (prev.coins || 0);
     if (earned > 0 && prev.referrer_id && db[prev.referrer_id]) {
-      const ref = db[prev.referrer_id];
+      const ref = normalizeUser(db[prev.referrer_id]);
       const bonus = earned * 0.05;
       ref.coins = (ref.coins || 0) + bonus;
+      db[prev.referrer_id] = ref;
       console.log(`Начислен бонус ${bonus.toFixed(4)} монет пользователю ${ref.user_id} от реферала ${user_id}`);
     }
 

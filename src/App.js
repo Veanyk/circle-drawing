@@ -102,7 +102,11 @@ function App() {
           setAttempts(data.attempts || 0);
           setMaxAttempts(data.max_attempts || 25);
           setCompletedTasks(data.completed_tasks || []);
-          setNextAttemptTimestamp(Number.isFinite(Number(data.nextAttemptTimestamp)) ? Number(data.nextAttemptTimestamp) : null);
+          const rawTs = data?.nextAttemptTimestamp;
+          const parsedTs = typeof rawTs === 'number'
+            ? rawTs
+            : (typeof rawTs === 'string' ? parseInt(rawTs, 10) : NaN);
+          setNextAttemptTimestamp(Number.isFinite(parsedTs) && parsedTs > 0 ? parsedTs : null);
         }
       })
       .catch(err => console.error('Ошибка при получении данных пользователя:', err));
@@ -168,8 +172,7 @@ function App() {
     updateUserDataOnServer({
       coins: newCoins,
       attempts: newAttempts,
-      score: circleAccuracy,
-      nextAttemptTimestamp: newTimestamp
+      score: circleAccuracy
     });
   };
 
