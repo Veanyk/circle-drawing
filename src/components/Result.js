@@ -45,7 +45,7 @@ const Result = ({ score, onReset, drawing, userId }) => {
             className="share-results-image"
           />
           <div className="social-icons">
-            <TwitterShareButton url={simpleRefLink} title={shareText}>
+            <TwitterShareButton url={shareUrl} title={shareText}>
               <img src={twitterIcon} alt="Twitter" className="social-icon" />
             </TwitterShareButton>
             <a href={telegramShareUrl} target="_blank" rel="noopener noreferrer">
