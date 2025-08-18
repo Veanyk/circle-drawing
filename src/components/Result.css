@@ -65,7 +65,7 @@
   font-family: 'Gloria Hallelujah', cursive;
   color: #000000;
   font-size: 21px; /* Уменьшили размер */
-  margin: 2px 0;   /* Уменьшили вертикальные отступы */
+  margin: 1px 0;   /* Уменьшили вертикальные отступы */
   text-align: center;
   line-height: 1.2; /* Сделали строки ближе друг к другу */
 }
@@ -75,8 +75,8 @@
   width: 80vw; /* Задаем те же размеры, что и у холста для рисования */
   max-width: 500px;
   aspect-ratio: 1 / 1; /* Делаем контейнер квадратным */
-  margin-top: 15px;
-  margin-bottom: 20px;
+  margin-top: 6px;
+  margin-bottom: 10px;
   background-image: url('../assets/drawing_field.png'); /* Задаем фон-доску */
   background-size: 100% 100%;
   border-radius: 10px;
@@ -94,7 +94,7 @@
 .buttons {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   width: 100%;
   max-width: 300px;
 }
@@ -125,7 +125,7 @@
 
 /* Адаптивная верстка */
 @media (max-width: 768px) {
-    .result-container { padding-top: 100px; }
+    .result-container { padding-top: 105px; }
     .social-icon {
     width: 30px;
     height: 30px;
@@ -148,7 +148,7 @@
     .circle-accuracy-text,
     .earned-tokens-text {
     font-size: 18px;
-    margin: 6px 0;
+    margin: 1px 0;
     }
 
     .button-icon {
