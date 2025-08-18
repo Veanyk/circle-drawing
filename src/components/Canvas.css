@@ -2,16 +2,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: flex-start; /* <-- ИЗМЕНЕНИЕ: Прижимаем к верху */
   box-sizing: border-box;
   width: 100%;
-  padding-top: 14vh;        /* было 20vh — приподняли доску выше */
+  padding-top: 10vh; /* <-- ЗАДАЕМ ВЕРХНИЙ ОТСТУП: 10% от высоты экрана */
   padding-bottom: 20px;
-}
-
-/* немного выше ещё на очень маленьких экранах */
-@media (max-width: 480px) {
-  .canvas-container { padding-top: 12vh; }
 }
 
 .draw-circle-image {
@@ -67,7 +62,7 @@
 @media (max-width: 768px) {
   .draw-circle-image {
     width: 80%; /* Уменьшаем ширину до 80% от родительского контейнера */
-    max-width: 300px; /* Максимальная ширина 300px */
+    max-width: 340px; /* Максимальная ширина 300px */
     margin-bottom: 15px; /* Возможно, уменьшение отступа */
   }
 }

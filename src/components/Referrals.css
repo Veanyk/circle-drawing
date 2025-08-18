@@ -103,8 +103,13 @@
   font-family: 'Gloria Hallelujah', cursive;
 }
 
-.referrals-list li.ref-item:last-child {
-  border-bottom: none;
+.referrals-list li.ref-item {
+  display: flex; /* Заставляет дочерние элементы выстраиваться в строку */
+  justify-content: space-between; /* Расталкивает имя влево, а статистику вправо */
+  align-items: center; /* Выравнивает их по центру по вертикали */
+  padding: 10px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.3);
+  font-size: 16px;
 }
 
 .referrals-list li.ref-item:last-child {
@@ -115,19 +120,22 @@
   content: none;
 }
 
+/* Стили для имени реферала */
 .ref-name {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding-right: 15px; /* Отступ, чтобы имя не сливалось со статистикой */
+  padding-right: 15px;
 }
 
+/* Контейнер для статистики */
 .ref-stats {
-  display: flex; /* Располагаем метрики в строку */
-  gap: 15px; /* Пространство между "Accuracy" и "Tokens" */
+  display: flex;
+  gap: 15px;
   white-space: nowrap;
-  flex-shrink: 0; /* Запрещаем блоку сжиматься */
+  flex-shrink: 0;
 }
+
 
 .invite-image {
   margin-top: 50px; /* Уменьшили отступ */
