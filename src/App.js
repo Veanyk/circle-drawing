@@ -229,15 +229,14 @@ function App() {
           )}
 
           {/* Баннер с попытками и таймер показываем всегда на этой вкладке */}
-          <div className="attempts-display">
-            <div className="banner-container">
-              <img src={require('./assets/total_attempts.png')} alt="Total attempts" className="banner-icon" />
-              <span className="banner-text">{attempts}/{maxAttempts}</span>
-            </div>
+        <div className="attempts-display">
+          <div className="banner-container">
+            <img src={require('./assets/total_attempts.png')} alt="Total attempts" className="banner-icon" />
+            <span className="banner-text">{attempts}/{maxAttempts}</span>
             {timeToNextAttempt && (
-              <div className="timer-display">
-                <span className="timer-text">{timeToNextAttempt}</span>
-              </div>
+              <span className="timer-chip" title="До следующей попытки">
+                {timeToNextAttempt}
+              </span>
             )}
           </div>
         </div>
