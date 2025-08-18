@@ -11,7 +11,7 @@
   padding: 20px;
   box-sizing: border-box;
   width: 100%;
-  padding-top: 100px;
+  padding-top: 120px;
 }
 
 /* Родительский контейнер для круга, PNG и текста */
@@ -125,25 +125,25 @@
 
 /* Адаптивная верстка */
 @media (max-width: 768px) {
-    .result-container { padding-top: 80px; }
+    .result-container { padding-top: 100px; }
     .social-icon {
-    width: 40px;
-    height: 40px;
+    width: 30px;
+    height: 30px;
     }
     .result-image {
-      width: 70px; /* Уменьшили */
-      height: 70px; /* Уменьшили */
+      width: 60px; /* Уменьшили */
+      height: 60px; /* Уменьшили */
     }
     .result-circle-dynamic {
-      width: 70px; /* Уменьшили */
-      height: 70px; /* Уменьшили */
+      width: 60px; /* Уменьшили */
+      height: 60px; /* Уменьшили */
     }
     .result-circle-image {
-      width: 70px; /* Уменьшили */
-      height: 70px; /* Уменьшили */
+      width: 60px; /* Уменьшили */
+      height: 60px; /* Уменьшили */
     }
     .result-text-overlay {
-      font-size: 28px; /* Уменьшили */
+      font-size: 26px; /* Уменьшили */
     }
     .circle-accuracy-text,
     .earned-tokens-text {
@@ -156,6 +156,6 @@
     }
 
     .share-results-image {
-    max-width: 200px;
+    max-width: 160px;
     }
 }
