@@ -169,24 +169,23 @@ function App() {
     const newCoins = coins + tokensEarned;
 
     let newTimestamp = nextAttemptTimestamp;
-    // Если мы только что потратили попытку, когда они были полные, запускаем таймер
     if (attempts === maxAttempts) {
       newTimestamp = Date.now() + ATTEMPT_REGEN_INTERVAL_MS;
-      setNextAttemptTimestamp(newTimestamp); // Немедленно обновляем, чтобы запустить таймер
+      setNextAttemptTimestamp(newTimestamp);
     }
 
-    // Оптимистичное обновление UI
     setScore(circleAccuracy);
     setDrawingData(canvas.toDataURL());
     setCoins(newCoins);
     setAttempts(newAttempts);
 
-    // Отправка данных на сервер
     updateUserDataOnServer({
       coins: newCoins,
       attempts: newAttempts,
-      score: circleAccuracy
+      score: circleAccuracy,
+      nextAttemptTimestamp: newTimestamp
     });
+  };
 
   const onReset = () => {
     setScore(null);
@@ -212,23 +211,14 @@ function App() {
 
   return (
     <div className="App">
-      {/* --- ШАПКА ПРИЛОЖЕНИЯ --- */}
-      {currentTab === 'circle' && (
-        <div className="app-header">
-          {/* Если есть результат, показываем круг с процентами */}
-          {score !== null ? (
-            <ScoreCircle score={score} />
-          ) : (
-            /* Если результата нет, показываем баннер с монетами */
-            <div className="coins-display">
-              <div className="banner-container">
-                <img src={require('./assets/total_coins.png')} alt="Total coins" className="banner-icon" />
-                <span className="banner-text">{coins.toFixed(2)}</span>
-              </div>
-            </div>
-          )}
-
-          {/* Баннер с попытками и таймер показываем всегда на этой вкладке */}
+    {currentTab === 'circle' && (
+      <>
+        <div className="coins-display">
+          <div className="banner-container">
+            <img src={require('./assets/total_coins.png')} alt="Total coins" className="banner-icon" />
+            <span className="banner-text">{coins.toFixed(2)}</span>
+          </div>
+        </div>
         <div className="attempts-display">
           <div className="banner-container">
             <img src={require('./assets/total_attempts.png')} alt="Total attempts" className="banner-icon" />
@@ -240,13 +230,38 @@ function App() {
             )}
           </div>
         </div>
-      )}
-
-      {/* --- ОСНОВНОЙ КОНТЕНТ --- */}
-      <div className="main-content">
-        {/* ... остальная часть вашего return без изменений ... */}
+      </>
+    )}
+    <div className="main-content">
+      <div className={`tab-pane ${currentTab === 'circle' ? 'active' : ''}`}>
+        {score === null ? (
+          <Canvas onDrawEnd={onDrawEnd} attempts={attempts} />
+        ) : (
+          <Result
+            score={score}
+            onReset={onReset}
+            drawing={drawingData}
+            userId={userId}
+          />
+        )}
       </div>
 
+        <div className={`tab-pane ${currentTab === 'tasks' ? 'active' : ''}`}>
+          <Tasks
+            onTaskComplete={onTaskComplete}
+            completedTasks={completedTasks}
+            setCurrentTab={setCurrentTab}
+          />
+        </div>
+        <div className={`tab-pane ${currentTab === 'referrals' ? 'active' : ''}`}>
+          <Referrals
+            userId={userId} // Передаем userId в Referrals, если он там нужен
+          />
+        </div>
+        <div className={`tab-pane ${currentTab === 'leaderboards' ? 'active' : ''}`}>
+          <Leaderboards userId={userId} />
+        </div>
+      </div>
       <TabBar currentTab={currentTab} setCurrentTab={setCurrentTab} />
     </div>
   );

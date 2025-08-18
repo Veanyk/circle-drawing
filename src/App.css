@@ -84,6 +84,48 @@ body {
   100% { transform: translate(-50%, -50%) rotate(0deg); }
 }
 
+.main-content {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding-bottom: 90px; /* <-- Устанавливаем точный отступ, соответствующий новой высоте TabBar */
+  padding-top: 20px;
+}
+.tab-pane {
+  display: none;
+}
+
+/* 2. Но вкладка, у которой есть класс "active", становится видимой. */
+.tab-pane.active {
+  display: block;
+}
+
+/* 4. Стили для окна результата, чтобы оно появлялось поверх канваса */
+.result-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+
+  /* Добавляем анимацию появления */
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.timer-display {
+  position: fixed;
+  top: 120px;
+  right: 20px;
+}
+
+.timer-text {
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: bold;
+  font-family: 'Gloria Hallelujah', cursive;
+  text-shadow: 2px 2px 4px #000000;
+}
+
+/* Адаптивность для мобильных */
 @media (max-width: 768px) {
   html, body {
     overflow: hidden;
@@ -108,88 +150,12 @@ body {
     top: 60px; /* Уменьшаем верхний отступ */
     right: 5px; /* Уменьшаем правый отступ */
   }
-}
-.main-content {
-  flex-grow: 1;
-  overflow-y: auto;
-  padding-bottom: 90px; /* <-- Устанавливаем точный отступ, соответствующий новой высоте TabBar */
-  padding-top: 20px;
-}
-.tab-pane {
-  display: none;
-}
 
-/* 2. Но вкладка, у которой есть класс "active", становится видимой. */
-.tab-pane.active {
-  display: block;
-}
-.app-header {
-  position: fixed;
-  top: 10px;
-  left: 10px;
-  right: 10px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  z-index: 1000;
-  pointer-events: none; /* Делаем шапку "прозрачной" для кликов, чтобы не мешать канвасу */
-}
-
-/* Переносим стили для баннеров из position: fixed в обычные */
-.coins-display,
-.attempts-display {
-  position: relative;
-  top: 0;
-  right: 0;
-  pointer-events: auto; /* Возвращаем кликабельность баннерам */
-}
-
-/* Стили для нового круга в шапке */
-.result-image-header {
-  position: relative;
-  width: 150px;
-  height: auto;
-  pointer-events: auto;
-}
-
-/* Для абсолютного позиционирования поверх баннера */
-.attempts-display .banner-container {
-  position: relative;
-}
-
-/* Плашка таймера в правом нижнем углу баннера попыток */
-.timer-chip {
-  position: absolute;
-  right: 8px;
-  bottom: 6px;
-  padding: 2px 8px;
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.65);
-  color: #ffffff;
-  font-size: 16px;
-  font-weight: bold;
-  font-family: 'Gloria Hallelujah', cursive;
-  line-height: 1.2;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.6);
-  z-index: 2;
-  pointer-events: none; /* чтобы не мешал кликам по канвасу */
-}
-
-
-/* Адаптивность для мобильных */
-@media (max-width: 768px) {
-  .app-header {
-    top: 5px;
-    left: 5px;
-    right: 5px;
+  .timer-display {
+    top: 98px;
+    right: 15px;
   }
-  .result-image-header {
-    width: 100px;
-  }
-  .timer-chip {
-    font-size: 12px;
-    right: 6px;
-    bottom: 4px;
-    padding: 2px 6px;
+  .timer-text {
+    font-size: 14px;
   }
 }

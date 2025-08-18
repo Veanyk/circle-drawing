@@ -21,11 +21,15 @@ const Result = ({ score, onReset, drawing, userId }) => {
 
 return (
   <div className="result-container">
-    <div className="result-image result-image--floating" aria-hidden="true">
-      <div className="result-circle-dynamic" style={circleStyle} />
-      <img src={resultCircleImage} alt="" className="result-circle-image" draggable="false" />
-      <div className="result-text-overlay">{Math.round(score)}%</div>
-    </div>
+     <div className="result-image result-image--floating">
+            <div className="result-circle-dynamic" style={circleStyle}></div>
+            <img
+              src={resultCircleImage}
+              alt="Result"
+              className="result-circle-image"
+            />
+            <div className="result-text-overlay">{score}%</div>
+     </div>
       <p className="circle-accuracy-text">
         Your circle is {score}% accurate
       </p>

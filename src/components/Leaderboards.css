@@ -102,19 +102,21 @@
 /* Контейнер для правой части (статистики) */
 .col-stats {
   display: flex;
-  justify-content: flex-end; /* Выравниваем содержимое по правому краю */
-  gap: 20px; /* Расстояние между точностью и токенами */
+  justify-content: flex-end;
   white-space: nowrap;
-
-  /* Сдвигаем весь блок статистики влево */
-  padding-right: 15px; /* Можете настроить это значение. 10px сдвинет Accuracy, 25px - Tokens */
 }
 
-/* Убираем индивидуальные отступы, так как теперь есть gap и padding у родителя */
-.col-acc, .col-tok {
-  padding-right: 0;
+/* Задаем индивидуальные отступы для каждой колонки */
+.col-acc {
   text-align: right;
+  padding-right: 25px;
 }
+
+.col-tok {
+  text-align: right;
+  padding-right: 10px;
+}
+
 /* прячем шапку столбцов */
 .lb-head {
   display: none;
