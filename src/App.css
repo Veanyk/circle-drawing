@@ -138,7 +138,7 @@ body {
 
 .timer-display {
   position: fixed;
-  top: 110px;            /* было 135px — подняли ближе к блоку попыток */
+  top: 105px;            /* было 135px — подняли ближе к блоку попыток */
   right: 0px;
   width: 150px;
   text-align: center;
@@ -200,7 +200,7 @@ body {
   .score-circle-dynamic, .score-circle-image { width: 96px; height: 96px; }
   .score-circle-text { font-size: 26px; }
   .timer-display {
-    top: 95px;   /* было 110px — тоже поднимаем ближе */
+    top: 90px;   /* было 110px — тоже поднимаем ближе */
     right: 0px;
     width: 100px;
     z-index: 1001;
