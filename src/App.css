@@ -84,6 +84,31 @@ body {
   100% { transform: translate(-50%, -50%) rotate(0deg); }
 }
 
+@media (max-width: 768px) {
+  html, body {
+    overflow: hidden;
+  }
+
+  .banner-icon {
+    width: 100px;
+    height: auto;
+  }
+
+  .banner-text {
+    font-size: 16px;
+  }
+
+  /* Добавляем уменьшенные отступы для маленьких экранов */
+  .coins-display {
+    top: 5px; /* Уменьшаем верхний отступ */
+    right: 5px; /* Уменьшаем правый отступ */
+  }
+
+  .attempts-display {
+    top: 60px; /* Уменьшаем верхний отступ */
+    right: 5px; /* Уменьшаем правый отступ */
+  }
+}
 .main-content {
   flex-grow: 1;
   overflow-y: auto;
@@ -113,8 +138,10 @@ body {
 
 .timer-display {
   position: fixed;
-  top: 120px;
-  right: 20px;
+  top: 135px; /* Располагаем под баннером с попытками */
+  right: 10px;
+  width: 150px; /* Такая же ширина, как у баннера */
+  text-align: center;
 }
 
 .timer-text {
@@ -127,33 +154,10 @@ body {
 
 /* Адаптивность для мобильных */
 @media (max-width: 768px) {
-  html, body {
-    overflow: hidden;
-  }
-
-  .banner-icon {
-    width: 100px;
-    height: auto;
-  }
-
-  .banner-text {
-    font-size: 16px;
-  }
-
-  /* Добавляем уменьшенные отступы для маленьких экранов */
-  .coins-display {
-    top: 5px; /* Уменьшаем верхний отступ */
-    right: 5px; /* Уменьшаем правый отступ */
-  }
-
-  .attempts-display {
-    top: 60px; /* Уменьшаем верхний отступ */
-    right: 5px; /* Уменьшаем правый отступ */
-  }
-
   .timer-display {
-    top: 98px;
-    right: 15px;
+    top: 110px; /* Подгоняем под мобильные размеры */
+    right: 5px;
+    width: 100px;
   }
   .timer-text {
     font-size: 14px;

@@ -169,23 +169,24 @@ function App() {
     const newCoins = coins + tokensEarned;
 
     let newTimestamp = nextAttemptTimestamp;
+    // Если мы только что потратили попытку, когда они были полные, запускаем таймер
     if (attempts === maxAttempts) {
       newTimestamp = Date.now() + ATTEMPT_REGEN_INTERVAL_MS;
-      setNextAttemptTimestamp(newTimestamp);
+      setNextAttemptTimestamp(newTimestamp); // Немедленно обновляем, чтобы запустить таймер
     }
 
+    // Оптимистичное обновление UI
     setScore(circleAccuracy);
     setDrawingData(canvas.toDataURL());
     setCoins(newCoins);
     setAttempts(newAttempts);
 
+    // Отправка данных на сервер
     updateUserDataOnServer({
       coins: newCoins,
       attempts: newAttempts,
-      score: circleAccuracy,
-      nextAttemptTimestamp: newTimestamp
+      score: circleAccuracy
     });
-  };
 
   const onReset = () => {
     setScore(null);
@@ -223,12 +224,12 @@ function App() {
           <div className="banner-container">
             <img src={require('./assets/total_attempts.png')} alt="Total attempts" className="banner-icon" />
             <span className="banner-text">{attempts}/{maxAttempts}</span>
-            {timeToNextAttempt && (
-              <span className="timer-chip" title="До следующей попытки">
-                {timeToNextAttempt}
-              </span>
-            )}
           </div>
+          {timeToNextAttempt && (
+            <div className="timer-display">
+              <span className="timer-text">{timeToNextAttempt}</span>
+            </div>
+          )}
         </div>
       </>
     )}

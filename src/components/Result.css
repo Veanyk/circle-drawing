@@ -16,11 +16,10 @@
 
 /* Родительский контейнер для круга, PNG и текста */
 .result-image {
-  /* Задаем ему те же размеры, что и у плавающего круга, чтобы он занимал место */
-  width: 150px;
-  height: 150px;
-  margin-bottom: 10px;
-  flex-shrink: 0; /* Запрещаем ему сжиматься */
+  position: relative;
+  width: 100px; /* Уменьшили */
+  height: 100px; /* Уменьшили */
+  margin-bottom: 0px;
 }
 
 /* Динамический круг (градиент) — самый нижний слой */
@@ -126,12 +125,12 @@
 
 .result-image--floating {
   position: fixed;
-  top: 10px;
-  left: 10px;
-  z-index: 1001;
-  width: 150px;
+  top: 10px;      /* совпадает с верхним отступом ваших плиток */
+  left: 10px;     /* слева от поля */
+  z-index: 1001;  /* над контентом, но ниже системных оверлеев */
+  width: 150px;   /* делаем крупнее, чем базовые 100px */
   height: 150px;
-  pointer-events: none;
+  pointer-events: none; /* не мешаем кликам/жестам */
 }
 
 /* чтобы внутренности подстроились под новый размер */
@@ -145,6 +144,23 @@
   font-size: 36px;
   color: #ffffff;
   text-shadow: 2px 2px 4px rgba(0,0,0,0.6);
+}
+
+@media (max-width: 768px) {
+  .result-image--floating {
+    top: 5px;
+    left: 5px;
+    width: 110px;
+    height: 110px;
+  }
+  .result-image--floating .result-circle-dynamic,
+  .result-image--floating .result-circle-image {
+    width: 110px;
+    height: 110px;
+  }
+  .result-image--floating .result-text-overlay {
+    font-size: 28px;
+  }
 }
 
 /* Адаптивная верстка */
@@ -177,21 +193,7 @@
     .share-results-image {
     max-width: 250px;
     }
-    .result-image--floating {
-    top: 5px;
-    left: 5px;
-    width: 110px;
-    height: 110px;
-  }
-  .result-image--floating .result-circle-dynamic,
-  .result-image--floating .result-circle-image {
-    width: 110px;
-    height: 110px;
-  }
-  .result-image--floating .result-text-overlay {
-    font-size: 28px;
-  }
-}
+    }
 
 @media (max-width: 480px) {
     .result-image {
