@@ -11,7 +11,7 @@
   padding: 20px;
   box-sizing: border-box;
   width: 100%;
-  padding-top: 180px;
+  padding-top: 100px;
 }
 
 /* Родительский контейнер для круга, PNG и текста */
@@ -106,7 +106,7 @@
 }
 
 .button-icon {
-  width: 180px;
+  width: 160px;
   height: auto;
 }
 
@@ -125,6 +125,7 @@
 
 /* Адаптивная верстка */
 @media (max-width: 768px) {
+    .result-container { padding-top: 80px; }
     .social-icon {
     width: 40px;
     height: 40px;
@@ -152,7 +153,7 @@
     }
 
     .button-icon {
-    width: 150px;
+    width: 120px;
     }
 
     .share-results-image {
