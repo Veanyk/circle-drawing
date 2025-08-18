@@ -152,6 +152,7 @@ body {
   text-shadow: 2px 2px 4px #000000;
 }
 
+
 /* Адаптивность для мобильных */
 @media (max-width: 768px) {
   .timer-display {

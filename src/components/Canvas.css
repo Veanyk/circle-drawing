@@ -5,7 +5,7 @@
   justify-content: flex-start; /* <-- ИЗМЕНЕНИЕ: Прижимаем к верху */
   box-sizing: border-box;
   width: 100%;
-  padding-top: 10vh; /* <-- ЗАДАЕМ ВЕРХНИЙ ОТСТУП: 10% от высоты экрана */
+  padding-top: 20vh; /* <-- ЗАДАЕМ ВЕРХНИЙ ОТСТУП: 10% от высоты экрана */
   padding-bottom: 20px;
 }
 

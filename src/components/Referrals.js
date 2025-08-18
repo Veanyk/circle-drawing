@@ -72,6 +72,7 @@ const copyToClipboard = async () => {
       console.error('Failed to copy text: ', err);
     }
   };
+  const prettyLinkText = '✨ Your magic invite link';
 
   return (
     <div className="referrals-container">
@@ -81,7 +82,8 @@ const copyToClipboard = async () => {
       <div className="referral-link">
         <div className="link-field">
           <img src={linkImage} alt="Referral link" className="link-image" />
-          <span className="link-text">{referralLink}</span>
+          {/* --- ВОТ КЛЮЧЕВОЕ ИЗМЕНЕНИЕ --- */}
+          <span className="link-text">✨Your magic invite link</span>
         </div>
         <button className="copy-button" onClick={copyToClipboard}>
           <img src={copyImage} alt="Copy" />

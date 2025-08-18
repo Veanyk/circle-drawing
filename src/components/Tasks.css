@@ -8,10 +8,11 @@
   padding-bottom: 100px;
 }
 
-.tasks-header-image {
+.tasks-title-image {
   display: block;
   margin: 0 auto 20px auto;
-  max-width: 80%;
+  width: 100%; /* Используем проценты для адаптивности */
+  max-width: 220px; /* <-- УМЕНЬШАЕМ МАКСИМАЛЬНУЮ ШИРИНУ */
   height: auto;
 }
 

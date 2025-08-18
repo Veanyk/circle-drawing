@@ -48,7 +48,7 @@ const Tasks = React.memo(({ onTaskComplete, completedTasks, setCurrentTab }) => 
  return (
     <div className="tasks-container">
       {/* Используем импортированные изображения */}
-      <img src={allTasksHeader} alt="Все задания" className="tasks-header-image" />
+      <img src={allTasksHeader} alt="Все задания" className="tasks-title-image" />
       <div className="tasks-list">
         {tasksData.map((task) => (
           <div

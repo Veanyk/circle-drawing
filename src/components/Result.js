@@ -1,8 +1,10 @@
-import React from 'react'; // Убедитесь, что useRef и useEffect здесь НЕТ
-import { TwitterShareButton, TelegramShareButton } from 'react-share';
+// src/components/Result.js
+import React from 'react';
+import { TwitterShareButton } from 'react-share';
 import './Result.css';
 
 import resultCircleImage from '../assets/result_circle.png';
+import drawCircleImage from '../assets/draw_the_circle.png'; // 👈 добавили
 import tryAgainIcon from '../assets/try_again.png';
 import twitterIcon from '../assets/twitter_icon.png';
 import telegramIcon from '../assets/telegram_icon.png';
@@ -21,30 +23,28 @@ const Result = ({ score, onReset, drawing, userId }) => {
 
   return (
     <div className="result-container">
-      <div className="result-image">
-        <div className="result-circle-dynamic" style={circleStyle}></div>
+      {/* СПЕЙСЕР той же высоты, что подсказка над канвасом на Canvas-странице */}
+      <div className="result-header-spacer">
         <img
-          src={resultCircleImage}
-          alt="Result"
-          className="result-circle-image"
+          src={drawCircleImage}
+          alt=""
+          className="draw-circle-image"
+          aria-hidden="true"
         />
-        <div className="result-text-overlay">
-          {score}%
+        {/* Компактный бейдж поверх спейсера (не меняет высоту блока) */}
+        <div className="result-badge">
+          <div className="result-badge-circle" style={circleStyle} />
+          <img src={resultCircleImage} alt="" className="result-badge-ring" />
+          <div className="result-badge-text">{score}%</div>
         </div>
       </div>
 
-      <p className="circle-accuracy-text">
-        Your circle is {score}% accurate
-      </p>
-      <p className="earned-tokens-text">
-        You've earned {decimalTokens} tokens
-      </p>
-
-      {/* Контейнер для вашего рисунка */}
+      {/* Превью рисунка — та же геометрия, что и у канваса */}
       <div className="result-drawing-container">
         <img src={drawing} alt="Your drawing" className="result-drawing-preview" />
       </div>
 
+      {/* Кнопки */}
       <div className="buttons">
         <button className="reset-button" onClick={onReset}>
           <img src={tryAgainIcon} alt="Try again" className="button-icon" />
@@ -57,11 +57,9 @@ const Result = ({ score, onReset, drawing, userId }) => {
             className="share-results-image"
           />
           <div className="social-icons">
-            {/* Twitter использует простую ссылку и текст */}
             <TwitterShareButton url={simpleRefLink} title={shareText}>
               <img src={twitterIcon} alt="Twitter" className="social-icon" />
             </TwitterShareButton>
-            {/* Для Telegram мы используем нашу специальную ссылку, чтобы передать оба параметра */}
             <a href={telegramShareUrl} target="_blank" rel="noopener noreferrer">
               <img src={telegramIcon} alt="Telegram" className="social-icon" />
             </a>

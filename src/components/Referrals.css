@@ -48,17 +48,21 @@
 
 .link-field .link-text {
   position: absolute;
-  left: 15px;
   top: 50%;
-  transform: translateY(-50%);
+  left: 50%; /* <-- 1. Сдвигаем НАЧАЛО текста в центр */
+  transform: translate(-50%, -50%); /* <-- 2. Сдвигаем текст НАЗАД на половину его ширины и высоты */
+
+  /* Остальные стили остаются прежними */
   font-family: 'Gloria Hallelujah', cursive;
   font-size: 14px;
   color: #111111;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  /* Ограничиваем ширину текста, чтобы он не вылезал */
-  max-width: calc(100% - 30px); 
+
+  /* Устанавливаем ширину, чтобы длинный текст не вылезал за рамки */
+  width: 90%;
+  text-align: center; /* Дополнительно центрируем сам текст внутри его блока */
 }
 
 .copy-button {

@@ -1,209 +1,113 @@
 /* src/components/Result.css */
 
-/* Импортируем шрифт Gloria Hallelujah */
 @import url('https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap');
 
 .result-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start; /* <-- Этот параметр уже правильный */
-  padding: 20px;
+  justify-content: flex-start;
   box-sizing: border-box;
   width: 100%;
-  padding-top: 10vh; /* <-- ДОБАВЛЯЕМ ТАКОЙ ЖЕ ВЕРХНИЙ ОТСТУП, как в Canvas */
-  /* min-height убираем, он больше не нужен */
+  padding: 20px;
+  padding-top: 20vh; /* 👈 совпадает с Canvas */
 }
 
-/* Родительский контейнер для круга, PNG и текста */
-.result-image {
+/* === Спейсер той же высоты, что подсказка над канвасом === */
+.result-header-spacer {
   position: relative;
-  width: 100px; /* Уменьшили */
-  height: 100px; /* Уменьшили */
-  margin-bottom: 0px;
-}
-
-/* Динамический круг (градиент) — самый нижний слой */
-.result-circle-dynamic {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100px; /* Уменьшили */
-  height: 100px; /* Уменьшили */
-  border-radius: 50%;
-  z-index: 1; /* Ниже PNG и текста */
-  background-color: #ffffff; /* Базовый цвет на случай отсутствия градиента */
-  /* backgroundImage задаётся инлайн-стилем в Result.js */
-}
-
-/* PNG-кружок (располагается поверх градиента) */
-.result-circle-image {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100px; /* Уменьшили */
-  height: 100px; /* Уменьшили */
-  z-index: 2; /* Выше градиента, но ниже текста */
-}
-
-/* Текст поверх всего */
-.result-text-overlay {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 3; /* Самый верхний слой */
-  color: red;
-  font-size: 28px; /* Уменьшили */
-  font-weight: bold;
-  text-shadow: none;
-  font-family: 'Gloria Hallelujah', cursive;
-}
-
-/* Текст под кругом */
-.circle-accuracy-text,
-.earned-tokens-text {
-  font-family: 'Gloria Hallelujah', cursive;
-  color: #000000;
-  font-size: 23px; /* Уменьшили размер */
-  margin: 2px 0;   /* Уменьшили вертикальные отступы */
-  text-align: center;
-  line-height: 1.2; /* Сделали строки ближе друг к другу */
-}
-
-.result-drawing-container {
-  position: relative; /* Нужно для позиционирования рисунка */
-  width: 80vw; /* Задаем те же размеры, что и у холста для рисования */
+  width: 100%;
   max-width: 500px;
-  aspect-ratio: 1 / 1; /* Делаем контейнер квадратным */
-  margin-top: 15px;
+  display: flex;
+  justify-content: center;
   margin-bottom: 20px;
-  background-image: url('../assets/drawing_field.png'); /* Задаем фон-доску */
+}
+
+.draw-circle-image {
+  width: 100%;
+  height: auto;
+  max-width: 500px;
+  display: block;
+}
+
+/* Компактный бейдж результата, не влияет на высоту, т.к. absolute */
+.result-badge {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 90px;
+  height: 90px;
+}
+
+.result-badge-circle {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background-color: #fff;
+  z-index: 1;
+}
+
+.result-badge-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+}
+
+.result-badge-text {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 3;
+  color: red;
+  font-size: 22px;
+  font-weight: bold;
+  font-family: 'Gloria Hallelujah', cursive;
+}
+
+/* === Превью рисунка: те же размеры, что у канваса === */
+.result-drawing-container {
+  position: relative;
+  width: 80vw;
+  max-width: 500px;
+  aspect-ratio: 1 / 1;
+  margin-top: 0;
+  margin-bottom: 20px;
+  background-image: url('../assets/drawing_field.png');
   background-size: 100% 100%;
   border-radius: 10px;
 }
 
 .result-drawing-preview {
   position: absolute;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain; /* Вписываем рисунок в контейнер */
+  object-fit: contain;
 }
 
-.buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: 100%;
-  max-width: 300px;
-}
+/* Кнопки и шаринг — без изменений */
+.buttons { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 300px; }
+.reset-button { background: none; border: none; cursor: pointer; }
+.button-icon { width: 150px; height: auto; }
+.share-buttons { display: flex; flex-direction: column; align-items: center; }
+.share-results-image { width: auto; height: auto; margin-bottom: 10px; max-width: 300px; }
+.social-icons { display: flex; justify-content: center; gap: 20px; }
+.social-icon { width: 48px; height: 48px; }
 
-.reset-button {
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-
-.button-icon {
-  width: 150px;
-  height: auto;
-}
-
-.share-buttons {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.share-results-image {
-  width: auto;
-  height: auto;
-  margin-bottom: 10px;
-  max-width: 300px; /* Базовая максимальная ширина */
-}
-
-/* Адаптивная верстка */
 @media (max-width: 768px) {
-    .result-image {
-      width: 100px; /* Уменьшили */
-      height: 100px; /* Уменьшили */
-    }
-    .result-circle-dynamic {
-      width: 100px; /* Уменьшили */
-      height: 100px; /* Уменьшили */
-    }
-    .result-circle-image {
-      width: 100px; /* Уменьшили */
-      height: 100px; /* Уменьшили */
-    }
-    .result-text-overlay {
-      font-size: 32px; /* Уменьшили */
-    }
-    .circle-accuracy-text,
-    .earned-tokens-text {
-    font-size: 22px;
-    margin: 6px 0;
-    }
-
-    .button-icon {
-    width: 100px;
-    }
-
-    .share-results-image {
-    max-width: 250px;
-    }
-    }
+  .result-badge { width: 80px; height: 80px; }
+  .result-badge-text { font-size: 20px; }
+  .button-icon { width: 100px; }
+  .share-results-image { max-width: 250px; }
+  .social-icon { width: 40px; height: 40px; }
+}
 
 @media (max-width: 480px) {
-    .result-image {
-      width: 90px; /* Уменьшили */
-      height: 90px; /* Уменьшили */
-    }
-    .result-circle-dynamic {
-      width: 90px; /* Уменьшили */
-      height: 90px; /* Уменьшили */
-    }
-    .result-circle-image {
-      width: 90px; /* Уменьшили */
-      height: 90px; /* Уменьшили */
-    }
-    .result-text-overlay {
-      font-size: 28px; /* Уменьшили */
-    }
-
-    .circle-accuracy-text,
-    .earned-tokens-text {
-    font-size: 18px;
-    margin: 4px 0;
-    }
-
-    .button-icon {
-    width: 80px;
-    }
-
-    .share-results-image {
-    max-width: 200px;
-    margin-bottom: 8px;
-    }
-    }
-
-.social-icons {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-}
-
-.social-icon {
-  width: 48px;
-  height: 48px;
-}
-
-/* Дополнительные медиа-запросы для социальных иконок */
-@media (max-width: 768px) {
-  .social-icon {
-    width: 40px;
-    height: 40px;
-  }
+  .result-badge { width: 72px; height: 72px; }
+  .result-badge-text { font-size: 18px; }
+  .button-icon { width: 80px; }
+  .share-results-image { max-width: 200px; margin-bottom: 8px; }
 }

@@ -239,7 +239,7 @@ function App() {
           />
         </div>
         <div className={`tab-pane ${currentTab === 'leaderboards' ? 'active' : ''}`}>
-          <Leaderboards />
+          <Leaderboards userId={userId} />
         </div>
       </div>
       <TabBar currentTab={currentTab} setCurrentTab={setCurrentTab} />
