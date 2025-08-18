@@ -138,8 +138,8 @@ body {
 
 .timer-display {
   position: fixed;
-  top: 100px;            /* было 135px — подняли ближе к блоку попыток */
-  right: 10px;
+  top: 110px;            /* было 135px — подняли ближе к блоку попыток */
+  right: 5px;
   width: 150px;
   text-align: center;
   z-index: 1001;         /* чтобы гарантированно быть поверх фона/элементов */
@@ -152,12 +152,56 @@ body {
   font-family: 'Gloria Hallelujah', cursive;
   text-shadow: 2px 2px 4px #000000;
 }
+/* центрированный круг результата в шапке */
+.score-circle-header {
+  position: fixed;
+  top: 18px;              /* «на уровне» монет */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1001;
+
+  width: 120px;
+  height: 120px;
+}
+
+.score-circle-dynamic,
+.score-circle-image {
+  position: absolute;
+  inset: 0;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+}
+
+.score-circle-dynamic {
+  background-color: #ffffff;
+}
+
+.score-circle-image {
+  pointer-events: none;
+  user-select: none;
+}
+
+.score-circle-text {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: 'Gloria Hallelujah', cursive;
+  font-weight: bold;
+  font-size: 32px;
+  color: #BE5200;
+  text-shadow: 0 0 0 transparent;
+}
 
 /* Адаптивность для мобильных */
 @media (max-width: 768px) {
+  .score-circle-header { top: 12px; width: 96px; height: 96px; }
+  .score-circle-dynamic, .score-circle-image { width: 96px; height: 96px; }
+  .score-circle-text { font-size: 26px; }
   .timer-display {
-    top: 80px;   /* было 110px — тоже поднимаем ближе */
-    right: 5px;
+    top: 90px;   /* было 110px — тоже поднимаем ближе */
+    right: 0px;
     width: 100px;
     z-index: 1001;
   }

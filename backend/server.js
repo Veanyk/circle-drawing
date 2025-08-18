@@ -322,10 +322,22 @@ app.post('/updateUserData', (req, res) => {
 app.get('/getLeaderboard', (_req, res) => {
   try {
     const db = readDb();
+
+    // Если normalizeUser уже есть — используй его. Иначе — минимальный инлайн:
+    const ensureUser = (u) => {
+      const n = { ...u };
+      n.coins = Number.isFinite(n.coins) ? Number(n.coins) : Number(n?.coins) || 0;
+      n.best_score = Number.isFinite(n.best_score) ? Number(n.best_score) : 0;
+      n.username = typeof n.username === 'string' ? n.username : null;
+      n.user_id = n.user_id ?? null;
+      return n;
+    };
+
     const leaders = values(db)
-      .filter(u => u && typeof u.coins === 'number' && Number.isFinite(u.coins))
+      .map(ensureUser)                 // <— приводим к числам
       .sort((a, b) => b.coins - a.coins)
       .slice(0, 10);
+
     res.json(leaders);
   } catch (e) {
     console.error(e);

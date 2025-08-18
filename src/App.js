@@ -5,6 +5,7 @@ import Tasks from './components/Tasks';
 import TabBar from './components/TabBar';
 import Referrals from './components/Referrals';
 import Leaderboards from './components/Leaderboards';
+import resultCircleImage from './assets/result_circle.png';
 import './App.css';
 
 const SERVER_URL =
@@ -25,20 +26,16 @@ const getBrowserUserId = () => {
 
 // Вспомогательный компонент для круга с результатом в шапке
 const ScoreCircle = ({ score }) => {
-  const angle = (score / 100) * 360;
+  const angle = (Math.max(0, Math.min(100, Number(score) || 0)) / 100) * 360;
   const circleStyle = {
     backgroundImage: `conic-gradient(#BE5200 ${angle}deg, #ffffff ${angle}deg 360deg)`,
   };
 
   return (
-    <div className="result-image-header">
-      <div className="result-circle-dynamic" style={circleStyle}></div>
-      <img
-        src={require('./assets/result_circle.png')}
-        alt="Result"
-        className="result-circle-image"
-      />
-      <div className="result-text-overlay">{score}%</div>
+    <div className="score-circle-header">
+      <div className="score-circle-dynamic" style={circleStyle}></div>
+      <img src={resultCircleImage} alt="Result" className="score-circle-image" />
+      <div className="score-circle-text">{Math.round(score)}%</div>
     </div>
   );
 };
@@ -78,7 +75,19 @@ function App() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
-    const refId = urlParams.get('ref');
+    // 1) берём из URL (?ref=)
+    let refId = urlParams.get('ref');
+    // 2) или из Telegram start_param (ref_<id>)
+    const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
+    if (!refId && startParam && String(startParam).startsWith('ref_')) {
+      refId = String(startParam).slice(4);
+    }
+    // 3) или из localStorage (запоминаем на будущее)
+    if (!refId) {
+      refId = localStorage.getItem('referrerId') || null;
+    } else {
+      localStorage.setItem('referrerId', refId);
+    }
 
     let finalUserId;
     if (tgUser?.id) {
@@ -232,68 +241,76 @@ function App() {
   };
 
   return (
-    <div className="App">
-      {currentTab === 'circle' && (
-        <div className="app-header">
-          {score !== null ? (
-            <ScoreCircle score={score} />
-          ) : (
-            <div className="coins-display">
-              <div className="banner-container">
-                <img src={require('./assets/total_coins.png')} alt="Total coins" className="banner-icon" />
-                <span className="banner-text">{coins.toFixed(2)}</span>
-              </div>
-            </div>
-          )}
-
-          <div className="attempts-display">
-            <div className="banner-container">
-              <img src={require('./assets/total_attempts.png')} alt="Total attempts" className="banner-icon" />
-              <span className="banner-text">{attempts}/{maxAttempts}</span>
-            </div>
-            {timeToNextAttempt && (
-              <div className="timer-display">
-                <span className="timer-text">{timeToNextAttempt}</span>
-              </div>
-            )}
+  <div className="App">
+    {currentTab === 'circle' && (
+      <div className="app-header">
+        {/* Монеты — фиксированный блок справа сверху */}
+        <div className="coins-display">
+          <div className="banner-container">
+            <img
+              src={require('./assets/total_coins.png')}
+              alt="Total coins"
+              className="banner-icon"
+            />
+            <span className="banner-text">{coins.toFixed(2)}</span>
           </div>
         </div>
-      )}
 
-      <div className="main-content">
-        <div className={`tab-pane ${currentTab === 'circle' ? 'active' : ''}`}>
-          {score === null ? (
-            <Canvas onDrawEnd={onDrawEnd} attempts={attempts} />
-          ) : (
-            <Result
-              score={score}
-              onReset={onReset}
-              drawing={drawingData}
-              userId={userId}
+        {/* Попытки + таймер — фиксированный блок ниже монет */}
+        <div className="attempts-display">
+          <div className="banner-container">
+            <img
+              src={require('./assets/total_attempts.png')}
+              alt="Total attempts"
+              className="banner-icon"
             />
+            <span className="banner-text">{attempts}/{maxAttempts}</span>
+          </div>
+          {timeToNextAttempt && (
+            <div className="timer-display">
+              <span className="timer-text">{timeToNextAttempt}</span>
+            </div>
           )}
         </div>
 
-        <div className={`tab-pane ${currentTab === 'tasks' ? 'active' : ''}`}>
-          <Tasks
-            onTaskComplete={onTaskComplete}
-            completedTasks={completedTasks}
-            setCurrentTab={setCurrentTab}
+        {/* Один-единственный круг по центру сверху — только когда уже есть результат */}
+        {score !== null && <ScoreCircle score={score} />}
+      </div>
+    )}
+
+    <div className="main-content">
+      <div className={`tab-pane ${currentTab === 'circle' ? 'active' : ''}`}>
+        {score === null ? (
+          <Canvas onDrawEnd={onDrawEnd} attempts={attempts} />
+        ) : (
+          <Result
+            score={score}
+            onReset={onReset}
+            drawing={drawingData}
+            userId={userId}
           />
-        </div>
-
-        <div className={`tab-pane ${currentTab === 'referrals' ? 'active' : ''}`}>
-          <Referrals userId={userId} />
-        </div>
-
-        <div className={`tab-pane ${currentTab === 'leaderboards' ? 'active' : ''}`}>
-          <Leaderboards userId={userId} />
-        </div>
+        )}
       </div>
 
-      <TabBar currentTab={currentTab} setCurrentTab={setCurrentTab} />
+      <div className={`tab-pane ${currentTab === 'tasks' ? 'active' : ''}`}>
+        <Tasks
+          onTaskComplete={onTaskComplete}
+          completedTasks={completedTasks}
+          setCurrentTab={setCurrentTab}
+        />
+      </div>
+
+      <div className={`tab-pane ${currentTab === 'referrals' ? 'active' : ''}`}>
+        <Referrals userId={userId} />
+      </div>
+
+      <div className={`tab-pane ${currentTab === 'leaderboards' ? 'active' : ''}`}>
+        <Leaderboards userId={userId} />
+      </div>
     </div>
+
+    <TabBar currentTab={currentTab} setCurrentTab={setCurrentTab} />
+  </div>
   );
 }
-
 export default App;

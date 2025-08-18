@@ -7,102 +7,108 @@ import yourReferralsImage from '../assets/your_referrals.png';
 import linkImage from '../assets/link.png';
 
 const SERVER_URL =
-  process.env.NODE_ENV === 'development'
-    ? 'http://localhost:8000'  // локально бьёмся напрямую в ваш backend
-    : '/api';                  // на Vercel ходим на тот же origin, а rewrites прокинут дальше
+  process.env.REACT_APP_SERVER_URL ||
+  (process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : '/api');
+
+const BOT_USERNAME = process.env.REACT_APP_BOT_USERNAME || 'circle_drawing_bot';
 
 const Referrals = ({ userId }) => {
   const [referrals, setReferrals] = useState([]);
   const [referralLink, setReferralLink] = useState('');
 
-  // 1) Сформировать личную ссылку
+  // Генерируем deep link в Telegram Mini App
   useEffect(() => {
     if (!userId) return;
-    const baseUrl = window.location.origin;
-    setReferralLink(`${baseUrl}/?ref=${userId}`);
+    const deepLink = `https://t.me/${BOT_USERNAME}?startapp=ref_${userId}`;
+    setReferralLink(deepLink);
   }, [userId]);
 
-  // 2) Мои рефералы для списка (автообновление)
-    useEffect(() => {
-        if (!userId) return;
+  // Загружаем список рефералов (поллинг)
+  useEffect(() => {
+    if (!userId) return;
+    let stop = false;
 
-        const loadMyRefs = async () => {
-          try {
-            const res = await fetch(`${SERVER_URL}/getReferrals`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ user_id: userId }),
-            });
-            const data = await res.json();
-            // Проверяем, что data это массив, прежде чем обновлять состояние
-            if (Array.isArray(data)) {
-              setReferrals(data);
-            }
-          } catch (e) {
-            console.error('Ошибка при получении рефералов:', e);
-          }
-        };
-
-        loadMyRefs();
-        // Интервал убран. Данные загрузятся один раз при монтировании компонента.
-      }, [userId]);
-
-const copyToClipboard = async () => {
-    if (!navigator.clipboard) {
-      // Fallback для очень старых или небезопасных (не HTTPS) контекстов
-      const textArea = document.createElement("textarea");
-      textArea.value = referralLink;
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
+    const loadMyRefs = async () => {
       try {
-        document.execCommand('copy');
-        alert('Referral link copied to clipboard!');
-      } catch (err) {
-        console.error('Fallback copy failed: ', err);
+        const res = await fetch(`${SERVER_URL}/getReferrals`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: userId }),
+        });
+        const data = await res.json();
+        if (!stop && Array.isArray(data)) setReferrals(data);
+      } catch (e) {
+        console.error('Ошибка при получении рефералов:', e);
       }
-      document.body.removeChild(textArea);
+    };
+
+    loadMyRefs();
+    const iv = setInterval(loadMyRefs, 5000);
+    return () => { stop = true; clearInterval(iv); };
+  }, [userId]);
+
+  const copyToClipboard = async () => {
+    const text = referralLink;
+    if (!text) return;
+
+    if (!navigator.clipboard) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); alert('Referral link copied to clipboard!'); }
+      catch (err) { console.error('Fallback copy failed:', err); }
+      document.body.removeChild(ta);
       return;
     }
 
     try {
-      await navigator.clipboard.writeText(referralLink);
+      await navigator.clipboard.writeText(text);
       alert('Referral link copied to clipboard!');
     } catch (err) {
-      console.error('Failed to copy text: ', err);
+      console.error('Failed to copy text:', err);
     }
   };
+
+  const displayName = (u) =>
+    (u?.username && String(u.username).trim()) ||
+    (u?.name && String(u.name).trim()) ||
+    String(u?.user_id || '');
 
   return (
     <div className="referrals-container">
       <img src={referralProgramImage} alt="Referral Program" className="r-title" />
       <img src={inviteImage} alt="Invite friends" className="invite-image" />
 
+      {/* Блок с заголовком и кнопкой — без отображения самой ссылки */}
       <div className="referral-link">
         <div className="link-field">
           <img src={linkImage} alt="Referral link" className="link-image" />
           <span className="link-text">✨Your magic invite link</span>
         </div>
-        <button className="copy-button" onClick={copyToClipboard}>
+        <button
+          className="copy-button"
+          onClick={copyToClipboard}
+          disabled={!referralLink}
+          aria-label="Copy invite link"
+          title="Copy invite link"
+        >
           <img src={copyImage} alt="Copy" />
         </button>
       </div>
+
+      {/* САМУ ССЫЛКУ НЕ ОТОБРАЖАЕМ */}
 
       <img src={yourReferralsImage} alt="Your Referrals" className="your-referrals-image" />
 
       {referrals.length > 0 ? (
         <ul className="referrals-list">
           {referrals.map((ref) => {
-            const coins = typeof ref.coins === 'number' ? ref.coins.toFixed(2) : '0.00';
-            const best = typeof ref.best_score === 'number' ? Math.round(ref.best_score) : 0;
-
-            // --- КЛЮЧЕВОЕ ИЗМЕНЕНИЕ ---
-            // Всегда отображаем только ID пользователя
-            const displayName = ref.user_id;
-
+            const coins = Number.isFinite(Number(ref.coins)) ? Number(ref.coins).toFixed(2) : '0.00';
+            const best = Number.isFinite(Number(ref.best_score)) ? Math.round(Number(ref.best_score)) : 0;
             return (
               <li key={ref.user_id} className="ref-item">
-                <span className="ref-name">{displayName}</span>
+                <span className="ref-name">{displayName(ref)}</span>
                 <div className="ref-stats">
                   <span>Accuracy: {best}%</span>
                   <span>Tokens: {coins}</span>
