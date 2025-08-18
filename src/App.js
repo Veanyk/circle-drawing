@@ -7,10 +7,7 @@ import Referrals from './components/Referrals';
 import Leaderboards from './components/Leaderboards';
 import './App.css';
 
-const SERVER_URL =
-  process.env.NODE_ENV === 'development'
-    ? 'http://localhost:8000'  // локально бьёмся напрямую в ваш backend
-    : '/api';                  // на Vercel ходим на тот же origin, а rewrites прокинут дальше
+const SERVER_URL = process.env.REACT_APP_SERVER_URL || 'https://draw-a-circle.chickenkiller.com';
 const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000; // 1 минута
 
 const getBrowserUserId = () => {
@@ -22,6 +19,7 @@ const getBrowserUserId = () => {
   return userId;
 };
 
+// Вспомогательный компонент для круга с результатом в шапке
 const ScoreCircle = ({ score }) => {
   const angle = (score / 100) * 360;
   const circleStyle = {
@@ -41,20 +39,19 @@ const ScoreCircle = ({ score }) => {
   );
 };
 
+
 function App() {
-  // --- Состояния компонента ---
   const [score, setScore] = useState(null);
   const [currentTab, setCurrentTab] = useState('circle');
   const [drawingData, setDrawingData] = useState(null);
   const [userId, setUserId] = useState(null);
   const [coins, setCoins] = useState(0);
-  const [attempts, setAttempts] = useState(0); // Начинаем с 0, пока не загрузим данные
+  const [attempts, setAttempts] = useState(0);
   const [maxAttempts, setMaxAttempts] = useState(25);
   const [completedTasks, setCompletedTasks] = useState([]);
   const [nextAttemptTimestamp, setNextAttemptTimestamp] = useState(null);
   const [timeToNextAttempt, setTimeToNextAttempt] = useState(null);
 
-  // --- Эффект для работы с Telegram API (выполняется один раз) ---
   useEffect(() => {
     if (window.Telegram && window.Telegram.WebApp) {
       const tg = window.Telegram.WebApp;
@@ -63,18 +60,16 @@ function App() {
     }
   }, []);
 
-  // --- Функция для отправки обновлений на сервер ---
   const updateUserDataOnServer = useCallback((newData) => {
-    if (!userId) return; // Не отправляем ничего, если ID пользователя еще не определен
+    if (!userId) return;
     fetch(`${SERVER_URL}/updateUserData`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id: userId, data: newData })
     })
     .catch(err => console.error('Ошибка при обновлении данных на сервере:', err));
-  }, [userId]); // Эта функция пересоздается только если изменился userId
+  }, [userId]);
 
-  // --- Главный эффект для определения ID и ЗАГРУЗКИ данных (выполняется один раз) ---
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
@@ -86,9 +81,8 @@ function App() {
     } else {
       finalUserId = getBrowserUserId();
     }
-    setUserId(finalUserId); // Устанавливаем ID пользователя
+    setUserId(finalUserId);
 
-    // После того как ID установлен, загружаем данные
     if (finalUserId) {
       const initialUserData = {
         user_id: finalUserId,
@@ -108,30 +102,23 @@ function App() {
           setAttempts(data.attempts || 0);
           setMaxAttempts(data.max_attempts || 25);
           setCompletedTasks(data.completed_tasks || []);
-          setNextAttemptTimestamp(
-              Number.isFinite(Number(data.nextAttemptTimestamp)) ? Number(data.nextAttemptTimestamp) : null
-            );
+          setNextAttemptTimestamp(Number.isFinite(Number(data.nextAttemptTimestamp)) ? Number(data.nextAttemptTimestamp) : null);
         }
       })
       .catch(err => console.error('Ошибка при получении данных пользователя:', err));
     }
-    // Пустой массив зависимостей `[]` гарантирует, что этот код выполнится ТОЛЬКО ОДИН раз
   }, []);
 
-  // --- Отдельный эффект для ТАЙМЕРА восстановления попыток ---
   useEffect(() => {
     if (attempts >= maxAttempts || !nextAttemptTimestamp) {
       setTimeToNextAttempt(null);
-      return; // Выходим, если таймер не нужен
+      return;
     }
 
     const timerInterval = setInterval(() => {
-      const now = Date.now();
-      const ts = Number(nextAttemptTimestamp);
-      const timeLeft = Math.max(0, Math.ceil((ts - Date.now()) / 1000));
+      const timeLeft = Math.max(0, Math.ceil((nextAttemptTimestamp - Date.now()) / 1000));
 
       if (timeLeft <= 0) {
-        // Время вышло. Перезагружаем данные с сервера, чтобы получить новые попытки
         fetch(`${SERVER_URL}/getUserData`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -157,7 +144,6 @@ function App() {
     return () => clearInterval(timerInterval);
   }, [attempts, maxAttempts, nextAttemptTimestamp, userId]);
 
-  // --- Обработчики событий ---
   const onDrawEnd = (circleAccuracy, points, canvas, size) => {
     if (attempts <= 0) {
       alert('You are out of attempts!');
@@ -167,26 +153,25 @@ function App() {
     const newAttempts = attempts - 1;
     const tokensEarned = parseFloat((0.01 * circleAccuracy).toFixed(2));
     const newCoins = coins + tokensEarned;
-
     let newTimestamp = nextAttemptTimestamp;
-    // Если мы только что потратили попытку, когда они были полные, запускаем таймер
+
     if (attempts === maxAttempts) {
       newTimestamp = Date.now() + ATTEMPT_REGEN_INTERVAL_MS;
-      setNextAttemptTimestamp(newTimestamp); // Немедленно обновляем, чтобы запустить таймер
+      setNextAttemptTimestamp(newTimestamp);
     }
 
-    // Оптимистичное обновление UI
     setScore(circleAccuracy);
     setDrawingData(canvas.toDataURL());
     setCoins(newCoins);
     setAttempts(newAttempts);
 
-    // Отправка данных на сервер
     updateUserDataOnServer({
       coins: newCoins,
       attempts: newAttempts,
-      score: circleAccuracy
+      score: circleAccuracy,
+      nextAttemptTimestamp: newTimestamp
     });
+  };
 
   const onReset = () => {
     setScore(null);
@@ -212,41 +197,45 @@ function App() {
 
   return (
     <div className="App">
-    {currentTab === 'circle' && (
-      <>
-        <div className="coins-display">
-          <div className="banner-container">
-            <img src={require('./assets/total_coins.png')} alt="Total coins" className="banner-icon" />
-            <span className="banner-text">{coins.toFixed(2)}</span>
-          </div>
-        </div>
-        <div className="attempts-display">
-          <div className="banner-container">
-            <img src={require('./assets/total_attempts.png')} alt="Total attempts" className="banner-icon" />
-            <span className="banner-text">{attempts}/{maxAttempts}</span>
-          </div>
-          {timeToNextAttempt && (
-            <div className="timer-display">
-              <span className="timer-text">{timeToNextAttempt}</span>
+      {currentTab === 'circle' && (
+        <div className="app-header">
+          {score !== null ? (
+            <ScoreCircle score={score} />
+          ) : (
+            <div className="coins-display">
+              <div className="banner-container">
+                <img src={require('./assets/total_coins.png')} alt="Total coins" className="banner-icon" />
+                <span className="banner-text">{coins.toFixed(2)}</span>
+              </div>
             </div>
           )}
-        </div>
-      </>
-    )}
-    <div className="main-content">
-      <div className={`tab-pane ${currentTab === 'circle' ? 'active' : ''}`}>
-        {score === null ? (
-          <Canvas onDrawEnd={onDrawEnd} attempts={attempts} />
-        ) : (
-          <Result
-            score={score}
-            onReset={onReset}
-            drawing={drawingData}
-            userId={userId}
-          />
-        )}
-      </div>
 
+          <div className="attempts-display">
+            <div className="banner-container">
+              <img src={require('./assets/total_attempts.png')} alt="Total attempts" className="banner-icon" />
+              <span className="banner-text">{attempts}/{maxAttempts}</span>
+            </div>
+            {timeToNextAttempt && (
+              <div className="timer-display">
+                <span className="timer-text">{timeToNextAttempt}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      <div className="main-content">
+        <div className={`tab-pane ${currentTab === 'circle' ? 'active' : ''}`}>
+          {score === null ? (
+            <Canvas onDrawEnd={onDrawEnd} attempts={attempts} />
+          ) : (
+            <Result
+              score={score}
+              onReset={onReset}
+              drawing={drawingData}
+              userId={userId}
+            />
+          )}
+        </div>
         <div className={`tab-pane ${currentTab === 'tasks' ? 'active' : ''}`}>
           <Tasks
             onTaskComplete={onTaskComplete}
@@ -255,12 +244,10 @@ function App() {
           />
         </div>
         <div className={`tab-pane ${currentTab === 'referrals' ? 'active' : ''}`}>
-          <Referrals
-            userId={userId} // Передаем userId в Referrals, если он там нужен
-          />
+          <Referrals userId={userId} />
         </div>
         <div className={`tab-pane ${currentTab === 'leaderboards' ? 'active' : ''}`}>
-          <Leaderboards userId={userId} />
+          <Leaderboards />
         </div>
       </div>
       <TabBar currentTab={currentTab} setCurrentTab={setCurrentTab} />
