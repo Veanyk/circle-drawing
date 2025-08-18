@@ -5,7 +5,7 @@
   flex-direction: column;
   align-items: center;
   padding: 20px;
-  min-height: calc(100vh - 70px);
+  min-height: calc(100vh px);
   box-sizing: border-box;
   overflow-y: auto;
 }
@@ -81,34 +81,37 @@
 /* строки компактнее и без разделительных линий */
 .lb-row {
   display: grid;
-  /* ↓↓↓ ВОТ ГЛАВНЫЙ ПАРАМЕТР ДЛЯ НАСТРОЙКИ ↓↓↓ */
-  grid-template-columns: 50px 1fr 100px 100px;
+  /* 4 колонки: Ранг (узкий), Имя (гибкое), Точность (узкий), Токены (узкий) */
+  grid-template-columns: 30px 1fr 60px 70px;
+  gap: 10px; /* Пространство между колонками */
   padding: 2px 4px;
   align-items: center;
-  border-bottom: none;
+}
+
+.col-rank {
+  text-align: center;
+  opacity: 0.8; /* Делаем ранг чуть менее заметным */
+}
+
+.col-name {
+  /* Убираем лишние отступы, так как есть gap */
+  padding-left: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.col-acc, .col-tok {
+  /* Убираем лишние отступы */
+  padding-right: 0;
+  text-align: right;
+  white-space: nowrap;
 }
 /* прячем шапку столбцов */
 .lb-head {
   display: none;
 }
 
-.col-rank {
-  text-align: center;
-}
-.col-name {
-  padding-left: 45px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.col-acc {
-  text-align: right;
-  padding-right: 100px;
-}
-.col-tok {
-  text-align: right;
-  padding-right: 80px;
-}
 .lb-empty {
   opacity: .85;
   font-style: italic;
@@ -124,17 +127,76 @@
   font-size: clamp(14px, 2.5vw, 18px);
   text-align: center;
   width: 100%;
+
+  /* Используем flexbox для расположения метрик в строку */
+  display: flex;
+  justify-content: center;
+  gap: 20px; /* Пространство между метриками */
+}
+
+/* Убираем старый псевдоэлемент "Your position:" */
+.lb-me::before {
+  content: none;
 }
 .lb-me .dot {
   display: none;
 }
-.lb-me::before {
-  content: "Your position:"; /* Added a colon for clarity */
-  margin-right: 8px;
-  font-weight: bold; /* Make the label stand out */
-  opacity: .95;
-}
+
 .lb-me .faded {
   opacity: .75;
   font-style: italic;
+}
+.wallet-block {
+  margin-top: 10px;
+  width: min(560px, 92vw);
+  display: grid;
+  gap: 8px;
+  font-family: 'Gloria Hallelujah', cursive;
+}
+
+.wallet-hint {
+  color: #2c2c2c;
+  font-size: clamp(14px, 2.4vw, 18px);
+  background: rgba(255,255,255,0.7);
+  border: 1px dashed rgba(0,0,0,0.15);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.wallet-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.wallet-input {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,0.25);
+  font-size: 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.wallet-save {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: none;
+  background: #111;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+
+.wallet-msg { color: #1a1a1a; font-size: 14px; }
+.wallet-view { color: #1a1a1a; font-size: 14px; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+
+@media (max-width: 768px) {
+    .lb-title {
+      width: 220px;
+      height: auto;
+      user-select: none;
+      pointer-events: none;
+    }
 }

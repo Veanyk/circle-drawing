@@ -99,6 +99,13 @@
     padding: 5px;
     margin-bottom: 5px;
   }
+  .tasks-title-image {
+  display: block;
+  margin: 0 auto 20px auto;
+  width: 100%; /* Используем проценты для адаптивности */
+  max-width: 110px; /* <-- УМЕНЬШАЕМ МАКСИМАЛЬНУЮ ШИРИНУ */
+  height: auto;
+}
 
   .task-image {
     width: 60px;

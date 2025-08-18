@@ -18,8 +18,8 @@
 }
 
 .no-referrals-message {
-  font-family: 'Patrick Hand', cursive;
-  font-size: 24px;
+  font-family: 'Gloria Hallelujah', cursive;
+  font-size: 14px;
   color: #ffffff;
   margin-top: 20px;
   text-align: center;
@@ -29,15 +29,19 @@
 /* --- КЛЮЧЕВЫЕ ИЗМЕНЕНИЯ ДЛЯ АДАПТИВНОСТИ --- */
 .referral-link {
   display: flex;
+  /* align-items: stretch; is the default, which is what we want.
+     You can also explicitly set it. `center` is also fine. */
   align-items: center;
   margin-top: 50px;
-  width: 90%; /* Используем проценты вместо фиксированной ширины */
-  max-width: 450px; /* Ограничиваем максимальную ширину на больших экранах */
+  width: 90%;
+  max-width: 450px;
 }
 
 .link-field {
   position: relative;
-  flex-grow: 1; /* Поле для ссылки будет занимать все доступное пространство */
+  flex-grow: 1;
+  /* We need to ensure it has a display property that allows height calculation */
+  display: flex;
 }
 
 .link-field img.link-image {
@@ -71,13 +75,22 @@
   padding: 0;
   cursor: pointer;
   margin-left: 10px;
-  flex-shrink: 0; /* Запрещаем кнопке сжиматься */
+  flex-shrink: 0;
+
+  /* --- KEY CHANGE --- */
+  display: flex; /* Make the button a flex container too */
+  align-items: center; /* Center the image vertically */
+  justify-content: center; /* Center the image horizontally */
 }
+
 .copy-button img {
   display: block;
-  width: 25vw; /* <-- ЗАДАЕМ АДАПТИВНУЮ ШИРИНУ: 25% от ширины экрана */
-  max-width: 100px; /* <-- ОГРАНИЧИВАЕМ максимальный размер */
-  height: auto;
+  width: 25vw;
+  max-width: 100px;
+
+  /* --- KEY CHANGE --- */
+  height: 100%; /* Make the image take up 100% of the button's height */
+  object-fit: contain; /* Ensure the image scales proportionally within the new height */
 }
 
 /* --- УЛУЧШЕННЫЙ СПИСОК РЕФЕРАЛОВ --- */
@@ -129,4 +142,18 @@
 
 .your-referrals-image {
   margin-top: 25px;
+}
+@media (max-width: 768px) {
+  .your-referrals-image {
+  width: 75%;
+  }
+  .copy-button img {
+  display: block;
+  width: 25vw;
+  max-width:60px;
+
+  height: 100%;
+  object-fit: contain;
+}
+
 }

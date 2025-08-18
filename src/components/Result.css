@@ -10,7 +10,12 @@
   box-sizing: border-box;
   width: 100%;
   padding: 20px;
-  padding-top: 20vh; /* 👈 совпадает с Canvas */
+  padding-top: 14vh; /* было 20vh — совпадает с Canvas.css */
+}
+
+
+@media (max-width: 480px) {
+  .result-container { padding-top: 12vh; } /* синхронизировано с Canvas */
 }
 
 /* === Спейсер той же высоты, что подсказка над канвасом === */
@@ -39,12 +44,26 @@
   height: 90px;
 }
 
-.result-badge-circle {
+.result-badge-base {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background-color: #fff;
+  background: #fff;
   z-index: 1;
+}
+
+.result-badge-arc {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  z-index: 2;
+
+  /* угол задаём через inline-стиль --deg */
+  background: conic-gradient(#BE5200 var(--deg, 0deg), transparent 0);
+
+  /* делаем ободок (толщина ~8px) через маску */
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(50% - 8px), #000 calc(50% - 8px));
+  mask: radial-gradient(farthest-side, transparent calc(50% - 8px), #000 calc(50% - 8px));
 }
 
 .result-badge-ring {
@@ -65,6 +84,15 @@
   font-size: 22px;
   font-weight: bold;
   font-family: 'Gloria Hallelujah', cursive;
+}
+
+@media (max-width: 768px) {
+  .result-badge { width: 80px; height: 80px; }
+  .result-badge-text { font-size: 20px; }
+}
+@media (max-width: 480px) {
+  .result-badge { width: 72px; height: 72px; }
+  .result-badge-text { font-size: 18px; }
 }
 
 /* === Превью рисунка: те же размеры, что у канваса === */
@@ -96,18 +124,3 @@
 .share-results-image { width: auto; height: auto; margin-bottom: 10px; max-width: 300px; }
 .social-icons { display: flex; justify-content: center; gap: 20px; }
 .social-icon { width: 48px; height: 48px; }
-
-@media (max-width: 768px) {
-  .result-badge { width: 80px; height: 80px; }
-  .result-badge-text { font-size: 20px; }
-  .button-icon { width: 100px; }
-  .share-results-image { max-width: 250px; }
-  .social-icon { width: 40px; height: 40px; }
-}
-
-@media (max-width: 480px) {
-  .result-badge { width: 72px; height: 72px; }
-  .result-badge-text { font-size: 18px; }
-  .button-icon { width: 80px; }
-  .share-results-image { max-width: 200px; margin-bottom: 8px; }
-}

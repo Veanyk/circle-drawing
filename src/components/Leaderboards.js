@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useMemo } from 'react';
+// src/components/Leaderboards.js
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import './Leaderboards.css';
 import leaderboardText from '../assets/leaderboard_text.png';
 import boardImage from '../assets/board.png';
@@ -14,17 +15,41 @@ function shortId(id) {
 }
 
 function displayName(u) {
-  // безопасные фолбэки на разные возможные поля
-  return (u?.username && String(u.username).trim()) ||
-         (u?.name && String(u.name).trim()) ||
-         shortId(u?.user_id);
+  return (u?.username && String(u.username).trim())
+      || (u?.name && String(u.name).trim())
+      || shortId(u?.user_id);
 }
 
-const Leaderboards = ({ userId }) => {
+// постараемся взять тот же userId, что использует приложение
+function getStoredUserId() {
+  try {
+    const tgId = window?.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    if (tgId) return String(tgId);
+  } catch {}
+  try {
+    const id = localStorage.getItem('circleGameUserId');
+    if (id) return id;
+  } catch {}
+  return null;
+}
+
+const Leaderboards = ({ userId: propUserId }) => {
   const [leaders, setLeaders] = useState([]);
   const [me, setMe] = useState(null);
   const [errTop, setErrTop] = useState(null);
   const [errMe, setErrMe] = useState(null);
+
+  const [wallet, setWallet] = useState('');
+  const [walletMsg, setWalletMsg] = useState(null);
+  const [savingWallet, setSavingWallet] = useState(false);
+
+  // определяем userId (из пропса или из хранилища/Telegram)
+  const [userId, setUserId] = useState(propUserId || null);
+  useEffect(() => {
+    if (propUserId) { setUserId(String(propUserId)); return; }
+    const id = getStoredUserId();
+    if (id) setUserId(id);
+  }, [propUserId]);
 
   // ТОП-10 с автообновлением
   useEffect(() => {
@@ -40,7 +65,6 @@ const Leaderboards = ({ userId }) => {
         if (!stop) {
           const rows = Array.isArray(raw) ? raw : [];
           let telegramOnly = rows.filter(u => !String(u.user_id).startsWith('browser_'));
-          // если после фильтра пусто — покажем як есть (полезно на пустой базе)
           if (telegramOnly.length === 0) telegramOnly = rows;
           setLeaders(telegramOnly.slice(0, 10));
         }
@@ -55,7 +79,7 @@ const Leaderboards = ({ userId }) => {
     return () => { stop = true; clearInterval(t); };
   }, []);
 
-  // Мои текущие данные (для подписи снизу)
+  // Мои текущие данные (для подписи + кошелёк)
   useEffect(() => {
     if (!userId) return;
     let stop = false;
@@ -70,7 +94,10 @@ const Leaderboards = ({ userId }) => {
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        if (!stop) setMe(data || null);
+        if (!stop) {
+          setMe(data || null);
+          if (data?.wallet && !wallet) setWallet(String(data.wallet));
+        }
       } catch (e) {
         if (!stop) setErrMe(e.message || 'Failed to load your data');
         console.error('Ошибка при получении данных пользователя:', e);
@@ -80,7 +107,7 @@ const Leaderboards = ({ userId }) => {
     loadMe();
     const t = setInterval(loadMe, 30000);
     return () => { stop = true; clearInterval(t); };
-  }, [userId]);
+  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ранг пользователя в топ-10 (если входит)
   const myRankInTop = useMemo(() => {
@@ -89,6 +116,46 @@ const Leaderboards = ({ userId }) => {
     return idx >= 0 ? idx + 1 : null;
   }, [me, leaders]);
 
+  // Порог для кошелька
+  const eligible = !!me && ((me.walletEligible === true) || ((me.coins || 0) >= 100));
+  const hasWallet = !!me?.wallet;
+
+  // Одноразовое уведомление при достижении 100+
+  useEffect(() => {
+    if (!eligible || !userId) return;
+    const key = `wallet_notified_${userId}`;
+    if (!localStorage.getItem(key)) {
+      setWalletMsg('🎉 You reached 100 tokens! Add your crypto wallet to receive rewards.');
+      localStorage.setItem(key, '1');
+    }
+  }, [eligible, userId]);
+
+  // Сохранение кошелька
+  const saveWallet = useCallback(async () => {
+    setWalletMsg(null);
+    const val = String(wallet || '').trim();
+    if (val.length < 6) {
+      setWalletMsg('The wallet address looks too short.');
+      return;
+    }
+    try {
+      setSavingWallet(true);
+      const res = await fetch(`${SERVER_URL}/setWallet`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, wallet: val }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      setWalletMsg('Wallet saved ✅');
+      setMe(prev => prev ? { ...prev, wallet: data.wallet } : prev);
+    } catch (e) {
+      setWalletMsg(`Failed to save: ${e.message}`);
+    } finally {
+      setSavingWallet(false);
+    }
+  }, [userId, wallet]);
+
   return (
     <div className="lb-wrapper">
       <img src={leaderboardText} alt="LEADERBOARD" className="lb-title" />
@@ -96,7 +163,7 @@ const Leaderboards = ({ userId }) => {
       <div className="lb-board">
         <img src={boardImage} alt="Board" className="lb-board-img" />
         <div className="lb-overlay">
-          {/* заголовки колонок */}
+          {/* шапка скрыта CSS'ом (lb-head { display: none }) */}
           <div className="lb-row lb-head">
             <div className="col-rank">№</div>
             <div className="col-name">name</div>
@@ -104,7 +171,6 @@ const Leaderboards = ({ userId }) => {
             <div className="col-tok">tokens</div>
           </div>
 
-          {/* ошибка / пусто / данные */}
           {errTop ? (
             <div className="lb-empty">Failed to load leaderboard ({errTop})</div>
           ) : leaders.length > 0 ? (
@@ -127,25 +193,58 @@ const Leaderboards = ({ userId }) => {
       </div>
 
       {/* подпись снизу: текущий пользователь */}
-      <div className="lb-me">
-        {errMe ? (
-          <span className="faded">Failed to load your results ({errMe})</span>
-        ) : me ? (
-          <>
-            <span className="dot">•</span>{' '}
-            <span>
-              {displayName(me)}:&nbsp;
-              {Number(me.coins || 0).toFixed(2)} coins,&nbsp;
-              best circle — {Math.round(me.best_score || 0)}%
-              {typeof myRankInTop === 'number'
-                ? `, rank #${myRankInTop}`
-                : `, not in top-10`}
-            </span>
-          </>
-        ) : (
-          <span className="faded">Loading your results…</span>
-        )}
-      </div>
+        <div className="lb-me">
+                {errMe ? (
+                  <span className="faded">Failed to load your results ({errMe})</span>
+                ) : me ? (
+                  <>
+                    <span className="lb-me-rank">
+                      Rank: {typeof myRankInTop === 'number' ? `#${myRankInTop}` : 'N/A'}
+                    </span>
+                    <span className="lb-me-accuracy">
+                      Accuracy: {Math.round(me.best_score || 0)}%
+                    </span>
+                    <span className="lb-me-tokens">
+                      Tokens: {Number(me.coins || 0).toFixed(2)}
+                    </span>
+                  </>
+                ) : (
+                  <span className="faded">Loading your results…</span>
+                )}
+              </div>
+
+      {/* поле кошелька — под "Your position" */}
+      {me && (
+        <div className="wallet-block">
+          {eligible && !hasWallet ? (
+            <>
+              <div className="wallet-hint">
+                {walletMsg || '🎉 You reached 100 tokens! Add your crypto wallet to receive rewards.'}
+              </div>
+              <div className="wallet-form">
+                <input
+                  className="wallet-input"
+                  type="text"
+                  placeholder="Paste your wallet address"
+                  value={wallet}
+                  onChange={e => setWallet(e.target.value)}
+                  disabled={savingWallet}
+                />
+                <button
+                  className="wallet-save"
+                  onClick={saveWallet}
+                  disabled={savingWallet || !wallet.trim()}>
+                  {savingWallet ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </>
+          ) : hasWallet ? (
+            <div className="wallet-view">
+              Wallet: <span className="mono">{me.wallet}</span>
+            </div>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 };

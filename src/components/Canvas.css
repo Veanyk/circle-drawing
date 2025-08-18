@@ -2,11 +2,16 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start; /* <-- ИЗМЕНЕНИЕ: Прижимаем к верху */
+  justify-content: flex-start;
   box-sizing: border-box;
   width: 100%;
-  padding-top: 20vh; /* <-- ЗАДАЕМ ВЕРХНИЙ ОТСТУП: 10% от высоты экрана */
+  padding-top: 14vh;        /* было 20vh — приподняли доску выше */
   padding-bottom: 20px;
+}
+
+/* немного выше ещё на очень маленьких экранах */
+@media (max-width: 480px) {
+  .canvas-container { padding-top: 12vh; }
 }
 
 .draw-circle-image {

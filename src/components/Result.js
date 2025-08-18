@@ -17,9 +17,6 @@ const Result = ({ score, onReset, drawing, userId }) => {
 
   const decimalTokens = (score / 100).toFixed(2);
   const angle = (score / 100) * 360;
-  const circleStyle = {
-    backgroundImage: `conic-gradient(#BE5200 ${angle}deg, #ffffff ${angle}deg 360deg)`,
-  };
 
   return (
     <div className="result-container">
@@ -31,13 +28,13 @@ const Result = ({ score, onReset, drawing, userId }) => {
           className="draw-circle-image"
           aria-hidden="true"
         />
-        {/* Компактный бейдж поверх спейсера (не меняет высоту блока) */}
-        <div className="result-badge">
-          <div className="result-badge-circle" style={circleStyle} />
-          <img src={resultCircleImage} alt="" className="result-badge-ring" />
-          <div className="result-badge-text">{score}%</div>
+        {/* компактный бейдж в правом нижнем углу “подсказки” */}
+          <div className="result-badge">
+            <div className="result-badge-base" />
+            <div className="result-badge-arc" style={{ '--deg': `${angle}deg` }} />
+            <div className="result-badge-text">{Math.round(score)}%</div>
+          </div>
         </div>
-      </div>
 
       {/* Превью рисунка — та же геометрия, что и у канваса */}
       <div className="result-drawing-container">

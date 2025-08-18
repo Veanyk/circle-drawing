@@ -9,8 +9,24 @@ const app = express();
 const PORT = Number(process.env.PORT) || 8000;
 const DB_PATH = path.join(__dirname, 'database.json');
 
-// Время восстановления ОДНОЙ попытки
+// Восстановление ОДНОЙ попытки
 const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000; // 1 минута
+
+// ------ Admin auth ------
+const ADMIN_KEYS = (process.env.ADMIN_KEYS || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+function requireAdmin(req, res, next) {
+  const bearer = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  const key = (req.headers['x-admin-key'] || bearer || '').toString();
+  if (ADMIN_KEYS.length === 0) {
+    return res.status(403).json({ error: 'admin_disabled', hint: 'Set ADMIN_KEYS env' });
+  }
+  if (ADMIN_KEYS.includes(key)) return next();
+  return res.status(401).json({ error: 'unauthorized' });
+}
 
 // ---------- CORS ----------
 const ORIGIN_PATTERNS = [
@@ -25,47 +41,41 @@ const ORIGIN_PATTERNS = [
 
 const corsOptions = {
   origin(origin, cb) {
-    if (!origin) return cb(null, true); // curl/вебвью
+    if (!origin) return cb(null, true);
     const ok = ORIGIN_PATTERNS.some(rx => rx.test(origin));
     return ok ? cb(null, true) : cb(new Error(`CORS: ${origin} not allowed`));
   },
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-Key'],
   credentials: true,
   optionsSuccessStatus: 204,
 };
 
 app.use(cors(corsOptions));
-// ⬇️ FIX: вместо '*' используем регэксп, чтобы не падать на path-to-regexp v6
+// FIX для path-to-regexp v6
 app.options(/.*/, cors(corsOptions));
 
-// Лимит тела (защита от больших аплоадов)
+// Лимит тела
 app.use(express.json({ limit: '1mb' }));
 
-// Логирование
+// Лог
 app.use((req, _res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} origin=${req.headers.origin || '-'} ip=${req.ip}`);
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} ip=${req.ip} origin=${req.headers.origin || '-'}`);
   next();
 });
 
 // ---------- DB helpers ----------
-function ensureDb() {
-  if (!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, '{}', { flag: 'w' });
-}
+function ensureDb() { if (!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, '{}', { flag: 'w' }); }
 function readDb() {
   ensureDb();
   const data = fs.readFileSync(DB_PATH, 'utf8');
   try { return JSON.parse(data || '{}'); }
-  catch (e) {
-    console.error('Ошибка парсинга JSON:', e);
-    return {};
-  }
+  catch (e) { console.error('Ошибка парсинга JSON:', e); return {}; }
 }
-function writeDb(data) {
-  fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
-}
+function writeDb(data) { fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2)); }
+const values = obj => Object.values(obj || {}).filter(v => v && typeof v === 'object');
 
-// ---------- Восстановление попыток (РОВНО 1 за тик) ----------
+// ---------- Regen attempts (ровно 1 за тик) ----------
 function regenAttempts(u) {
   const now = Date.now();
   if (u.attempts < u.max_attempts && u.nextAttemptTimestamp && now >= u.nextAttemptTimestamp) {
@@ -103,6 +113,8 @@ app.post('/getUserData', (req, res) => {
         completed_tasks: [],
         referrals: [],
         nextAttemptTimestamp: null,
+        wallet: null,
+        wallet_updated_at: null,
       };
       db[user_id] = user;
 
@@ -118,11 +130,13 @@ app.post('/getUserData', (req, res) => {
       }
     }
 
-    // начислим, если пришло время (ровно на 1)
+    // regen
     regenAttempts(user);
 
     writeDb(db);
-    res.json(user);
+    // не засоряем БД вычисляемым полем
+    const response = { ...user, walletEligible: (user.coins || 0) >= 100 };
+    res.json(response);
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'internal_error' });
@@ -142,13 +156,11 @@ app.post('/updateUserData', (req, res) => {
     const now = Date.now();
     const u = { ...prev };
 
-    // Попытки: разрешаем ТОЛЬКО уменьшение, рост даёт только regenAttempts
+    // Попытки: только уменьшение
     if (typeof data.attempts === 'number' && Number.isFinite(data.attempts)) {
       const nextAttempts = Math.max(0, Math.min(prev.max_attempts, Math.floor(data.attempts)));
       if (nextAttempts < prev.attempts) {
         u.attempts = nextAttempts;
-
-        // если потрачена первая из полного стакана — ставим таймер
         if (prev.attempts === prev.max_attempts && nextAttempts === prev.max_attempts - 1 && !prev.nextAttemptTimestamp) {
           u.nextAttemptTimestamp = now + ATTEMPT_REGEN_INTERVAL_MS;
         }
@@ -170,10 +182,15 @@ app.post('/updateUserData', (req, res) => {
       u.best_score = data.score;
     }
 
-    // +1 попытка по таймеру (если пришло время)
+    // Не позволяем менять кошелёк через этот маршрут
+    if (typeof data.wallet !== 'undefined' || typeof data.wallet_updated_at !== 'undefined') {
+      console.warn('Ignored wallet field in updateUserData');
+    }
+
+    // regen
     regenAttempts(u);
 
-    // Реферальный бонус: 5% от прироста монет
+    // Реф. бонус
     const earned = (u.coins || 0) - (prev.coins || 0);
     if (earned > 0 && prev.referrer_id && db[prev.referrer_id]) {
       const ref = db[prev.referrer_id];
@@ -184,7 +201,7 @@ app.post('/updateUserData', (req, res) => {
 
     db[user_id] = u;
     writeDb(db);
-    res.json(u);
+    res.json({ ...u, walletEligible: (u.coins || 0) >= 100 });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'internal_error' });
@@ -195,7 +212,7 @@ app.post('/updateUserData', (req, res) => {
 app.get('/getLeaderboard', (_req, res) => {
   try {
     const db = readDb();
-    const leaders = Object.values(db)
+    const leaders = values(db)
       .filter(u => u && typeof u.coins === 'number' && Number.isFinite(u.coins))
       .sort((a, b) => b.coins - a.coins)
       .slice(0, 10);
@@ -206,7 +223,7 @@ app.get('/getLeaderboard', (_req, res) => {
   }
 });
 
-// Рефералы
+// Мои рефералы
 app.post('/getReferrals', (req, res) => {
   try {
     const { user_id } = req.body || {};
@@ -222,6 +239,120 @@ app.post('/getReferrals', (req, res) => {
     console.error(e);
     res.status(500).json({ error: 'internal_error' });
   }
+});
+
+// ---------- Wallet ----------
+function isWalletString(s) {
+  if (typeof s !== 'string') return false;
+  const v = s.trim();
+  if (v.length < 6 || v.length > 120) return false;
+  return true; // минимум валидации, т.к. разные сети
+}
+
+app.post('/setWallet', (req, res) => {
+  try {
+    const { user_id, wallet } = req.body || {};
+    if (!user_id || typeof wallet !== 'string') return res.status(400).json({ error: 'bad_request' });
+
+    const db = readDb();
+    const u = db[user_id];
+    if (!u) return res.status(404).json({ error: 'user_not_found' });
+
+    if ((u.coins || 0) < 100) {
+      return res.status(403).json({ error: 'not_eligible', need: 100, have: u.coins || 0 });
+    }
+    if (!isWalletString(wallet)) return res.status(400).json({ error: 'invalid_wallet' });
+
+    u.wallet = wallet.trim();
+    u.wallet_updated_at = new Date().toISOString();
+    db[user_id] = u;
+    writeDb(db);
+
+    res.json({ ok: true, wallet: u.wallet });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'internal_error' });
+  }
+});
+
+// ---------- Admin endpoints ----------
+app.get('/admin/stats', requireAdmin, (_req, res) => {
+  const db = readDb();
+  const users = values(db);
+  const total = users.length;
+
+  const coinsArr = users.map(u => Number(u.coins) || 0);
+  const bestArr  = users.map(u => Number(u.best_score) || 0);
+
+  const sum = a => a.reduce((s, v) => s + v, 0);
+
+  const browserUsers = users.filter(u => String(u.user_id).startsWith('browser_')).length;
+  const telegramUsers = total - browserUsers;
+  const withReferrer  = users.filter(u => !!u.referrer_id).length;
+  const totalReferrals = users.reduce((s, u) => s + (Array.isArray(u.referrals) ? u.referrals.length : 0), 0);
+  const ge100 = users.filter(u => (u.coins || 0) >= 100).length;
+  const walletsTotal = users.filter(u => u.wallet && String(u.wallet).trim()).length;
+  const walletsGe100 = users.filter(u => (u.coins || 0) >= 100 && u.wallet && String(u.wallet).trim()).length;
+
+  const top10 = users
+    .slice()
+    .sort((a, b) => (b.coins || 0) - (a.coins || 0))
+    .slice(0, 10)
+    .map(u => ({ user_id: u.user_id, username: u.username, coins: u.coins || 0, best_score: u.best_score || 0, referrer_id: u.referrer_id || null }));
+
+  res.json({
+    total_users: total,
+    telegram_users: telegramUsers,
+    browser_users: browserUsers,
+    with_referrer: withReferrer,
+    total_referrals: totalReferrals,
+    avg_tokens: total ? +(sum(coinsArr) / total).toFixed(2) : 0,
+    avg_accuracy: total ? +(sum(bestArr) / total).toFixed(2) : 0,
+    users_ge_100: ge100,
+    wallets_total: walletsTotal,
+    wallets_ge_100: walletsGe100,
+    top10,
+  });
+});
+
+app.get('/admin/wallets', requireAdmin, (req, res) => {
+  const minCoins = Number(req.query.min_coins || 0);
+  const db = readDb();
+  const users = values(db);
+  const out = users
+    .filter(u => (u.wallet && String(u.wallet).trim()) || ((u.coins || 0) >= minCoins))
+    .map(u => ({
+      user_id: u.user_id,
+      username: u.username,
+      coins: Number(u.coins) || 0,
+      best_score: Number(u.best_score) || 0,
+      referrer_id: u.referrer_id || null,
+      referrals_count: Array.isArray(u.referrals) ? u.referrals.length : 0,
+      wallet: u.wallet || null,
+      wallet_updated_at: u.wallet_updated_at || null,
+    }));
+  res.json(out);
+});
+
+app.get('/admin/wallets.csv', requireAdmin, (req, res) => {
+  const db = readDb();
+  const users = values(db).filter(u => u.wallet && String(u.wallet).trim());
+  const rows = [
+    ['user_id','username','coins','best_score','referrer_id','referrals_count','wallet','wallet_updated_at'].join(','),
+    ...users.map(u => [
+      JSON.stringify(u.user_id),
+      JSON.stringify(u.username || ''),
+      (Number(u.coins) || 0).toFixed(2),
+      Math.round(Number(u.best_score) || 0),
+      JSON.stringify(u.referrer_id || ''),
+      (Array.isArray(u.referrals) ? u.referrals.length : 0),
+      JSON.stringify(u.wallet),
+      JSON.stringify(u.wallet_updated_at || '')
+    ].join(',')),
+  ];
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="wallets.csv"');
+  res.send(rows.join('\n'));
 });
 
 // Глобальный обработчик ошибок

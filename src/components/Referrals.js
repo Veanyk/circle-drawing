@@ -82,7 +82,6 @@ const copyToClipboard = async () => {
       <div className="referral-link">
         <div className="link-field">
           <img src={linkImage} alt="Referral link" className="link-image" />
-          {/* --- ВОТ КЛЮЧЕВОЕ ИЗМЕНЕНИЕ --- */}
           <span className="link-text">✨Your magic invite link</span>
         </div>
         <button className="copy-button" onClick={copyToClipboard}>
