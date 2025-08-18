@@ -96,14 +96,14 @@ const copyToClipboard = async () => {
             const coins = typeof ref.coins === 'number' ? ref.coins.toFixed(2) : '0.00';
             const best = typeof ref.best_score === 'number' ? Math.round(ref.best_score) : 0;
 
-            // Используем username, если он есть и не пустой, иначе - короткий ID
-            const displayName = (ref.username && String(ref.username).trim()) || `User_${String(ref.user_id).slice(-4)}`; // <-- УЛУЧШЕННАЯ ЛОГИКА
+            // --- КЛЮЧЕВОЕ ИЗМЕНЕНИЕ ---
+            // Всегда отображаем только ID пользователя
+            const displayName = ref.user_id;
 
-        return (
+            return (
               <li key={ref.user_id} className="ref-item">
                 <span className="ref-name">{displayName}</span>
                 <div className="ref-stats">
-                  {/* У нас нет ранга для рефералов, поэтому показываем только точность и токены */}
                   <span>Accuracy: {best}%</span>
                   <span>Tokens: {coins}</span>
                 </div>

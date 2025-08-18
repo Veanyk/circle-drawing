@@ -2,10 +2,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start; /* <-- ИЗМЕНЕНИЕ: Прижимаем к верху */
+  justify-content: flex-start;
   box-sizing: border-box;
   width: 100%;
-  padding-top: 10vh; /* <-- ЗАДАЕМ ВЕРХНИЙ ОТСТУП: 10% от высоты экрана */
+  padding-top: 20vh; /* <-- УВЕЛИЧИВАЕМ ОТСТУП (например, до 20% от высоты экрана) */
   padding-bottom: 20px;
 }
 

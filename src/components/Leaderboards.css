@@ -78,35 +78,42 @@
   font-size: clamp(14px, 2.7vw, 18px);
 }
 
-/* строки компактнее и без разделительных линий */
 .lb-row {
   display: grid;
-  /* --- ВОТ КЛЮЧЕВОЕ ИЗМЕНЕНИЕ --- */
-  /* Новые пропорции: Ранг | Имя (гибкое) | Точность | Токены */
-  grid-template-columns: 30px 1fr 70px 80px;
-  gap: 5px; /* Немного уменьшим зазор для компактности */
+  /* 3 колонки: Ранг | Имя (гибкое) | Статистика (фиксированная) */
+  grid-template-columns: 30px 1fr auto;
+  gap: 10px;
   padding: 2px 4px;
   align-items: center;
 }
 
 .col-rank {
   text-align: center;
-  opacity: 0.8; /* Делаем ранг чуть менее заметным */
+  opacity: 0.8;
 }
 
 .col-name {
-  /* Убираем лишние отступы, так как есть gap */
-  padding-left: 0;
+  padding-left: 15px; /* <-- 1. СДВИГАЕМ НИКНЕЙМ ВПРАВО */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* Контейнер для правой части (статистики) */
+.col-stats {
+  display: flex;
+  justify-content: flex-end; /* Выравниваем содержимое по правому краю */
+  gap: 20px; /* Расстояние между точностью и токенами */
+  white-space: nowrap;
+
+  /* Сдвигаем весь блок статистики влево */
+  padding-right: 15px; /* Можете настроить это значение. 10px сдвинет Accuracy, 25px - Tokens */
+}
+
+/* Убираем индивидуальные отступы, так как теперь есть gap и padding у родителя */
 .col-acc, .col-tok {
-  /* Убираем лишние отступы */
   padding-right: 0;
   text-align: right;
-  white-space: nowrap;
 }
 /* прячем шапку столбцов */
 .lb-head {

@@ -7,12 +7,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start; /* <-- Этот параметр уже правильный */
-  padding: 20px;
+  justify-content: flex-start;
+  padding: 20px; /* Оставляем боковые отступы */
   box-sizing: border-box;
   width: 100%;
-  padding-top: 10vh; /* <-- ДОБАВЛЯЕМ ТАКОЙ ЖЕ ВЕРХНИЙ ОТСТУП, как в Canvas */
-  /* min-height убираем, он больше не нужен */
+  padding-top: 14vh; /* <-- УСТАНАВЛИВАЕМ ТОЧНО ТАКОЕ ЖЕ ЗНАЧЕНИЕ, КАК В CANVAS.CSS */
 }
 
 /* Родительский контейнер для круга, PNG и текста */

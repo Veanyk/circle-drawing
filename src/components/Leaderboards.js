@@ -175,14 +175,20 @@ const Leaderboards = ({ userId: propUserId }) => {
             <div className="lb-empty">Failed to load leaderboard ({errTop})</div>
           ) : leaders.length > 0 ? (
             leaders.map((u, i) => (
-              <div className="lb-row" key={u.user_id || i}>
-                <div className="col-rank">{i + 1}</div>
-                <div className="col-name">{displayName(u)}</div>
-                <div className="col-acc">
-                  {Number.isFinite(u?.best_score) ? `${Math.round(u.best_score)}%` : '—'}
+            <div className="lb-row" key={u.user_id || i}>
+              <div className="col-rank">{i + 1}</div>
+                  <div className="col-name">{displayName(u)}</div>
+                  {/* ОБЪЕДИНЯЕМ СТАТИСТИКУ В ОДИН БЛОК */}
+                  <div className="col-stats">
+                    <span className="col-acc">
+                      {Number.isFinite(u?.best_score) ? `${Math.round(u.best_score)}%` : '—'}
+                    </span>
+                    <span className="col-tok">
+                      {Number.isFinite(u?.coins) ? Number(u.coins).toFixed(2) : '0.00'}
+                    </span>
+                  </div>
                 </div>
-                <div className="col-tok">
-                  {Number.isFinite(u?.coins) ? Number(u.coins).toFixed(2) : '0.00'}
+                {Number.isFinite(u?.coins) ? Number(u.coins).toFixed(2) : '0.00'}
                 </div>
               </div>
             ))
