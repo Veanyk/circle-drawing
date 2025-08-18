@@ -65,7 +65,7 @@
 .earned-tokens-text {
   font-family: 'Gloria Hallelujah', cursive;
   color: #000000;
-  font-size: 23px; /* Уменьшили размер */
+  font-size: 21px; /* Уменьшили размер */
   margin: 2px 0;   /* Уменьшили вертикальные отступы */
   text-align: center;
   line-height: 1.2; /* Сделали строки ближе друг к другу */
@@ -107,7 +107,7 @@
 }
 
 .button-icon {
-  width: 150px;
+  width: 180px;
   height: auto;
 }
 
@@ -127,28 +127,28 @@
 /* Адаптивная верстка */
 @media (max-width: 768px) {
     .result-image {
-      width: 100px; /* Уменьшили */
-      height: 100px; /* Уменьшили */
+      width: 80px; /* Уменьшили */
+      height: 80px; /* Уменьшили */
     }
     .result-circle-dynamic {
-      width: 100px; /* Уменьшили */
-      height: 100px; /* Уменьшили */
+      width: 80px; /* Уменьшили */
+      height: 80px; /* Уменьшили */
     }
     .result-circle-image {
-      width: 100px; /* Уменьшили */
-      height: 100px; /* Уменьшили */
+      width: 80px; /* Уменьшили */
+      height: 80px; /* Уменьшили */
     }
     .result-text-overlay {
-      font-size: 32px; /* Уменьшили */
+      font-size: 30px; /* Уменьшили */
     }
     .circle-accuracy-text,
     .earned-tokens-text {
-    font-size: 22px;
+    font-size: 20px;
     margin: 6px 0;
     }
 
     .button-icon {
-    width: 100px;
+    width: 120px;
     }
 
     .share-results-image {
@@ -158,29 +158,29 @@
 
 @media (max-width: 480px) {
     .result-image {
-      width: 90px; /* Уменьшили */
-      height: 90px; /* Уменьшили */
+      width: 70px; /* Уменьшили */
+      height: 70px; /* Уменьшили */
     }
     .result-circle-dynamic {
-      width: 90px; /* Уменьшили */
-      height: 90px; /* Уменьшили */
+      width: 70px; /* Уменьшили */
+      height: 70px; /* Уменьшили */
     }
     .result-circle-image {
-      width: 90px; /* Уменьшили */
-      height: 90px; /* Уменьшили */
+      width: 70px; /* Уменьшили */
+      height: 70px; /* Уменьшили */
     }
     .result-text-overlay {
-      font-size: 28px; /* Уменьшили */
+      font-size: 26px; /* Уменьшили */
     }
 
     .circle-accuracy-text,
     .earned-tokens-text {
-    font-size: 18px;
+    font-size:16px;
     margin: 4px 0;
     }
 
     .button-icon {
-    width: 80px;
+    width: 86px;
     }
 
     .share-results-image {
