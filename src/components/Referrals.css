@@ -101,16 +101,10 @@
   width: 90%;
   max-width: 450px;
   font-family: 'Gloria Hallelujah', cursive;
-  counter-reset: referral-counter; /* Инициализируем счетчик для нумерации */
 }
 
-.referrals-list li.ref-item {
-  display: grid;
-  grid-template-columns: 30px 1fr auto; /* 3 колонки: Номер, Имя, Статистика */
-  align-items: center;
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px dashed rgba(255, 255, 255, 0.3);
+.referrals-list li.ref-item:last-child {
+  border-bottom: none;
 }
 
 .referrals-list li.ref-item:last-child {
@@ -118,22 +112,21 @@
 }
 
 .referrals-list li.ref-item::before {
-  counter-increment: referral-counter;
-  content: counter(referral-counter) ".";
-  text-align: right;
-  opacity: 0.7;
-  font-size: 0.9em;
+  content: none;
 }
 
 .ref-name {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  padding-right: 15px; /* Отступ, чтобы имя не сливалось со статистикой */
 }
 
 .ref-stats {
+  display: flex; /* Располагаем метрики в строку */
+  gap: 15px; /* Пространство между "Accuracy" и "Tokens" */
   white-space: nowrap;
-  text-align: right;
+  flex-shrink: 0; /* Запрещаем блоку сжиматься */
 }
 
 .invite-image {
@@ -145,15 +138,14 @@
 }
 @media (max-width: 768px) {
   .your-referrals-image {
-  width: 75%;
+  width: 60%;
   }
   .copy-button img {
   display: block;
   width: 25vw;
-  max-width:60px;
+  max-width:65px;
 
   height: 100%;
   object-fit: contain;
-}
-
+  }
 }

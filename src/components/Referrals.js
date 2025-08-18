@@ -72,7 +72,6 @@ const copyToClipboard = async () => {
       console.error('Failed to copy text: ', err);
     }
   };
-  const prettyLinkText = '✨ Your magic invite link';
 
   return (
     <div className="referrals-container">
@@ -97,14 +96,18 @@ const copyToClipboard = async () => {
             const coins = typeof ref.coins === 'number' ? ref.coins.toFixed(2) : '0.00';
             const best = typeof ref.best_score === 'number' ? Math.round(ref.best_score) : 0;
 
-            // Отображаем username, если он есть, иначе - ID
-            const displayName = ref.username || ref.user_id;
+            // Используем username, если он есть и не пустой, иначе - короткий ID
+            const displayName = (ref.username && String(ref.username).trim()) || `User_${String(ref.user_id).slice(-4)}`; // <-- УЛУЧШЕННАЯ ЛОГИКА
 
-            return (
-            <li key={ref.user_id} className="ref-item">
-              <span className="ref-name">{displayName}</span>
-              <span className="ref-stats">{coins} coins • best {best}%</span>
-            </li>
+        return (
+              <li key={ref.user_id} className="ref-item">
+                <span className="ref-name">{displayName}</span>
+                <div className="ref-stats">
+                  {/* У нас нет ранга для рефералов, поэтому показываем только точность и токены */}
+                  <span>Accuracy: {best}%</span>
+                  <span>Tokens: {coins}</span>
+                </div>
+              </li>
             );
           })}
         </ul>
