@@ -7,7 +7,11 @@ import Referrals from './components/Referrals';
 import Leaderboards from './components/Leaderboards';
 import './App.css';
 
-const SERVER_URL = process.env.REACT_APP_SERVER_URL || 'https://draw-a-circle.chickenkiller.com';
+const SERVER_URL =
+  process.env.NODE_ENV === 'development'
+    ? 'http://localhost:8000'  // локально бьёмся напрямую в ваш backend
+    : '/api';                  // на Vercel ходим на тот же origin, а rewrites прокинут дальше
+
 const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000; // 1 минута
 
 const getBrowserUserId = () => {
