@@ -97,9 +97,12 @@ function readDb() {
 function writeDb(data) { fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2)); }
 const values = obj => Object.values(obj || {}).filter(v => v && typeof v === 'object');
 
-function isTelegramId(id) {
-  // Сохраняем пользователя ТОЛЬКО если его id — чисто числовая строка
-  return typeof id === 'string' && /^\d+$/.test(id);
+function isPersistableId(id) {
+  if (typeof id !== 'string') return false;
+  if (/^\d+$/.test(id)) return true; // настоящий Telegram ID
+  // Разрешим браузерные id только если явно включено:
+  if (process.env.ALLOW_BROWSER_IDS === '1' && /^browser_/.test(id)) return true;
+  return false;
 }
 
 function sanitizeTelegramUsername(name) {
@@ -328,6 +331,25 @@ app.post('/getUserData', (req, res) => {
       if (providedUsername && providedUsername !== user.username) {
         user.username = providedUsername;
       }
+
+      // Новое: поздняя привязка реферала, если ref_id пришёл сейчас
+      if (!user.referrer_id && refIdStr && refIdStr !== user_id) {
+        user.referrer_id = refIdStr;
+        const ref = normalizeUser(db[refIdStr] || {
+          user_id: refIdStr,
+          username: `User_${String(refIdStr).slice(-4)}`,
+          coins: 0, attempts: 25, max_attempts: 25, best_score: 0,
+          completed_tasks: [], referrals: [], nextAttemptTimestamp: null,
+          wallet: null, wallet_updated_at: null,
+        });
+        ref.referrals = Array.isArray(ref.referrals) ? ref.referrals : [];
+        if (!ref.referrals.includes(user_id)) {
+          ref.referrals.push(user_id);
+          awardInviteIfNeeded(ref);
+        }
+        db[refIdStr] = ref;
+      }
+
       // «догоняем» связь, если referrer_id уже был, но реферер появился позже
       if (user.referrer_id && db[user.referrer_id]) {
         const ref = normalizeUser(db[user.referrer_id]);
@@ -464,8 +486,8 @@ app.post('/getReferrals', (req, res) => {
     if (!user_id) return res.status(400).json({ error: 'user_id не предоставлен' });
     user_id = String(user_id);
 
-    if (!isTelegramId(user_id)) {
-      return res.json([]); // гость — не сохраняем и не показываем
+    if (!isPersistableId(user_id)) {
+      return res.json([]);
     }
 
     const db = readDb();

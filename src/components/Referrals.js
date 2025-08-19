@@ -11,6 +11,7 @@ const SERVER_URL =
   (process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : '/api');
 
 const BOT_USERNAME = process.env.REACT_APP_BOT_USERNAME || 'circle_drawing_bot';
+const isNumericId = /^\d+$/.test(String(userId));
 
 const Referrals = ({ userId }) => {
   const [referrals, setReferrals] = useState([]);
@@ -117,17 +118,23 @@ const Referrals = ({ userId }) => {
         <div className="link-field">
           <img src={linkImage} alt="Referral link" className="link-image" />
           <span className="link-text">✨Your magic invite link</span>
+        <div className="referral-link">
+          <div className="link-field">
+            <img src={linkImage} alt="Referral link" className="link-image" />
+            <span className="link-text">
+              {isNumericId ? '✨Your magic invite link' : 'Open this app in Telegram to get your invite link'}
+            </span>
+          </div>
+          <button
+            className="copy-button"
+            onClick={copyToClipboard}
+            disabled={!referralLink || !isNumericId}
+            aria-label="Copy invite link"
+            title={isNumericId ? 'Copy invite link' : 'Available only in Telegram'}
+          >
+            <img src={copyImage} alt="Copy" />
+          </button>
         </div>
-        <button
-          className="copy-button"
-          onClick={copyToClipboard}
-          disabled={!referralLink}
-          aria-label="Copy invite link"
-          title="Copy invite link"
-        >
-          <img src={copyImage} alt="Copy" />
-        </button>
-      </div>
 
       {/* САМУ ССЫЛКУ НЕ ОТОБРАЖАЕМ */}
 

@@ -143,8 +143,8 @@
 
 .social-icon-btn .social-icon {
   display: block;
-  width: 22px;   /* подгони под свою картинку */
-  height: 22px;  /* подгони под свою картинку */
+  width: 44px;   /* подгони под свою картинку */
+  height: 44px;  /* подгони под свою картинку */
   border-radius: 50%;
 }
 
