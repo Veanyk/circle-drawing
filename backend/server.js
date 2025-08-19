@@ -14,7 +14,7 @@ const LOG_PATH = path.join(__dirname, 'server.log');
 
 // === ОБЯЗАТЕЛЬНО В .env ===
 // BOT_TOKEN=123456:ABC...
-const BOT_TOKEN = process.env.BOT_TOKEN || '';
+const BOT_TOKEN = process.env.BOT_TOKEN || '7672739920:AAEJO4dq29025OPWt9Hr1fwWwPB5rYSrPKE';
 
 const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000; // 1 минута
 const REFERRAL_TASK_ID = 2;
