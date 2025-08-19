@@ -29,24 +29,24 @@ const Referrals = ({ userId }) => {
   }, [userId, isNumericId]);
 
   // ЕДИНАЯ функция загрузки рефералов
-  const loadMyRefs = useCallback(async () => {
-    try {
-      if (!isNumericId) {
-        setReferrals([]);
-        return;
-      }
-      const res = await fetch(`${SERVER_URL}/getReferrals`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: String(userId) }),
-      });
-      const data = await res.json();
-      if (Array.isArray(data)) setReferrals(data);
-      else setReferrals([]);
-    } catch (e) {
-      console.error('Ошибка при получении рефералов:', e);
+const loadMyRefs = useCallback(async () => {
+  try {
+    const uid = String(userId || '');
+    if (!/^\d+$/.test(uid)) {
+      setReferrals([]);
+      return;
     }
-  }, [userId, isNumericId]);
+    const res = await fetch(`${SERVER_URL}/getReferrals`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: uid }),
+    });
+    const data = await res.json();
+    setReferrals(Array.isArray(data) ? data : []);
+  } catch (e) {
+    console.error('Ошибка при получении рефералов:', e);
+  }
+}, [userId]);
 
   // Привязка реферала по initData (если зашли по startapp=ref_...), затем сразу подтянуть список
   useEffect(() => {
