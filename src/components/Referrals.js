@@ -11,54 +11,52 @@ const SERVER_URL =
   (process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : '/api');
 
 const BOT_USERNAME = process.env.REACT_APP_BOT_USERNAME || 'circle_drawing_bot';
-const isNumericId = /^\d+$/.test(String(userId));
 
 const Referrals = ({ userId }) => {
   const [referrals, setReferrals] = useState([]);
   const [referralLink, setReferralLink] = useState('');
-  const sentOnceRef = useRef(false); // чтобы не слать /acceptReferral много раз
+  const sentOnceRef = useRef(false);
 
-  // Генерируем deep link в Telegram Mini App
+  const isNumericId = /^\d+$/.test(String(userId || ''));
+
+  // Генерируем deep link в Telegram Mini App (только для числового id)
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !isNumericId) {
+      setReferralLink('');
+      return;
+    }
     const deepLink = `https://t.me/${BOT_USERNAME}?startapp=ref_${userId}`;
     setReferralLink(deepLink);
-  }, [userId]);
+  }, [userId, isNumericId]);
 
   // Фиксируем реферал, если Mini App открыт по ?startapp=ref_...
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !isNumericId) return;
     if (sentOnceRef.current) return;
 
-    // Безопасно читаем initData/start_param
-    const tg = (typeof window !== 'undefined' && window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+    const tg = (typeof window !== 'undefined' && window.Telegram && window.Telegram.WebApp)
+      ? window.Telegram.WebApp
+      : null;
+
     const initDataRaw = tg?.initData || '';
-    const initUnsafe = tg?.initDataUnsafe || {};
-    const startParam = initUnsafe?.start_param;
+    const startParam = tg?.initDataUnsafe?.start_param;
 
     if (typeof startParam === 'string' && startParam.startsWith('ref_')) {
       const inviterId = Number(startParam.slice(4));
-      if (Number.isFinite(inviterId) && inviterId > 0) {
-        // Избегаем самореферала на клиенте (на сервере тоже проверяется)
-        if (Number(userId) === inviterId) return;
-
+      if (Number.isFinite(inviterId) && inviterId > 0 && Number(userId) !== inviterId) {
         sentOnceRef.current = true;
         fetch(`${SERVER_URL}/acceptReferral`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            inviter_id: inviterId,
-            // invitee_id сервер возьмёт из подписанного initData, поле добавлять не обязательно
-            initData: initDataRaw,
-          }),
+          body: JSON.stringify({ inviter_id: inviterId, initData: initDataRaw }),
         }).catch((e) => console.error('acceptReferral failed:', e));
       }
     }
-  }, [userId]);
+  }, [userId, isNumericId]);
 
   // Загружаем список рефералов (поллинг)
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !isNumericId) return;
     let stop = false;
 
     const loadMyRefs = async () => {
@@ -78,7 +76,7 @@ const Referrals = ({ userId }) => {
     loadMyRefs();
     const iv = setInterval(loadMyRefs, 5000);
     return () => { stop = true; clearInterval(iv); };
-  }, [userId]);
+  }, [userId, isNumericId]);
 
   const copyToClipboard = async () => {
     const text = referralLink;
@@ -89,8 +87,12 @@ const Referrals = ({ userId }) => {
       ta.value = text;
       document.body.appendChild(ta);
       ta.select();
-      try { document.execCommand('copy'); alert('Referral link copied to clipboard!'); }
-      catch (err) { console.error('Fallback copy failed:', err); }
+      try {
+        document.execCommand('copy');
+        alert('Referral link copied to clipboard!');
+      } catch (err) {
+        console.error('Fallback copy failed:', err);
+      }
       document.body.removeChild(ta);
       return;
     }
@@ -117,24 +119,20 @@ const Referrals = ({ userId }) => {
       <div className="referral-link">
         <div className="link-field">
           <img src={linkImage} alt="Referral link" className="link-image" />
-          <span className="link-text">✨Your magic invite link</span>
-        <div className="referral-link">
-          <div className="link-field">
-            <img src={linkImage} alt="Referral link" className="link-image" />
-            <span className="link-text">
-              {isNumericId ? '✨Your magic invite link' : 'Open this app in Telegram to get your invite link'}
-            </span>
-          </div>
-          <button
-            className="copy-button"
-            onClick={copyToClipboard}
-            disabled={!referralLink || !isNumericId}
-            aria-label="Copy invite link"
-            title={isNumericId ? 'Copy invite link' : 'Available only in Telegram'}
-          >
-            <img src={copyImage} alt="Copy" />
-          </button>
+          <span className="link-text">
+            {isNumericId ? '✨Your magic invite link' : 'Open this app in Telegram to get your invite link'}
+          </span>
         </div>
+        <button
+          className="copy-button"
+          onClick={copyToClipboard}
+          disabled={!referralLink || !isNumericId}
+          aria-label="Copy invite link"
+          title={isNumericId ? 'Copy invite link' : 'Available only in Telegram'}
+        >
+          <img src={copyImage} alt="Copy" />
+        </button>
+      </div>
 
       {/* САМУ ССЫЛКУ НЕ ОТОБРАЖАЕМ */}
 
