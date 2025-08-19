@@ -30,29 +30,63 @@ const Referrals = ({ userId }) => {
   }, [userId, isNumericId]);
 
   // Фиксируем реферал, если Mini App открыт по ?startapp=ref_...
-  useEffect(() => {
-    if (!userId || !isNumericId) return;
-    if (sentOnceRef.current) return;
+    useEffect(() => {
+      if (sentOnceRef.current) return;
 
-    const tg = (typeof window !== 'undefined' && window.Telegram && window.Telegram.WebApp)
-      ? window.Telegram.WebApp
-      : null;
+      const tg = (typeof window !== 'undefined' && window.Telegram && window.Telegram.WebApp)
+        ? window.Telegram.WebApp
+        : null;
 
-    const initDataRaw = tg?.initData || '';
-    const startParam = tg?.initDataUnsafe?.start_param;
+      const initDataRaw = tg?.initData || '';
+      const startParam = tg?.initDataUnsafe?.start_param;
 
-    if (typeof startParam === 'string' && startParam.startsWith('ref_')) {
+      if (!initDataRaw || typeof startParam !== 'string' || !startParam.startsWith('ref_')) {
+        return;
+      }
+
       const inviterId = Number(startParam.slice(4));
-      if (Number.isFinite(inviterId) && inviterId > 0 && Number(userId) !== inviterId) {
-        sentOnceRef.current = true;
-        fetch(`${SERVER_URL}/acceptReferral`, {
+      if (!Number.isFinite(inviterId) || inviterId <= 0) return;
+
+      sentOnceRef.current = true;
+      fetch(`${SERVER_URL}/acceptReferral`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inviter_id: inviterId, initData: initDataRaw }),
+      })
+        .then(r => r.json().catch(() => ({})))
+        .then(() => {
+          // после успешной привязки — сразу перезагрузим список
+          if (typeof loadMyRefs === 'function') loadMyRefs();
+        })
+        .catch((e) => console.error('acceptReferral failed:', e));
+    }, []);
+
+    // 2) Загрузка списка рефералов (оставляем поллинг, но выносим функцию наружу,
+    //    чтобы можно было вызвать её после acceptReferral)
+    const [referrals, setReferrals] = useState([]);
+
+    const loadMyRefs = React.useCallback(async () => {
+      try {
+        if (!userId || !/^\d+$/.test(String(userId))) return;
+        const res = await fetch(`${SERVER_URL}/getReferrals`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ inviter_id: inviterId, initData: initDataRaw }),
-        }).catch((e) => console.error('acceptReferral failed:', e));
+          body: JSON.stringify({ user_id: userId }),
+        });
+        const data = await res.json();
+        if (Array.isArray(data)) setReferrals(data);
+      } catch (e) {
+        console.error('Ошибка при получении рефералов:', e);
       }
-    }
-  }, [userId, isNumericId]);
+    }, [userId]);
+
+    useEffect(() => {
+      let stop = false;
+      const tick = async () => { if (!stop) await loadMyRefs(); };
+      tick();
+      const iv = setInterval(tick, 5000);
+      return () => { stop = true; clearInterval(iv); };
+    }, [loadMyRefs]);
 
   // Загружаем список рефералов (поллинг)
   useEffect(() => {

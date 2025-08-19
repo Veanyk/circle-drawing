@@ -68,10 +68,9 @@ useEffect(() => {
   const url = new URL(window.location.href);
   const qs = url.searchParams;
 
-  // кандидаты источников
-  const sp = tg?.initDataUnsafe?.start_param;           // "ref_779077474"
-  const qStart = qs.get('tgWebAppStartParam');          // "ref_..." или "779077474"
-  const qRef = qs.get('ref');                           // "779077474"
+  const sp = tg?.initDataUnsafe?.start_param;
+  const qStart = qs.get('tgWebAppStartParam');
+  const qRef = qs.get('ref');
 
   const extractRef = (v) => {
     if (!v) return null;
@@ -81,28 +80,16 @@ useEffect(() => {
     return Number.isFinite(n) && n > 0 ? n : null;
   };
 
-  const inviterId =
-    extractRef(sp) ??
-    extractRef(qStart) ??
-    extractRef(qRef);
-
-  console.log('[AutoAttach] sources:', { sp, qStart, qRef, inviterId, initLen: initData?.length || 0 });
-
+  const inviterId = extractRef(sp) ?? extractRef(qStart) ?? extractRef(qRef);
   if (!inviterId) return;
 
-  // Внутри Telegram WebApp: идём через /acceptReferral (надёжная верификация initData)
   if (initData && initData.length > 0) {
     fetch(`${SERVER_URL}/acceptReferral`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ inviter_id: inviterId, initData }),
-    })
-      .then(r => r.json().catch(() => ({})))
-      .then(j => console.log('[AutoAttach] /acceptReferral resp:', j))
-      .catch(e => console.error('[AutoAttach] acceptReferral failed:', e));
+    }).catch(() => {});
   } else {
-    // Открыто «как сайт»: сохраняем реферала в localStorage → /getUserData получит ref_id
-    console.warn('[AutoAttach] No initData (not in Telegram WebApp). Will rely on ref_id via /getUserData.');
     localStorage.setItem('referrerId', String(inviterId));
   }
 }, []);
