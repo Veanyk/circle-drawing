@@ -10,6 +10,7 @@ const querystring = require('querystring');
 const app = express();
 const PORT = Number(process.env.PORT) || 8000;
 const DB_PATH = path.join(__dirname, 'database.json');
+const LOG_PATH = path.join(__dirname, 'server.log');
 
 // === ОБЯЗАТЕЛЬНО В .env ===
 // BOT_TOKEN=123456:ABC...
@@ -25,6 +26,19 @@ const ADMIN_KEYS = (process.env.ADMIN_KEYS || '779077474')
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
+
+// ---------- простейший файловый логгер ----------
+function toStr(a) {
+  if (a === undefined) return 'undefined';
+  if (a === null) return 'null';
+  if (typeof a === 'string') return a;
+  try { return JSON.stringify(a); } catch { return String(a); }
+}
+function log(...args) {
+  const line = `[${new Date().toISOString()}] ` + args.map(toStr).join(' ') + '\n';
+  try { fs.appendFileSync(LOG_PATH, line); } catch {}
+  try { console.log(...args); } catch {}
+}
 
 function requireAdmin(req, res, next) {
   const bearer = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
@@ -62,17 +76,12 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-// FIX для path-to-regexp v6
 app.options(/.*/, cors(corsOptions));
 
-// Лимит тела
 app.use(express.json({ limit: '1mb' }));
 
-// Лог
 app.use((req, _res, next) => {
-  console.log(
-    `[${new Date().toISOString()}] ${req.method} ${req.path} ip=${req.ip} origin=${req.headers.origin || '-'}`
-  );
+  log(`${req.method} ${req.path}`, `ip=${req.ip}`, `origin=${req.headers.origin || '-'}`);
   next();
 });
 
@@ -84,7 +93,7 @@ function readDb() {
   ensureDb();
   const data = fs.readFileSync(DB_PATH, 'utf8');
   try { return JSON.parse(data || '{}'); }
-  catch (e) { console.error('Ошибка парсинга JSON:', e); return {}; }
+  catch (e) { log('Ошибка парсинга JSON:', e); return {}; }
 }
 function writeDb(data) { fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2)); }
 const values = obj => Object.values(obj || {}).filter(v => v && typeof v === 'object');
@@ -101,6 +110,7 @@ function sanitizeTelegramUsername(name) {
 
 function normalizeUser(u) {
   const n = { ...u };
+  n.user_id = String(n.user_id);
   n.max_attempts = Number.isFinite(n.max_attempts) && n.max_attempts > 0 ? Math.floor(n.max_attempts) : 25;
 
   if (!Number.isFinite(n.attempts) || n.attempts < 0) n.attempts = n.max_attempts;
@@ -114,6 +124,8 @@ function normalizeUser(u) {
   if (!(typeof n.nextAttemptTimestamp === 'number' && isFinite(n.nextAttemptTimestamp) && n.nextAttemptTimestamp > 0)) {
     n.nextAttemptTimestamp = null;
   }
+  if (n.referrer_id != null) n.referrer_id = String(n.referrer_id);
+  n.referrals = n.referrals.map(String);
   return n;
 }
 
@@ -122,7 +134,7 @@ function awardInviteIfNeeded(refUser) {
   if (!refUser.completed_tasks.includes(REFERRAL_TASK_ID)) {
     refUser.completed_tasks.push(REFERRAL_TASK_ID);
     refUser.coins = (refUser.coins || 0) + REFERRAL_TASK_REWARD;
-    console.log(`Referral task awarded: +${REFERRAL_TASK_REWARD} tokens to ${refUser.user_id}`);
+    log(`Referral task awarded: +${REFERRAL_TASK_REWARD} tokens to ${refUser.user_id}`);
   }
 }
 
@@ -165,13 +177,11 @@ function verifyInitData(initData, botToken) {
   if (!initData) throw new Error('initData_empty');
   if (!botToken) throw new Error('bot_token_missing');
 
-  // initData — это querystring
   const parsed = querystring.parse(initData);
 
   const providedHash = getFirst(parsed.hash);
   if (!providedHash) throw new Error('hash_missing');
 
-  // Собираем data_check_string без hash
   const entries = Object.keys(parsed)
     .filter(k => k !== 'hash')
     .sort()
@@ -181,9 +191,11 @@ function verifyInitData(initData, botToken) {
   const secretKey = crypto.createHash('sha256').update(botToken).digest();
   const hmac = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
 
-  // Сравниваем безопасно
-  const ok = crypto.timingSafeEqual(Buffer.from(hmac), Buffer.from(providedHash));
-  if (!ok) throw new Error('bad_signature');
+  const calc = Buffer.from(hmac);
+  const recv = Buffer.from(providedHash);
+  if (calc.length !== recv.length || !crypto.timingSafeEqual(calc, recv)) {
+    throw new Error('bad_signature');
+  }
 
   let user = {};
   const userRaw = getFirst(parsed.user);
@@ -198,21 +210,48 @@ function verifyInitData(initData, botToken) {
 // ---------- ROUTES ----------
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
+// Debug
+app.get('/debug/ping', (_req, res) => {
+  try {
+    const db = readDb();
+    const keys = Object.keys(db);
+    res.json({
+      ok: true,
+      botTokenSet: Boolean(process.env.BOT_TOKEN || BOT_TOKEN),
+      cwd: process.cwd(),
+      dirname: __dirname,
+      dbUsers: keys.length,
+      logFile: LOG_PATH,
+      now: new Date().toISOString(),
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e) });
+  }
+});
+
+app.post('/debug/write-log', (req, res) => {
+  log('[debug] manual log write', req.body || {});
+  res.json({ ok: true, wrote: true, path: LOG_PATH });
+});
+
 // Создание/чтение пользователя
 app.post('/getUserData', (req, res) => {
   try {
     const { user_id, ref_id, username } = req.body || {};
     if (!user_id) return res.status(400).json({ error: 'user_id не предоставлен' });
 
+    const userIdStr = String(user_id);
+    const refIdStr = ref_id ? String(ref_id) : null;
+
     const db = readDb();
     const providedUsername = sanitizeTelegramUsername(username);
-    let user = db[user_id];
+    let user = db[userIdStr];
 
     if (!user) {
       user = {
-        user_id,
-        username: providedUsername || `User_${String(user_id).slice(-4)}`,
-        referrer_id: ref_id && ref_id !== String(user_id) ? String(ref_id) : null,
+        user_id: userIdStr,
+        username: providedUsername || `User_${String(userIdStr).slice(-4)}`,
+        referrer_id: (refIdStr && refIdStr !== userIdStr) ? refIdStr : null,
         coins: 0,
         attempts: 25,
         max_attempts: 25,
@@ -223,16 +262,16 @@ app.post('/getUserData', (req, res) => {
         wallet: null,
         wallet_updated_at: null,
       };
-      db[user_id] = user;
+      db[userIdStr] = user;
 
-      // первичное закрепление к рефереру и награда, если ref_id валиден
+      // если реферер уже существует — связываем и награждаем сейчас же
       if (user.referrer_id && db[user.referrer_id]) {
-        const ref = normalizeUser(db[ref_id]);
+        const ref = normalizeUser(db[user.referrer_id]);
         ref.referrals = Array.isArray(ref.referrals) ? ref.referrals : [];
-        if (!ref.referrals.includes(user_id)) {
-          ref.referrals.push(user_id);
+        if (!ref.referrals.includes(userIdStr)) {
+          ref.referrals.push(userIdStr);
           awardInviteIfNeeded(ref);
-          db[ref_id] = ref;
+          db[user.referrer_id] = ref;
         }
       }
     } else {
@@ -240,29 +279,27 @@ app.post('/getUserData', (req, res) => {
       if (providedUsername && providedUsername !== user.username) {
         user.username = providedUsername;
       }
-
-      // «задним числом» привязка, если ещё нет
-if (user.referrer_id && db[user.referrer_id]) {
-       const ref = normalizeUser(db[user.referrer_id]);
-       ref.referrals = Array.isArray(ref.referrals) ? ref.referrals : [];
-       if (!ref.referrals.includes(user_id)) {
-         ref.referrals.push(user_id);
-         awardInviteIfNeeded(ref);
-         db[user.referrer_id] = ref;
-       }
-     }
+      // если у пользователя уже записан referrer_id, но реферер появился позже — догоним связь
+      if (user.referrer_id && db[user.referrer_id]) {
+        const ref = normalizeUser(db[user.referrer_id]);
+        ref.referrals = Array.isArray(ref.referrals) ? ref.referrals : [];
+        if (!ref.referrals.includes(userIdStr)) {
+          ref.referrals.push(userIdStr);
+          awardInviteIfNeeded(ref);
+          db[user.referrer_id] = ref;
+        }
+      }
     }
 
-    // реген попыток
     regenAttempts(user);
 
-    db[user_id] = user;
+    db[userIdStr] = user;
     writeDb(db);
 
     res.json({ ...user, walletEligible: (user.coins || 0) >= 100 });
   } catch (e) {
-    console.error(e);
-    return res.status(400).json({ error: 'invalid_initData', reason: e.message });
+    log(e);
+    res.status(500).json({ error: 'internal_error' });
   }
 });
 
@@ -272,13 +309,13 @@ app.post('/updateUserData', (req, res) => {
     const { user_id, data } = req.body || {};
     if (!user_id || !data) return res.status(400).json({ error: 'Некорректные данные' });
 
+    const userIdStr = String(user_id);
     const db = readDb();
-    const prev = db[user_id];
+    const prev = db[userIdStr];
     if (!prev) return res.status(404).json({ error: 'Пользователь не найден' });
 
     const u = normalizeUser({ ...prev });
 
-    // попытки
     if (typeof data.attempts === 'number' && data.attempts < u.attempts) {
       u.attempts = Math.max(0, Math.floor(data.attempts));
       if (u.attempts < u.max_attempts && !u.nextAttemptTimestamp) {
@@ -303,21 +340,20 @@ app.post('/updateUserData', (req, res) => {
       }
     }
 
-    // Реф. бонус 5% с заработанного (как было)
     const earned = (u.coins || 0) - (prev.coins || 0);
     if (earned > 0 && prev.referrer_id && db[prev.referrer_id]) {
       const ref = normalizeUser(db[prev.referrer_id]);
       const bonus = earned * 0.05;
       ref.coins = (ref.coins || 0) + bonus;
       db[prev.referrer_id] = ref;
-      console.log(`Начислен бонус ${bonus.toFixed(4)} монет пользователю ${ref.user_id} от реферала ${user_id}`);
+      log(`Начислен бонус ${bonus.toFixed(4)} монет пользователю ${ref.user_id} от реферала ${userIdStr}`);
     }
 
-    db[user_id] = u;
+    db[userIdStr] = u;
     writeDb(db);
     res.json({ ...u, walletEligible: (u.coins || 0) >= 100 });
   } catch (e) {
-    console.error(e);
+    log(e);
     res.status(500).json({ error: 'internal_error' });
   }
 });
@@ -343,7 +379,7 @@ app.get('/getLeaderboard', (_req, res) => {
 
     res.json(leaders);
   } catch (e) {
-    console.error(e);
+    log(e);
     res.status(500).json({ error: 'internal_error' });
   }
 });
@@ -354,57 +390,61 @@ app.post('/getReferrals', (req, res) => {
     const { user_id } = req.body || {};
     if (!user_id) return res.status(400).json({ error: 'user_id не предоставлен' });
 
+    const userIdStr = String(user_id);
     const db = readDb();
-    const user = db[user_id];
+    const user = db[userIdStr];
     if (!user || !Array.isArray(user.referrals)) return res.json([]);
 
-    const refs = user.referrals.map(id => db[id]).filter(Boolean);
+    const refs = user.referrals.map(id => db[String(id)]).filter(Boolean);
     res.json(refs);
   } catch (e) {
-    console.error(e);
+    log(e);
     res.status(500).json({ error: 'internal_error' });
   }
 });
 
-// === НОВОЕ: Mini App эндпоинт для закрепления реферала с верификацией initData ===
+// Mini App эндпоинт для закрепления реферала с верификацией initData
 app.post('/acceptReferral', (req, res) => {
   try {
-    console.log('[acceptReferral] body =', req.body);
+    log('[acceptReferral] body =', req.body);
     const { inviter_id, initData } = req.body || {};
     if (!Number.isFinite(Number(inviter_id))) {
       return res.status(400).json({ error: 'inviter_id_invalid' });
     }
     if (!initData) {
+      log('[acceptReferral] initData is empty');
       return res.status(400).json({ error: 'initData_required' });
     }
 
-    // Верификация подписи Telegram WebApp
     let parsed;
     try {
       parsed = verifyInitData(initData, BOT_TOKEN);
     } catch (e) {
-      console.warn('verifyInitData failed:', e.message);
-      return res.status(400).json({ error: 'invalid_initData' });
+      log('[acceptReferral] verifyInitData failed:', e.message);
+      return res.status(400).json({ error: 'invalid_initData', reason: e.message });
     }
+    log('[acceptReferral] parsed.start_param =', parsed.start_param, 'user.id =', parsed.user?.id);
 
     const invitee = parsed.user || {};
     const invitee_id_num = Number(invitee.id);
     if (!Number.isFinite(invitee_id_num)) {
       return res.status(400).json({ error: 'invitee_invalid' });
     }
-    const invitee_id = String(invitee_id_num);
-    const inviter_id_str = String(inviterId);
+
+    const inviterId = Number(inviter_id);
     if (inviterId === invitee_id_num) {
       return res.json({ ok: true, skipped: 'self_ref' });
     }
 
+    const invitee_id = String(invitee_id_num);
+    const inviter_id_str = String(inviterId);
+
     const db = readDb();
 
-    // гарантируем наличие записей
     if (!db[invitee_id]) {
       db[invitee_id] = normalizeUser({
         user_id: invitee_id,
-        username: sanitizeTelegramUsername(invitee?.username) || `User_${String(invitee_id).slice(-4)}`,
+        username: sanitizeTelegramUsername(invitee?.username) || `User_${invitee_id.slice(-4)}`,
         referrer_id: null,
         coins: 0,
         attempts: 25,
@@ -418,10 +458,9 @@ app.post('/acceptReferral', (req, res) => {
       });
     }
     if (!db[inviter_id_str]) {
-      // при желании можно создать "пустого" пригласившего
-      db[inviterId] = normalizeUser({
+      db[inviter_id_str] = normalizeUser({
         user_id: inviter_id_str,
-        username: `User_${String(inviterId).slice(-4)}`,
+        username: `User_${inviter_id_str.slice(-4)}`,
         coins: 0, attempts: 25, max_attempts: 25, best_score: 0,
         completed_tasks: [], referrals: [], nextAttemptTimestamp: null,
         wallet: null, wallet_updated_at: null,
@@ -431,13 +470,11 @@ app.post('/acceptReferral', (req, res) => {
     const inviteeUser = normalizeUser(db[invitee_id]);
     const inviterUser = normalizeUser(db[inviter_id_str]);
 
-    // Идемпотентность: если уже есть реферер — не меняем
     if (inviteeUser.referrer_id) {
       writeDb(db);
       return res.json({ ok: true, skipped: 'already_has_referrer', referrer_id: inviteeUser.referrer_id });
     }
 
-    // Закрепление и награда
     inviteeUser.referrer_id = inviter_id_str;
     inviterUser.referrals = Array.isArray(inviterUser.referrals) ? inviterUser.referrals : [];
     if (!inviterUser.referrals.includes(invitee_id)) {
@@ -449,14 +486,15 @@ app.post('/acceptReferral', (req, res) => {
     db[inviter_id_str] = inviterUser;
     writeDb(db);
 
+    log('[acceptReferral] ATTACHED', { inviter_id: inviter_id_str, invitee_id });
     res.json({ ok: true, inviter_id: inviter_id_str, invitee_id });
   } catch (e) {
-    console.error(e);
+    log(e);
     res.status(500).json({ error: 'internal_error' });
   }
 });
 
-// ---------- Wallet ----------
+// Wallet
 function isWalletString(s) {
   if (typeof s !== 'string') return false;
   const v = s.trim();
@@ -469,8 +507,9 @@ app.post('/setWallet', (req, res) => {
     const { user_id, wallet } = req.body || {};
     if (!user_id || typeof wallet !== 'string') return res.status(400).json({ error: 'bad_request' });
 
+    const userIdStr = String(user_id);
     const db = readDb();
-    const u = db[user_id];
+    const u = db[userIdStr];
     if (!u) return res.status(404).json({ error: 'user_not_found' });
 
     if ((u.coins || 0) < 100) {
@@ -480,19 +519,19 @@ app.post('/setWallet', (req, res) => {
 
     u.wallet = wallet.trim();
     u.wallet_updated_at = new Date().toISOString();
-    db[user_id] = u;
+    db[userIdStr] = u;
     writeDb(db);
 
     res.json({ ok: true, wallet: u.wallet });
   } catch (e) {
-    console.error(e);
+    log(e);
     res.status(500).json({ error: 'internal_error' });
   }
 });
 
 // Глобальный обработчик ошибок
 app.use((err, _req, res, _next) => {
-  console.error('Необработанная ошибка:', err);
+  log('Необработанная ошибка:', err);
   res.status(500).json({ error: 'internal_server_error' });
 });
 

@@ -10,8 +10,8 @@ import './App.css';
 
 const SERVER_URL =
   process.env.NODE_ENV === 'development'
-    ? 'http://localhost:8000'  // локально бьёмся напрямую в ваш backend
-    : '/api';                  // на Vercel ходим на тот же origin, а rewrites прокинут дальше
+    ? 'http://localhost:8000'
+    : '/api';
 
 const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000; // 1 минута
 
@@ -40,7 +40,6 @@ const ScoreCircle = ({ score }) => {
   );
 };
 
-
 function App() {
   const [score, setScore] = useState(null);
   const [currentTab, setCurrentTab] = useState('circle');
@@ -53,11 +52,22 @@ function App() {
   const [completedTasks, setCompletedTasks] = useState([]);
   const [nextAttemptTimestamp, setNextAttemptTimestamp] = useState(null);
   const [timeToNextAttempt, setTimeToNextAttempt] = useState(null);
-// --- АВТОЗАХВАТ РЕФЕРАЛА ПРИ ЛЮБОМ ЗАПУСКЕ MINI APP ---
+
+  useEffect(() => {
+    if (window.Telegram && window.Telegram.WebApp) {
+      const tg = window.Telegram.WebApp;
+      tg.expand();
+      document.body.style.backgroundColor = tg.themeParams?.bg_color || '#0f0f0f';
+    }
+  }, []);
+
+  // АВТОЗАХВАТ РЕФЕРАЛА при любом заходе в Mini App
   useEffect(() => {
     const tg = window?.Telegram?.WebApp;
     const initData = tg?.initData || '';
     const sp = tg?.initDataUnsafe?.start_param;
+    console.log('[AutoAttach] initData len =', initData?.length || 0);
+    console.log('[AutoAttach] start_param =', sp);
     if (!sp || typeof sp !== 'string' || !sp.startsWith('ref_')) return;
     const inviterId = Number(sp.slice(4));
     if (!Number.isFinite(inviterId) || inviterId <= 0) return;
@@ -69,7 +79,7 @@ function App() {
       .then(r => r.json().catch(() => ({})))
       .then(j => console.log('[AutoAttach] /acceptReferral resp:', j))
       .catch(e => console.error('[AutoAttach] acceptReferral failed:', e));
-    }, []);
+  }, []);
 
   const updateUserDataOnServer = useCallback((newData) => {
     if (!userId) return;
@@ -147,7 +157,6 @@ function App() {
     const timer = setInterval(() => {
       const timeLeftMs = Math.max(0, nextAttemptTimestamp - Date.now());
       if (timeLeftMs <= 0) {
-        // подхватим новые значения с сервера
         fetch(`${SERVER_URL}/getUserData`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -210,7 +219,6 @@ function App() {
     const tokensEarned = parseFloat((0.01 * circleAccuracy).toFixed(2));
     const newCoins = coins + tokensEarned;
 
-    // если тратим с полного запаса — запускаем локальный таймер
     if (attempts === maxAttempts) {
       const ts = Date.now() + ATTEMPT_REGEN_INTERVAL_MS;
       setNextAttemptTimestamp(ts);
@@ -221,7 +229,6 @@ function App() {
     setCoins(newCoins);
     setAttempts(newAttempts);
 
-    // сервер сам управляет nextAttemptTimestamp, не передаём его
     updateUserDataOnServer({
       coins: newCoins,
       attempts: newAttempts,
@@ -254,7 +261,6 @@ function App() {
   <div className="App">
     {currentTab === 'circle' && (
       <div className="app-header">
-        {/* Монеты — фиксированный блок справа сверху */}
         <div className="coins-display">
           <div className="banner-container">
             <img
@@ -266,7 +272,6 @@ function App() {
           </div>
         </div>
 
-        {/* Попытки + таймер — фиксированный блок ниже монет */}
         <div className="attempts-display">
           <div className="banner-container">
             <img
@@ -283,7 +288,6 @@ function App() {
           )}
         </div>
 
-        {/* Один-единственный круг по центру сверху — только когда уже есть результат */}
         {score !== null && <ScoreCircle score={score} />}
       </div>
     )}
