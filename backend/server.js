@@ -2,10 +2,10 @@
 
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs');
+const fs = require('fs'); // оставим для совместимости (не блокируем)
+const fsp = require('fs/promises');
 const path = require('path');
 const crypto = require('crypto');
-const querystring = require('querystring');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 8000;
@@ -16,6 +16,7 @@ const LOG_PATH = path.join(__dirname, 'server.log');
 // BOT_TOKEN=123456:ABC...
 const BOT_TOKEN = process.env.BOT_TOKEN;
 
+const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS || 10000);
 const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000; // 1 минута
 const REFERRAL_TASK_ID = 2;
 const REFERRAL_TASK_REWARD = 30;
@@ -26,16 +27,24 @@ const ADMIN_KEYS = (process.env.ADMIN_KEYS || '')
   .map(s => s.trim())
   .filter(Boolean);
 
-// ---------- простой файловый лог ----------
+// ---------- utils ----------
 function toStr(a) {
   if (a === undefined) return 'undefined';
   if (a === null) return 'null';
   if (typeof a === 'string') return a;
   try { return JSON.stringify(a); } catch { return String(a); }
 }
+
+// неблокирующий лог (очередь на appendFile)
+let logQueue = Promise.resolve();
+async function appendLog(line) {
+  try {
+    await fsp.appendFile(LOG_PATH, line);
+  } catch {}
+}
 function log(...args) {
   const line = `[${new Date().toISOString()}] ` + args.map(toStr).join(' ') + '\n';
-  try { fs.appendFileSync(LOG_PATH, line); } catch {}
+  logQueue = logQueue.then(() => appendLog(line));
   try { console.log(...args); } catch {}
 }
 
@@ -75,30 +84,70 @@ const corsOptions = {
   optionsSuccessStatus: 204,
 };
 
+app.set('trust proxy', 1);
 app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
 app.use(express.json({ limit: '1mb' }));
 
-app.use((req, _res, next) => {
-  log(`${req.method} ${req.path}`, `ip=${req.ip}`, `origin=${req.headers.origin || '-'}`);
+// таймаут ответа, чтобы запросы не «висели» бесконечно
+app.use((req, res, next) => {
+  res.setTimeout(REQUEST_TIMEOUT_MS, () => {
+    log('Request timed out', req.method, req.originalUrl);
+    if (!res.headersSent) res.status(504).json({ error: 'timeout' });
+  });
   next();
 });
 
-// ---------- DB helpers ----------
-function ensureDb() {
-  if (!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, '{}', { flag: 'w' });
+// простой лог запросов
+app.use((req, _res, next) => {
+  log(`${req.method} ${req.originalUrl}`, `ip=${req.ip}`, `origin=${req.headers.origin || '-'}`);
+  next();
+});
+
+// ---------- DB helpers (async, non-blocking) ----------
+const DB_DIR = path.dirname(DB_PATH);
+let dbCache = Object.create(null);   // живёт в памяти
+let flushScheduled = false;
+let writeLock = Promise.resolve();   // последовательная запись
+
+async function initDb() {
+  try {
+    await fsp.mkdir(DB_DIR, { recursive: true });
+    const raw = await fsp.readFile(DB_PATH, 'utf8').catch(() => '{}');
+    dbCache = JSON.parse(raw || '{}');
+  } catch (e) {
+    log('Ошибка initDb:', e);
+    dbCache = {};
+  }
 }
+initDb();
+
 function readDb() {
-  ensureDb();
-  const data = fs.readFileSync(DB_PATH, 'utf8');
-  try { return JSON.parse(data || '{}'); }
-  catch (e) { log('Ошибка парсинга JSON:', e); return {}; }
+  return dbCache;
 }
-function writeDb(data) { fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2)); }
+
+function scheduleFlush() {
+  if (flushScheduled) return;
+  flushScheduled = true;
+  setTimeout(() => {
+    flushScheduled = false;
+    const data = JSON.stringify(dbCache, null, 2);
+    const tmp = DB_PATH + '.tmp';
+    writeLock = writeLock.then(async () => {
+      await fsp.writeFile(tmp, data, 'utf8');
+      await fsp.rename(tmp, DB_PATH); // атомарная замена
+    }).catch(e => log('DB write error:', e));
+  }, 50); // коалесим частые записи
+}
+
+function writeDb(nextData) {
+  dbCache = nextData;
+  scheduleFlush();
+}
+
 const values = obj => Object.values(obj || {}).filter(v => v && typeof v === 'object');
 
 function isTelegramId(id) {
-  // Сохраняем пользователя ТОЛЬКО если его id — чисто числовая строка
   return typeof id === 'string' && /^\d+$/.test(id);
 }
 
@@ -143,9 +192,9 @@ function awardInviteIfNeeded(refUser) {
     refUser.completed_tasks.push(REFERRAL_TASK_ID);
     refUser.coins = (refUser.coins || 0) + REFERRAL_TASK_REWARD;
     log(`Referral task awarded: +${REFERRAL_TASK_REWARD} tokens to ${refUser.user_id}`);
-    return true; // indicates reward was given
+    return true;
   }
-  return false; // no reward given
+  return false;
 }
 
 function regenAttempts(u) {
@@ -178,11 +227,6 @@ function regenAttempts(u) {
 }
 
 // ---------- Telegram WebApp initData verification ----------
-function getFirst(val) {
-  return Array.isArray(val) ? (val[0] ?? '') : (val ?? '');
-}
-
-// Двойная функция verifyInitData была в вашем коде, оставляю более полную
 function verifyInitData(initData, botToken) {
   if (!initData) throw new Error('initData_empty');
   if (!botToken) throw new Error('bot_token_missing');
@@ -222,32 +266,6 @@ function verifyInitData(initData, botToken) {
   return { user, start_param };
 }
 
-
-// ---------- Rebuild referrals (не используется, но можно оставить на всякий случай) ----------
-function rebuildReferrals(db, referrerId) {
-  const rid = String(referrerId);
-  const user = db[rid];
-  if (!user) return [];
-  const existing = new Set((Array.isArray(user.referrals) ? user.referrals : []).map(String));
-  const foundIds = values(db)
-    .filter(u => u && String(u.referrer_id || '') === rid)
-    .map(u => String(u.user_id));
-  let changed = false;
-  for (const id of foundIds) {
-    if (!existing.has(id)) {
-      existing.add(id);
-      changed = true;
-    }
-  }
-  const mergedIds = Array.from(existing);
-  if (changed) {
-    user.referrals = mergedIds;
-    db[rid] = user;
-    writeDb(db);
-  }
-  return mergedIds.map(id => db[id]).filter(Boolean);
-}
-
 // ---------- ROUTES ----------
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
@@ -267,8 +285,8 @@ app.get('/debug/ping', (_req, res) => {
   }
 });
 
-// ========= ИСПРАВЛЕННАЯ ВЕРСИЯ ФУНКЦИИ =========
-app.post('/getUserData', (req, res) => {
+// ========= getUserData =========
+app.post('/getUserData', async (req, res) => {
   try {
     let { user_id, ref_id, username } = req.body || {};
     if (!user_id) return res.status(400).json({ error: 'user_id не предоставлен' });
@@ -290,64 +308,47 @@ app.post('/getUserData', (req, res) => {
 
     const db = readDb();
     let user = db[user_id];
-    let inviter = null; // Переменная для хранения данных пригласившего
+    let inviter = null;
 
     const refIdStr = ref_id ? String(ref_id) : null;
     const validRef = refIdStr && refIdStr !== user_id && /^\d+$/.test(refIdStr);
 
     if (!user) {
-      // Пользователь не найден, создаем нового
       user = normalizeUser({
         user_id,
         username: providedUsername || `User_${user_id.slice(-4)}`,
         referrer_id: validRef ? refIdStr : null,
       });
     } else {
-      // Пользователь существует, обновляем данные
       user = normalizeUser(user);
       if (providedUsername && providedUsername !== user.username) {
         user.username = providedUsername;
       }
-      // Поздняя привязка реферала (если еще не было)
       if (validRef && !user.referrer_id) {
         user.referrer_id = refIdStr;
       }
     }
 
-    // Если есть реферер и он еще не обработан — обработаем сейчас
     if (user.referrer_id && !user.referral_processed) {
       const inviterId = String(user.referrer_id);
-
-      // Находим пригласившего и нормализуем его данные
       if (db[inviterId]) {
         inviter = normalizeUser(db[inviterId]);
-
-        // Добавляем нового пользователя в список рефералов
         if (!inviter.referrals.includes(user_id)) {
           inviter.referrals.push(user_id);
         }
-
-        // Выдаем награду за приглашение (единоразово)
         const rewardGiven = awardInviteIfNeeded(inviter);
         if (rewardGiven) {
           log(`Referral task awarded (late): +${REFERRAL_TASK_REWARD} to ${inviter.user_id} by ${user_id}`);
         }
-
         user.referral_processed = true;
       }
     }
 
-    // Восстанавливаем попытки для ТЕКУЩЕГО пользователя
     regenAttempts(user);
 
-    // === ЕДИНАЯ ТОЧКА СОХРАНЕНИЯ ===
-    // Сохраняем все изменения в базу ОДИН РАЗ в конце
     db[user_id] = user;
-    if (inviter) {
-      db[inviter.user_id] = inviter;
-    }
+    if (inviter) db[inviter.user_id] = inviter;
     writeDb(db);
-    // ================================
 
     res.json({ ...user, walletEligible: (user.coins || 0) >= 100 });
 
@@ -357,8 +358,8 @@ app.post('/getUserData', (req, res) => {
   }
 });
 
-// Обновление данных пользователя
-app.post('/updateUserData', (req, res) => {
+// ========= updateUserData =========
+app.post('/updateUserData', async (req, res) => {
   try {
     let { user_id, data } = req.body || {};
     if (!user_id || !data) return res.status(400).json({ error: 'Некорректные данные' });
@@ -424,7 +425,7 @@ app.post('/updateUserData', (req, res) => {
   }
 });
 
-// Таблица лидеров
+// ========= Таблица лидеров =========
 app.get('/getLeaderboard', (_req, res) => {
   try {
     const db = readDb();
@@ -439,7 +440,7 @@ app.get('/getLeaderboard', (_req, res) => {
   }
 });
 
-// Мои рефералы
+// ========= Мои рефералы =========
 app.post('/getReferrals', (req, res) => {
   try {
     let { user_id } = req.body || {};
@@ -447,7 +448,7 @@ app.post('/getReferrals', (req, res) => {
     user_id = String(user_id);
 
     if (!isTelegramId(user_id)) {
-      return res.json([]); // гость — не имеет рефералов
+      return res.json([]);
     }
 
     const db = readDb();
@@ -459,8 +460,8 @@ app.post('/getReferrals', (req, res) => {
 
     const referralData = user.referrals
       .map(refId => db[String(refId)])
-      .filter(Boolean) // Убираем, если реферал был удален из БД
-      .map(refUser => normalizeUser(refUser)); // Отдаем на клиент нормализованные данные
+      .filter(Boolean)
+      .map(refUser => normalizeUser(refUser));
 
     return res.json(referralData);
   } catch (e) {
@@ -469,7 +470,7 @@ app.post('/getReferrals', (req, res) => {
   }
 });
 
-// Привязка реферала через Telegram WebApp
+// ========= Привязка реферала через Telegram WebApp =========
 app.post('/acceptReferral', (req, res) => {
   try {
     const { inviter_id, initData } = req.body || {};
@@ -544,7 +545,7 @@ app.post('/acceptReferral', (req, res) => {
   }
 });
 
-// Wallet
+// ========= Wallet =========
 app.post('/setWallet', (req, res) => {
   try {
     let { user_id, wallet } = req.body || {};

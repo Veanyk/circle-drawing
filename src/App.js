@@ -12,7 +12,25 @@ import './App.css';
 const SERVER_URL = process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : '/api';
 const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000;
 
-// Функция для получения ID пользователя (вынесена для чистоты)
+// Универсальный fetch с таймаутом и ретраями (чтобы UI не «вис»)
+const fetchJSON = async (url, options = {}, { timeout = 10000, retries = 2, retryDelay = 300 } = {}) => {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort('timeout'), timeout);
+    try {
+      const res = await fetch(url, { ...options, signal: ctrl.signal });
+      clearTimeout(t);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (e) {
+      clearTimeout(t);
+      if (attempt === retries) throw e;
+      await new Promise(r => setTimeout(r, retryDelay * (attempt + 1)));
+    }
+  }
+};
+
+// Функция для получения ID пользователя
 const initializeUserId = () => {
   const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
   if (tgUser?.id) {
@@ -27,7 +45,9 @@ const initializeUserId = () => {
 };
 
 const ScoreCircle = ({ score }) => {
-  const angle = (Math.max(0, Math.min(100, Number(score) || 0)) / 100) * 360;
+  const s = Number(score) || 0;
+  const clamped = Math.min(100, Math.max(0, s));
+  const angle = (clamped / 100) * 360;
   const circleStyle = {
     backgroundImage: `conic-gradient(#BE5200 ${angle}deg, #ffffff ${angle}deg 360deg)`,
   };
@@ -35,7 +55,7 @@ const ScoreCircle = ({ score }) => {
     <div className="score-circle-header">
       <div className="score-circle-dynamic" style={circleStyle}></div>
       <img src={resultCircleImage} alt="Result" className="score-circle-image" />
-      <div className="score-circle-text">{Math.round(score)}%</div>
+      <div className="score-circle-text">{Math.round(clamped)}%</div>
     </div>
   );
 };
@@ -46,22 +66,25 @@ function App() {
   const [drawingData, setDrawingData] = useState(null);
 
   // Cостояния пользователя
-  const [userId, setUserId] = useState(null); // <-- Инициализируем как null
+  const [userId, setUserId] = useState(null);
   const [coins, setCoins] = useState(0);
   const [attempts, setAttempts] = useState(0);
   const [maxAttempts, setMaxAttempts] = useState(25);
   const [completedTasks, setCompletedTasks] = useState([]);
   const [nextAttemptTimestamp, setNextAttemptTimestamp] = useState(null);
   const [timeToNextAttempt, setTimeToNextAttempt] = useState(null);
-  const [isLoading, setIsLoading] = useState(true); // <-- Состояние загрузки
+  const [isLoading, setIsLoading] = useState(true);
 
-  // 1. Инициализация пользователя при первом запуске
+  // 1) Инициализация пользователя при первом запуске
   useEffect(() => {
-    // Расширяем приложение Telegram
-    window.Telegram?.WebApp?.expand();
+    let isMounted = true;
+
+    try {
+      window.Telegram?.WebApp?.expand();
+    } catch {}
 
     const finalUserId = initializeUserId();
-    setUserId(finalUserId); // Устанавливаем userId один раз
+    setUserId(finalUserId);
 
     const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
     const urlParams = new URLSearchParams(window.location.search);
@@ -73,41 +96,47 @@ function App() {
       refId = localStorage.getItem('referrerId');
     }
 
-    // Запрашиваем данные пользователя с сервера
-    fetch(`${SERVER_URL}/getUserData`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        user_id: finalUserId,
-        ref_id: refId,
-        username: tgUser?.username,
-      }),
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (!data) return;
-        setCoins(Number(data.coins) || 0);
-        setAttempts(Number(data.attempts) || 0);
-        setMaxAttempts(Number(data.max_attempts) || 25);
-        setCompletedTasks(Array.isArray(data.completed_tasks) ? data.completed_tasks : []);
-        setNextAttemptTimestamp(Number.isFinite(data.nextAttemptTimestamp) ? data.nextAttemptTimestamp : null);
-      })
-      .catch(err => console.error('Ошибка при получении данных пользователя:', err))
-      .finally(() => setIsLoading(false)); // <-- Загрузка завершена
+    (async () => {
+      try {
+        const data = await fetchJSON(`${SERVER_URL}/getUserData`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: finalUserId,
+            ref_id: refId,
+            username: tgUser?.username,
+          }),
+        }, { timeout: 10000, retries: 2 });
+
+        if (isMounted && data) {
+          setCoins(Number(data.coins) || 0);
+          setAttempts(Number(data.attempts) || 0);
+          setMaxAttempts(Number(data.max_attempts) || 25);
+          setCompletedTasks(Array.isArray(data.completed_tasks) ? data.completed_tasks : []);
+          setNextAttemptTimestamp(Number.isFinite(data.nextAttemptTimestamp) ? data.nextAttemptTimestamp : null);
+        }
+      } catch (err) {
+        console.error('getUserData failed:', err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    })();
+
+    return () => { isMounted = false; };
   }, []);
 
-  // 2. Таймер восстановления попыток
+  // 2) Таймер восстановления попыток (без «залипания»)
   useEffect(() => {
     if (!userId || attempts >= maxAttempts || !nextAttemptTimestamp) {
       setTimeToNextAttempt(null);
       return;
     }
     const timer = setInterval(() => {
-      const timeLeftMs = Math.max(0, nextAttemptTimestamp - Date.now());
+      const now = Date.now();
+      const timeLeftMs = Math.max(0, nextAttemptTimestamp - now);
       if (timeLeftMs <= 0) {
-        // Просто сбрасываем таймер, данные сами обновятся поллингом
         setAttempts(prev => Math.min(maxAttempts, prev + 1));
-        setNextAttemptTimestamp(Date.now() + ATTEMPT_REGEN_INTERVAL_MS);
+        setNextAttemptTimestamp(now + ATTEMPT_REGEN_INTERVAL_MS);
       }
       const totalSec = Math.ceil(timeLeftMs / 1000);
       const minutes = Math.floor(totalSec / 60);
@@ -117,14 +146,16 @@ function App() {
     return () => clearInterval(timer);
   }, [userId, attempts, maxAttempts, nextAttemptTimestamp]);
 
-  // 3. Коллбэк для обновления данных на сервере
+  // 3) Обновление данных на сервере
   const updateUserDataOnServer = useCallback((newData) => {
     if (!userId) return;
-    fetch(`${SERVER_URL}/updateUserData`, {
+    fetchJSON(`${SERVER_URL}/updateUserData`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id: userId, data: newData })
-    }).catch(err => console.error('Ошибка при обновлении данных на сервере:', err));
+    }, { timeout: 8000, retries: 1 }).catch(err => {
+      console.warn('updateUserData failed (ignored):', err);
+    });
   }, [userId]);
 
   const onDrawEnd = (circleAccuracy, points, canvas) => {
@@ -134,7 +165,7 @@ function App() {
     const newCoins = coins + tokensEarned;
 
     setScore(circleAccuracy);
-    setDrawingData(canvas.toDataURL());
+    setDrawingData(canvas?.toDataURL?.() || null);
     setCoins(newCoins);
     setAttempts(newAttempts);
     if (newAttempts < maxAttempts && !nextAttemptTimestamp) {
@@ -157,7 +188,6 @@ function App() {
     updateUserDataOnServer({ coins: newCoins, completed_tasks: newCompletedTasks });
   };
 
-  // Показываем заглушку, пока userId не определен
   if (isLoading) {
     return <div className="App-loading">Loading...</div>;
   }
@@ -166,34 +196,43 @@ function App() {
     <div className="App">
       {currentTab === 'circle' && (
         <div className="app-header">
-            <div className="coins-display">
-                <div className="banner-container">
-                <img src={require('./assets/total_coins.png')} alt="Total coins" className="banner-icon"/>
-                <span className="banner-text">{coins.toFixed(2)}</span>
-                </div>
+          <div className="coins-display">
+            <div className="banner-container">
+              <img src={require('./assets/total_coins.png')} alt="Total coins" className="banner-icon"/>
+              <span className="banner-text">{coins.toFixed(2)}</span>
             </div>
-            <div className="attempts-display">
-                <div className="banner-container">
-                <img src={require('./assets/total_attempts.png')} alt="Total attempts" className="banner-icon"/>
-                <span className="banner-text">{attempts}/{maxAttempts}</span>
-                </div>
-                {timeToNextAttempt && <div className="timer-display"><span className="timer-text">{timeToNextAttempt}</span></div>}
+          </div>
+          <div className="attempts-display">
+            <div className="banner-container">
+              <img src={require('./assets/total_attempts.png')} alt="Total attempts" className="banner-icon"/>
+              <span className="banner-text">{attempts}/{maxAttempts}</span>
             </div>
-            {score !== null && <ScoreCircle score={score} />}
+            {timeToNextAttempt && (
+              <div className="timer-display">
+                <span className="timer-text">{timeToNextAttempt}</span>
+              </div>
+            )}
+          </div>
+          {score !== null && <ScoreCircle score={score} />}
         </div>
       )}
 
       <div className="main-content">
         <div className={`tab-pane ${currentTab === 'circle' ? 'active' : ''}`}>
-          {score === null ? <Canvas onDrawEnd={onDrawEnd} attempts={attempts} /> : <Result score={score} onReset={onReset} drawing={drawingData} userId={userId} />}
+          {score === null
+            ? <Canvas onDrawEnd={onDrawEnd} attempts={attempts} />
+            : <Result score={score} onReset={onReset} drawing={drawingData} userId={userId} />
+          }
         </div>
+
         <div className={`tab-pane ${currentTab === 'tasks' ? 'active' : ''}`}>
           <Tasks onTaskComplete={onTaskComplete} completedTasks={completedTasks} setCurrentTab={setCurrentTab} />
         </div>
+
         <div className={`tab-pane ${currentTab === 'referrals' ? 'active' : ''}`}>
-          {/* Передаем userId, который теперь точно не null */}
           <Referrals userId={userId} />
         </div>
+
         <div className={`tab-pane ${currentTab === 'leaderboards' ? 'active' : ''}`}>
           <Leaderboards userId={userId} />
         </div>
@@ -203,4 +242,5 @@ function App() {
     </div>
   );
 }
+
 export default App;
