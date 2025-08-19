@@ -15,11 +15,10 @@ const BOT_USERNAME = process.env.REACT_APP_BOT_USERNAME || 'circle_drawing_bot';
 const Referrals = ({ userId }) => {
   const [referrals, setReferrals] = useState([]);
   const [referralLink, setReferralLink] = useState('');
-  const sentOnceRef = useRef(false); // защита от повторного acceptReferral
+  const sentOnceRef = useRef(false);
 
   const isNumericId = /^\d+$/.test(String(userId || ''));
 
-  // Сформировать deep-link (показываем/копируем только для числового userId)
   useEffect(() => {
     if (!userId || !isNumericId) {
       setReferralLink('');
@@ -29,98 +28,90 @@ const Referrals = ({ userId }) => {
   }, [userId, isNumericId]);
 
   // ЕДИНАЯ функция загрузки рефералов
-const loadMyRefs = useCallback(async () => {
-  try {
-    const uid = String(userId || '');
-    if (!/^\d+$/.test(uid)) {
+  const loadMyRefs = useCallback(async () => {
+    // Если userId еще не определен, ничего не делаем
+    if (!userId) {
       setReferrals([]);
       return;
     }
-    const res = await fetch(`${SERVER_URL}/getReferrals`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: uid }),
-    });
-    const data = await res.json();
-    setReferrals(Array.isArray(data) ? data : []);
-  } catch (e) {
-    console.error('Ошибка при получении рефералов:', e);
-  }
-}, [userId]);
+    try {
+      // === ИСПРАВЛЕНИЕ: Проблемная проверка удалена ===
+      // Запрос будет отправляться для любого userId, а сервер сам решит, что вернуть.
+
+      const res = await fetch(`${SERVER_URL}/getReferrals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId }),
+      });
+      const data = await res.json();
+      setReferrals(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error('Ошибка при получении рефералов:', e);
+      setReferrals([]); // В случае ошибки показываем пустой список
+    }
+  }, [userId]);
 
   // Привязка реферала по initData (если зашли по startapp=ref_...), затем сразу подтянуть список
   useEffect(() => {
-  if (sentOnceRef.current) return;
+    if (sentOnceRef.current) return;
 
-  const tg = (typeof window !== 'undefined' && window.Telegram && window.Telegram.WebApp)
-    ? window.Telegram.WebApp
-    : null;
+    const tg = window?.Telegram?.WebApp;
+    const initDataRaw = tg?.initData || '';
+    const startParam = tg?.initDataUnsafe?.start_param;
 
-  const initDataRaw = tg?.initData || '';
-  const startParam = tg?.initDataUnsafe?.start_param;
+    if (typeof startParam !== 'string' || !startParam.startsWith('ref_')) return;
 
-  if (typeof startParam !== 'string' || !startParam.startsWith('ref_')) return;
+    const inviterId = Number(startParam.slice(4));
+    if (!Number.isFinite(inviterId) || inviterId <= 0) return;
 
-  const inviterId = Number(startParam.slice(4));
-  if (!Number.isFinite(inviterId) || inviterId <= 0) return;
+    sentOnceRef.current = true;
+    try { localStorage.setItem('referrerId', String(inviterId)); } catch (_) {}
 
-  sentOnceRef.current = true;
-
-  // ВАЖНО: всегда кладём инвайтера в localStorage — для поздней привязки
-  try { localStorage.setItem('referrerId', String(inviterId)); } catch (_) {}
-
-  // Пытаемся привязать через проверенный канал
-  if (initDataRaw && initDataRaw.length > 0) {
-    fetch(`${SERVER_URL}/acceptReferral`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ inviter_id: inviterId, initData: initDataRaw }),
-    })
-      .then(r => r.json().catch(() => ({})))
+    if (initDataRaw) {
+      fetch(`${SERVER_URL}/acceptReferral`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inviter_id: inviterId, initData: initDataRaw }),
+      })
       .catch((e) => console.error('acceptReferral failed:', e))
       .finally(() => {
-        // В любом случае подтянем список (после /getUserData поздняя привязка тоже сработает)
         loadMyRefs();
       });
-  } else {
-    // Без initData — опираемся на позднюю привязку; просто грузим список
-    loadMyRefs();
-  }
-}, [loadMyRefs]);
+    } else {
+      loadMyRefs();
+    }
+  }, [loadMyRefs]);
 
   // Поллинг списка рефералов
   useEffect(() => {
     let stop = false;
     const tick = async () => { if (!stop) await loadMyRefs(); };
+
     tick(); // первая загрузка
-    const iv = setInterval(tick, 5000);
+    const iv = setInterval(tick, 5000); // и далее каждые 5с
+
     return () => { stop = true; clearInterval(iv); };
   }, [loadMyRefs]);
 
   const copyToClipboard = async () => {
-    const text = referralLink;
-    if (!text) return;
-
-    if (!navigator.clipboard) {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      try {
-        document.execCommand('copy');
-        alert('Referral link copied to clipboard!');
-      } catch (err) {
-        console.error('Fallback copy failed:', err);
-      }
-      document.body.removeChild(ta);
-      return;
-    }
-
+    if (!referralLink) return;
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(referralLink);
       alert('Referral link copied to clipboard!');
     } catch (err) {
       console.error('Failed to copy text:', err);
+      // Fallback для старых браузеров
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = referralLink;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        alert('Referral link copied to clipboard!');
+      } catch (fallbackErr) {
+        console.error('Fallback copy failed:', fallbackErr);
+      }
     }
   };
 
@@ -134,7 +125,6 @@ const loadMyRefs = useCallback(async () => {
       <img src={referralProgramImage} alt="Referral Program" className="r-title" />
       <img src={inviteImage} alt="Invite friends" className="invite-image" />
 
-      {/* Блок с заголовком и кнопкой — без отображения самой ссылки */}
       <div className="referral-link">
         <div className="link-field">
           <img src={linkImage} alt="Referral link" className="link-image" />

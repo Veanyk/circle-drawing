@@ -130,7 +130,6 @@ function normalizeUser(u) {
   if (n.referrer_id != null) n.referrer_id = String(n.referrer_id);
   n.referrals = n.referrals.map(String);
 
-  // Add referral_processed flag to prevent double rewards
   if (typeof n.referral_processed !== 'boolean') {
     n.referral_processed = false;
   }
@@ -183,6 +182,7 @@ function getFirst(val) {
   return Array.isArray(val) ? (val[0] ?? '') : (val ?? '');
 }
 
+// Двойная функция verifyInitData была в вашем коде, оставляю более полную
 function verifyInitData(initData, botToken) {
   if (!initData) throw new Error('initData_empty');
   if (!botToken) throw new Error('bot_token_missing');
@@ -191,21 +191,14 @@ function verifyInitData(initData, botToken) {
   const providedHashHex = params.get('hash');
   if (!providedHashHex) throw new Error('hash_missing');
 
-  // Составляем data_check_string (все поля кроме hash и signature)
   const keys = Array.from(params.keys())
     .filter(k => k !== 'hash' && k !== 'signature')
     .sort();
-
   const dataCheckString = keys.map(k => `${k}=${params.get(k) ?? ''}`).join('\n');
 
-  // Считаем 2 варианта секрета:
-  // v1 (старый): secret = sha256(bot_token)
   const secretV1 = crypto.createHash('sha256').update(botToken).digest();
-
-  // v2 (новый): secret = HMAC_SHA256(message=bot_token, key="WebAppData")
   const secretV2 = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
 
-  // Строим подпись для обоих секретов
   const calcHexV1 = crypto.createHmac('sha256', secretV1).update(dataCheckString).digest('hex');
   const calcHexV2 = crypto.createHmac('sha256', secretV2).update(dataCheckString).digest('hex');
 
@@ -219,7 +212,6 @@ function verifyInitData(initData, botToken) {
 
   if (!ok) throw new Error('bad_signature');
 
-  // Распарсим полезные поля
   let user = {};
   const userRaw = params.get('user');
   if (userRaw) {
@@ -230,53 +222,16 @@ function verifyInitData(initData, botToken) {
   return { user, start_param };
 }
 
-// ВАЖНО: исключаем и "hash", и "signature" из data_check_string
-function verifyInitData(initData, botToken) {
-  if (!initData) throw new Error('initData_empty');
-  if (!botToken) throw new Error('bot_token_missing');
 
-  const parsed = querystring.parse(initData);
-
-  const providedHash = getFirst(parsed.hash);
-  if (!providedHash) throw new Error('hash_missing');
-
-  const entries = Object.keys(parsed)
-    .filter(k => k !== 'hash' && k !== 'signature')
-    .sort()
-    .map(k => `${k}=${getFirst(parsed[k])}`);
-  const dataCheckString = entries.join('\n');
-
-  const secretKey = crypto.createHash('sha256').update(botToken).digest();
-  const hmac = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
-
-  const calc = Buffer.from(hmac);
-  const recv = Buffer.from(providedHash);
-  if (calc.length !== recv.length || !crypto.timingSafeEqual(calc, recv)) {
-    throw new Error('bad_signature');
-  }
-
-  let user = {};
-  const userRaw = getFirst(parsed.user);
-  if (userRaw) {
-    try { user = JSON.parse(userRaw); } catch { user = {}; }
-  }
-  const start_param = getFirst(parsed.start_param) || '';
-
-  return { user, start_param };
-}
-
-// ---------- Rebuild referrals ----------
+// ---------- Rebuild referrals (не используется, но можно оставить на всякий случай) ----------
 function rebuildReferrals(db, referrerId) {
   const rid = String(referrerId);
   const user = db[rid];
   if (!user) return [];
-
   const existing = new Set((Array.isArray(user.referrals) ? user.referrals : []).map(String));
-
   const foundIds = values(db)
     .filter(u => u && String(u.referrer_id || '') === rid)
     .map(u => String(u.user_id));
-
   let changed = false;
   for (const id of foundIds) {
     if (!existing.has(id)) {
@@ -284,15 +239,12 @@ function rebuildReferrals(db, referrerId) {
       changed = true;
     }
   }
-
   const mergedIds = Array.from(existing);
-
   if (changed) {
     user.referrals = mergedIds;
     db[rid] = user;
     writeDb(db);
   }
-
   return mergedIds.map(id => db[id]).filter(Boolean);
 }
 
@@ -315,7 +267,7 @@ app.get('/debug/ping', (_req, res) => {
   }
 });
 
-// Создание/чтение пользователя
+// ========= ИСПРАВЛЕННАЯ ВЕРСИЯ ФУНКЦИИ =========
 app.post('/getUserData', (req, res) => {
   try {
     let { user_id, ref_id, username } = req.body || {};
@@ -324,101 +276,81 @@ app.post('/getUserData', (req, res) => {
     user_id = String(user_id);
     const providedUsername = sanitizeTelegramUsername(username);
 
-    // Гость: не пишем в БД
+    // Гость: не пишем в БД, возвращаем стандартные данные
     if (!isTelegramId(user_id)) {
       return res.json({
         user_id,
         username: providedUsername || 'Guest',
-        referrer_id: null,
-        coins: 0,
-        attempts: 25,
-        max_attempts: 25,
-        best_score: 0,
-        completed_tasks: [],
-        referrals: [],
-        nextAttemptTimestamp: null,
-        wallet: null,
-        wallet_updated_at: null,
+        referrer_id: null, coins: 0, attempts: 25, max_attempts: 25,
+        best_score: 0, completed_tasks: [], referrals: [],
+        nextAttemptTimestamp: null, wallet: null, wallet_updated_at: null,
         walletEligible: false,
       });
     }
 
     const db = readDb();
     let user = db[user_id];
+    let inviter = null; // Переменная для хранения данных пригласившего
 
     const refIdStr = ref_id ? String(ref_id) : null;
     const validRef = refIdStr && refIdStr !== user_id && /^\d+$/.test(refIdStr);
 
     if (!user) {
+      // Пользователь не найден, создаем нового
       user = normalizeUser({
         user_id,
         username: providedUsername || `User_${user_id.slice(-4)}`,
         referrer_id: validRef ? refIdStr : null,
-        coins: 0,
-        attempts: 25,
-        max_attempts: 25,
-        best_score: 0,
-        completed_tasks: [],
-        referrals: [],
-        nextAttemptTimestamp: null,
-        wallet: null,
-        wallet_updated_at: null,
-        referral_processed: false,
       });
     } else {
+      // Пользователь существует, обновляем данные
       user = normalizeUser(user);
       if (providedUsername && providedUsername !== user.username) {
         user.username = providedUsername;
       }
-      // поздняя привязка (если ещё не было)
-      if (validRef && !user.referrer_id && !user.referral_processed) {
+      // Поздняя привязка реферала (если еще не было)
+      if (validRef && !user.referrer_id) {
         user.referrer_id = refIdStr;
       }
     }
 
-    // Если есть реферер и не обработано — обработаем сейчас
+    // Если есть реферер и он еще не обработан — обработаем сейчас
     if (user.referrer_id && !user.referral_processed) {
       const inviterId = String(user.referrer_id);
-      let inviter = db[inviterId];
 
-      if (!inviter) {
-        inviter = normalizeUser({
-          user_id: inviterId,
-          username: `User_${inviterId.slice(-4)}`,
-          coins: 0, attempts: 25, max_attempts: 25, best_score: 0,
-          completed_tasks: [], referrals: [], nextAttemptTimestamp: null,
-          wallet: null, wallet_updated_at: null, referral_processed: false,
-        });
-      } else {
-        inviter = normalizeUser(inviter);
+      // Находим пригласившего и нормализуем его данные
+      if (db[inviterId]) {
+        inviter = normalizeUser(db[inviterId]);
+
+        // Добавляем нового пользователя в список рефералов
+        if (!inviter.referrals.includes(user_id)) {
+          inviter.referrals.push(user_id);
+        }
+
+        // Выдаем награду за приглашение (единоразово)
+        const rewardGiven = awardInviteIfNeeded(inviter);
+        if (rewardGiven) {
+          log(`Referral task awarded (late): +${REFERRAL_TASK_REWARD} to ${inviter.user_id} by ${user_id}`);
+        }
+
+        user.referral_processed = true;
       }
-
-      inviter.referrals = Array.isArray(inviter.referrals) ? inviter.referrals : [];
-      if (!inviter.referrals.includes(user_id)) {
-        inviter.referrals.push(user_id);
-      }
-
-      const rewardGiven = awardInviteIfNeeded(inviter); // единоразово
-      if (rewardGiven) {
-        log(`Referral task awarded (late): +${REFERRAL_TASK_REWARD} to ${inviter.user_id} by ${user_id}`);
-      }
-
-      user.referral_processed = true;
-
-      db[inviterId] = inviter;
-      db[user_id] = user;
-      writeDb(db);
-    } else {
-      regenAttempts(user);
-      db[user_id] = user;
-      writeDb(db);
     }
 
+    // Восстанавливаем попытки для ТЕКУЩЕГО пользователя
     regenAttempts(user);
+
+    // === ЕДИНАЯ ТОЧКА СОХРАНЕНИЯ ===
+    // Сохраняем все изменения в базу ОДИН РАЗ в конце
     db[user_id] = user;
+    if (inviter) {
+      db[inviter.user_id] = inviter;
+    }
     writeDb(db);
+    // ================================
 
     res.json({ ...user, walletEligible: (user.coins || 0) >= 100 });
+
   } catch (e) {
     log(e);
     res.status(500).json({ error: 'internal_error' });
@@ -426,7 +358,6 @@ app.post('/getUserData', (req, res) => {
 });
 
 // Обновление данных пользователя
-// Браузерные user_id — не сохраняем, просто возвращаем то, что прислали (эфемерно)
 app.post('/updateUserData', (req, res) => {
   try {
     let { user_id, data } = req.body || {};
@@ -437,26 +368,16 @@ app.post('/updateUserData', (req, res) => {
     if (!isTelegramId(user_id)) {
       const coins = typeof data.coins === 'number' && Number.isFinite(data.coins) ? Math.max(0, data.coins) : 0;
       const attempts = typeof data.attempts === 'number' && Number.isFinite(data.attempts) ? Math.max(0, Math.floor(data.attempts)) : 25;
-      const max_attempts = 25;
       const best_score = typeof data.score === 'number' ? data.score : 0;
       return res.json({
         user_id,
-        username: 'Guest',
-        referrer_id: null,
-        coins,
-        attempts,
-        max_attempts,
-        best_score,
+        username: 'Guest', referrer_id: null, coins, attempts, max_attempts: 25, best_score,
         completed_tasks: Array.isArray(data.completed_tasks) ? Array.from(new Set(data.completed_tasks)) : [],
-        referrals: [],
-        nextAttemptTimestamp: null,
-        wallet: null,
-        wallet_updated_at: null,
+        referrals: [], nextAttemptTimestamp: null, wallet: null, wallet_updated_at: null,
         walletEligible: false,
       });
     }
 
-    // Telegram user — сохраняем
     const db = readDb();
     const prev = db[user_id];
     if (!prev) return res.status(404).json({ error: 'Пользователь не найден' });
@@ -469,7 +390,6 @@ app.post('/updateUserData', (req, res) => {
         u.nextAttemptTimestamp = Date.now() + ATTEMPT_REGEN_INTERVAL_MS;
       }
     }
-
     if (typeof data.coins === 'number' && Number.isFinite(data.coins)) {
       u.coins = Math.max(0, data.coins);
     }
@@ -479,7 +399,6 @@ app.post('/updateUserData', (req, res) => {
     if (typeof data.score === 'number' && data.score > (u.best_score || 0)) {
       u.best_score = data.score;
     }
-
     if (typeof data.username === 'string') {
       const uName = sanitizeTelegramUsername(data.username);
       if (uName && uName !== u.username) {
@@ -509,21 +428,10 @@ app.post('/updateUserData', (req, res) => {
 app.get('/getLeaderboard', (_req, res) => {
   try {
     const db = readDb();
-
-    const ensureUser = (u) => {
-      const n = { ...u };
-      n.coins = Number.isFinite(n.coins) ? Number(n.coins) : Number(n?.coins) || 0;
-      n.best_score = Number.isFinite(n.best_score) ? Number(n.best_score) : 0;
-      n.username = typeof n.username === 'string' ? n.username : null;
-      n.user_id = n.user_id ?? null;
-      return n;
-    };
-
     const leaders = values(db)
-      .map(ensureUser)
+      .map(u => normalizeUser(u))
       .sort((a, b) => b.coins - a.coins)
       .slice(0, 10);
-
     res.json(leaders);
   } catch (e) {
     log(e);
@@ -531,7 +439,7 @@ app.get('/getLeaderboard', (_req, res) => {
   }
 });
 
-// Мои рефералы (для браузерных — всегда пусто)
+// Мои рефералы
 app.post('/getReferrals', (req, res) => {
   try {
     let { user_id } = req.body || {};
@@ -539,28 +447,36 @@ app.post('/getReferrals', (req, res) => {
     user_id = String(user_id);
 
     if (!isTelegramId(user_id)) {
-      return res.json([]); // гость — не сохраняем и не показываем
+      return res.json([]); // гость — не имеет рефералов
     }
 
     const db = readDb();
-    const refs = rebuildReferrals(db, user_id);
-    return res.json(refs);
+    const user = db[user_id];
+
+    if (!user || !Array.isArray(user.referrals)) {
+      return res.json([]);
+    }
+
+    const referralData = user.referrals
+      .map(refId => db[String(refId)])
+      .filter(Boolean) // Убираем, если реферал был удален из БД
+      .map(refUser => normalizeUser(refUser)); // Отдаем на клиент нормализованные данные
+
+    return res.json(referralData);
   } catch (e) {
     log(e);
     res.status(500).json({ error: 'internal_error' });
   }
 });
 
-// Привязка реферала через Telegram WebApp (только с валидным initData)
+// Привязка реферала через Telegram WebApp
 app.post('/acceptReferral', (req, res) => {
   try {
-    log('[acceptReferral] body =', req.body);
     const { inviter_id, initData } = req.body || {};
     if (!Number.isFinite(Number(inviter_id))) {
       return res.status(400).json({ error: 'inviter_id_invalid' });
     }
     if (!initData) {
-      log('[acceptReferral] initData is empty');
       return res.status(400).json({ error: 'initData_required' });
     }
 
@@ -571,7 +487,6 @@ app.post('/acceptReferral', (req, res) => {
       log('[acceptReferral] verifyInitData failed:', e.message);
       return res.status(400).json({ error: 'invalid_initData', reason: e.message });
     }
-    log('[acceptReferral] parsed.start_param =', parsed.start_param, 'user.id =', parsed.user?.id);
 
     const invitee = parsed.user || {};
     const invitee_id_num = Number(invitee.id);
@@ -589,101 +504,53 @@ app.post('/acceptReferral', (req, res) => {
 
     const db = readDb();
 
-    // Create invitee if doesn't exist
-    if (!db[invitee_id]) {
-      db[invitee_id] = normalizeUser({
+    let inviteeUser = db[invitee_id] ? normalizeUser(db[invitee_id]) : null;
+    let inviterUser = db[inviter_id_str] ? normalizeUser(db[inviter_id_str]) : null;
+
+    if (!inviteeUser) {
+      inviteeUser = normalizeUser({
         user_id: invitee_id,
         username: sanitizeTelegramUsername(invitee?.username) || `User_${invitee_id.slice(-4)}`,
-        referrer_id: null,
-        coins: 0,
-        attempts: 25,
-        max_attempts: 25,
-        best_score: 0,
-        completed_tasks: [],
-        referrals: [],
-        nextAttemptTimestamp: null,
-        wallet: null,
-        wallet_updated_at: null,
-        referral_processed: false,
       });
     }
 
-    // Create inviter if doesn't exist
-    if (!db[inviter_id_str]) {
-      db[inviter_id_str] = normalizeUser({
-        user_id: inviter_id_str,
-        username: `User_${inviter_id_str.slice(-4)}`,
-        coins: 0, attempts: 25, max_attempts: 25, best_score: 0,
-        completed_tasks: [], referrals: [], nextAttemptTimestamp: null,
-        wallet: null, wallet_updated_at: null,
-        referral_processed: false,
-      });
+    if (!inviterUser) {
+      inviterUser = normalizeUser({ user_id: inviter_id_str });
     }
 
-    const inviteeUser = normalizeUser(db[invitee_id]);
-    const inviterUser = normalizeUser(db[inviter_id_str]);
-
-    // Check if invitee already has a referrer
     if (inviteeUser.referrer_id) {
-      writeDb(db);
       return res.json({ ok: true, skipped: 'already_has_referrer', referrer_id: inviteeUser.referrer_id });
     }
 
-    // Check if this referral was already processed
-    if (inviteeUser.referral_processed) {
-      writeDb(db);
-      return res.json({ ok: true, skipped: 'already_processed' });
-    }
-
-    // Set up the referral relationship
     inviteeUser.referrer_id = inviter_id_str;
-    inviteeUser.referral_processed = true; // Mark as processed
+    inviteeUser.referral_processed = true;
 
-    inviterUser.referrals = Array.isArray(inviterUser.referrals) ? inviterUser.referrals : [];
     if (!inviterUser.referrals.includes(invitee_id)) {
       inviterUser.referrals.push(invitee_id);
     }
 
-    // Award the referral bonus
     const rewardGiven = awardInviteIfNeeded(inviterUser);
 
     db[invitee_id] = inviteeUser;
     db[inviter_id_str] = inviterUser;
     writeDb(db);
 
-    log('[acceptReferral] SUCCESS', {
-      inviter_id: inviter_id_str,
-      invitee_id,
-      reward_given: rewardGiven
-    });
+    log('[acceptReferral] SUCCESS', { inviter_id: inviter_id_str, invitee_id, reward_given: rewardGiven });
+    res.json({ ok: true, inviter_id: inviter_id_str, invitee_id, reward_given: rewardGiven });
 
-    res.json({
-      ok: true,
-      inviter_id: inviter_id_str,
-      invitee_id,
-      reward_given: rewardGiven
-    });
   } catch (e) {
     log('[acceptReferral] ERROR:', e);
     res.status(500).json({ error: 'internal_error' });
   }
 });
 
-// Wallet (только Telegram user)
-function isWalletString(s) {
-  if (typeof s !== 'string') return false;
-  const v = s.trim();
-  if (v.length < 6 || v.length > 120) return false;
-  return true;
-}
-
+// Wallet
 app.post('/setWallet', (req, res) => {
   try {
     let { user_id, wallet } = req.body || {};
     if (!user_id || typeof wallet !== 'string') return res.status(400).json({ error: 'bad_request' });
 
     user_id = String(user_id);
-
     if (!isTelegramId(user_id)) {
       return res.status(403).json({ error: 'telegram_only' });
     }
@@ -695,7 +562,9 @@ app.post('/setWallet', (req, res) => {
     if ((u.coins || 0) < 100) {
       return res.status(403).json({ error: 'not_eligible', need: 100, have: u.coins || 0 });
     }
-    if (!isWalletString(wallet)) return res.status(400).json({ error: 'invalid_wallet' });
+    if (typeof wallet !== 'string' || wallet.trim().length < 6 || wallet.trim().length > 120) {
+        return res.status(400).json({ error: 'invalid_wallet' });
+    }
 
     u.wallet = wallet.trim();
     u.wallet_updated_at = new Date().toISOString();
