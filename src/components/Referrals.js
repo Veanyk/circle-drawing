@@ -13,7 +13,6 @@ const SERVER_URL =
 const BOT_USERNAME = process.env.REACT_APP_BOT_USERNAME || 'circle_drawing_bot';
 
 const Referrals = ({ userId }) => {
-  const [referrals, setReferrals] = useState([]);
   const [referralLink, setReferralLink] = useState('');
   const sentOnceRef = useRef(false);
 
@@ -40,9 +39,7 @@ const Referrals = ({ userId }) => {
       const initDataRaw = tg?.initData || '';
       const startParam = tg?.initDataUnsafe?.start_param;
 
-      if (!initDataRaw || typeof startParam !== 'string' || !startParam.startsWith('ref_')) {
-        return;
-      }
+      if (!initDataRaw || typeof startParam !== 'string' || !startParam.startsWith('ref_')) return;
 
       const inviterId = Number(startParam.slice(4));
       if (!Number.isFinite(inviterId) || inviterId <= 0) return;
@@ -54,12 +51,9 @@ const Referrals = ({ userId }) => {
         body: JSON.stringify({ inviter_id: inviterId, initData: initDataRaw }),
       })
         .then(r => r.json().catch(() => ({})))
-        .then(() => {
-          // после успешной привязки — сразу перезагрузим список
-          if (typeof loadMyRefs === 'function') loadMyRefs();
-        })
+        .then(() => loadMyRefs())
         .catch((e) => console.error('acceptReferral failed:', e));
-    }, []);
+    }, [loadMyRefs]); // ✅ добавили зависимость
 
     // 2) Загрузка списка рефералов (оставляем поллинг, но выносим функцию наружу,
     //    чтобы можно было вызвать её после acceptReferral)
