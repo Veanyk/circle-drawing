@@ -11,6 +11,7 @@ const SERVER_URL =
   (process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : '/api');
 
 const BOT_USERNAME = process.env.REACT_APP_BOT_USERNAME || 'circle_drawing_bot';
+const APP_SHORT_NAME = process.env.REACT_APP_TG_APP_SHORTNAME || 'circle_drawer';
 
 const Referrals = ({ userId }) => {
   const [referrals, setReferrals] = useState([]);
@@ -18,11 +19,13 @@ const Referrals = ({ userId }) => {
   const sentOnceRef = useRef(false); // чтобы не слать /acceptReferral много раз
 
   // Генерируем deep link в Telegram Mini App
-  useEffect(() => {
+    useEffect(() => {
     if (!userId) return;
-    const deepLink = `https://t.me/${BOT_USERNAME}?startapp=ref_${userId}`;
-    setReferralLink(deepLink);
-  }, [userId]);
+    const base = APP_SHORT_NAME
+    ? `https://t.me/${BOT_USERNAME}/${APP_SHORT_NAME}`
+    : `https://t.me/${BOT_USERNAME}`;
+    setReferralLink(`${base}?startapp=ref_${userId}`);
+    }, [userId]);
 
   // Фиксируем реферал, если Mini App открыт по ?startapp=ref_...
   useEffect(() => {

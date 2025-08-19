@@ -69,11 +69,10 @@ useEffect(() => {
   const qs = url.searchParams;
 
   // кандидаты источников
-  const sp = tg?.initDataUnsafe?.start_param;                // "ref_779077474"
-  const qStart = qs.get('tgWebAppStartParam');               // "ref_779077474" или "779077474"
-  const qRef = qs.get('ref');                                // "779077474"
+  const sp = tg?.initDataUnsafe?.start_param;           // "ref_779077474"
+  const qStart = qs.get('tgWebAppStartParam');          // "ref_..." или "779077474"
+  const qRef = qs.get('ref');                           // "779077474"
 
-  // утилита: привести к числу ID
   const extractRef = (v) => {
     if (!v) return null;
     let s = String(v);
@@ -91,7 +90,7 @@ useEffect(() => {
 
   if (!inviterId) return;
 
-  // если мы действительно внутри Telegram WebApp (есть initData) — закрепляем через сервер
+  // Внутри Telegram WebApp: идём через /acceptReferral (надёжная верификация initData)
   if (initData && initData.length > 0) {
     fetch(`${SERVER_URL}/acceptReferral`, {
       method: 'POST',
@@ -102,7 +101,7 @@ useEffect(() => {
       .then(j => console.log('[AutoAttach] /acceptReferral resp:', j))
       .catch(e => console.error('[AutoAttach] acceptReferral failed:', e));
   } else {
-    // не в WebApp: просто кладём в localStorage, чтобы /getUserData получил ref_id
+    // Открыто «как сайт»: сохраняем реферала в localStorage → /getUserData получит ref_id
     console.warn('[AutoAttach] No initData (not in Telegram WebApp). Will rely on ref_id via /getUserData.');
     localStorage.setItem('referrerId', String(inviterId));
   }
@@ -122,28 +121,28 @@ useEffect(() => {
   const urlParams = new URLSearchParams(window.location.search);
   const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
 
-  // 1) ?ref= в URL (ваш собственный формат)
-  let refId = urlParams.get('ref');
+    // 1) ?ref= из URL
+    let refId = urlParams.get('ref');
 
-  // 2) tgWebAppStartParam в URL (Телеграм часто кладёт сюда start_param)
-  const qStart = urlParams.get('tgWebAppStartParam');
-  if (!refId && qStart) {
+    // 2) tgWebAppStartParam из URL (часто Телеграм кладёт туда start_param)
+    const qStart = urlParams.get('tgWebAppStartParam');
+    if (!refId && qStart) {
     const val = String(qStart);
     refId = val.startsWith('ref_') ? val.slice(4) : val;
-  }
+    }
 
-  // 3) start_param из initDataUnsafe
-  const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
-  if (!refId && typeof startParam === 'string' && startParam.startsWith('ref_')) {
+    // 3) start_param из initDataUnsafe
+    const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
+    if (!refId && typeof startParam === 'string' && startParam.startsWith('ref_')) {
     refId = startParam.slice(4);
-  }
+    }
 
-  // 4) localStorage (если не из URL/initData)
-  if (!refId) {
+    // 4) localStorage
+    if (!refId) {
     refId = localStorage.getItem('referrerId') || null;
-  } else {
+    } else {
     localStorage.setItem('referrerId', refId);
-  }
+    }
 
   // дальше — как у вас
   let finalUserId;
