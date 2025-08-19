@@ -123,6 +123,40 @@
   max-width: 300px; /* Базовая максимальная ширина */
 }
 
+.social-icon-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  border-radius: 9999px; /* круглая */
+  line-height: 0;        /* убрать лишнюю высоту */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  /* увеличим «зону тапа», но не трогаем саму картинку */
+  width: 48px;
+  height: 48px;
+}
+
+.social-icon-btn .social-icon {
+  display: block;
+  width: 22px;   /* подгони под свою картинку */
+  height: 22px;  /* подгони под свою картинку */
+  border-radius: 50%;
+}
+
+.social-icon-btn:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.8); /* аккуратный фокус */
+  outline-offset: 2px;
+}
+
+.social-icon-btn:hover {
+  transform: translateY(-1px);
+}
+
 /* Адаптивная верстка */
 @media (max-width: 768px) {
     .result-container { padding-top: 105px; }

@@ -70,9 +70,14 @@ const Result = ({ score, onReset, drawing, userId }) => {
             <TwitterShareButton url={shareUrl} title={shareText}>
               <img src={twitterIcon} alt="Twitter" className="social-icon" />
             </TwitterShareButton>
-            <a href={telegramShareUrl} target="_blank" rel="noopener noreferrer">
-              <img src={telegramIcon} alt="Telegram" className="social-icon" />
-            </a>
+                <button
+                  type="button"
+                  className="social-icon-btn"
+                  onClick={handleShareTelegram}
+                  aria-label="Share on Telegram"
+                >
+                  <img src={telegramIcon} alt="Telegram" className="social-icon" />
+                </button>
           </div>
         </div>
       </div>

@@ -11,7 +11,6 @@ const SERVER_URL =
   (process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : '/api');
 
 const BOT_USERNAME = process.env.REACT_APP_BOT_USERNAME || 'circle_drawing_bot';
-const APP_SHORT_NAME = process.env.REACT_APP_TG_APP_SHORTNAME || 'circle_drawer';
 
 const Referrals = ({ userId }) => {
   const [referrals, setReferrals] = useState([]);
@@ -19,13 +18,11 @@ const Referrals = ({ userId }) => {
   const sentOnceRef = useRef(false); // чтобы не слать /acceptReferral много раз
 
   // Генерируем deep link в Telegram Mini App
-    useEffect(() => {
+  useEffect(() => {
     if (!userId) return;
-    const base = APP_SHORT_NAME
-    ? `https://t.me/${BOT_USERNAME}/${APP_SHORT_NAME}`
-    : `https://t.me/${BOT_USERNAME}`;
-    setReferralLink(`${base}?startapp=ref_${userId}`);
-    }, [userId]);
+    const deepLink = `https://t.me/${BOT_USERNAME}?startapp=ref_${userId}`;
+    setReferralLink(deepLink);
+  }, [userId]);
 
   // Фиксируем реферал, если Mini App открыт по ?startapp=ref_...
   useEffect(() => {
@@ -58,33 +55,29 @@ const Referrals = ({ userId }) => {
     }
   }, [userId]);
 
-    // Загружаем список рефералов (поллинг)
-    useEffect(() => {
-      if (!userId) return;
-      let stop = false;
+  // Загружаем список рефералов (поллинг)
+  useEffect(() => {
+    if (!userId) return;
+    let stop = false;
 
-      // берём настоящий tg id, если мы внутри Telegram
-      const tgId = window?.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-      const effectiveId = tgId ? String(tgId) : String(userId);
+    const loadMyRefs = async () => {
+      try {
+        const res = await fetch(`${SERVER_URL}/getReferrals`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: userId }),
+        });
+        const data = await res.json();
+        if (!stop && Array.isArray(data)) setReferrals(data);
+      } catch (e) {
+        console.error('Ошибка при получении рефералов:', e);
+      }
+    };
 
-      const loadMyRefs = async () => {
-        try {
-          const res = await fetch(`${SERVER_URL}/getReferrals`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: effectiveId }),
-          });
-          const data = await res.json();
-          if (!stop && Array.isArray(data)) setReferrals(data);
-        } catch (e) {
-          console.error('Ошибка при получении рефералов:', e);
-        }
-      };
-
-      loadMyRefs();
-      const iv = setInterval(loadMyRefs, 5000);
-      return () => { stop = true; clearInterval(iv); };
-    }, [userId]);
+    loadMyRefs();
+    const iv = setInterval(loadMyRefs, 5000);
+    return () => { stop = true; clearInterval(iv); };
+  }, [userId]);
 
   const copyToClipboard = async () => {
     const text = referralLink;
