@@ -194,6 +194,34 @@ body {
   text-shadow: 0 0 0 transparent;
 }
 
+html, body, #root, .App {
+  height: 100dvh;        /* современная метрика, корректна на десктопе и мобилках */
+  min-height: 100dvh;
+  margin: 0;
+}
+
+/* Если на десктопе “шапка” кажется опущенной — уменьшаем верхние отступы */
+@media (min-width: 992px) {
+  .app-header {
+    margin-top: 0 !important;
+  }
+  .main-content {
+    padding-top: 8px !important;
+  }
+  /* если где-то задавали большие паддинги, подрежем их на ПК */
+  .result-container, .leaderboards-container, .referrals-container {
+    padding-top: 20px !important;
+  }
+}
+
+/* чтобы верх всегда был “сверху” поверх бэкграунда/картинок */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: transparent; /* или цвет вашей темы */
+}
+
 /* Адаптивность для мобильных */
 @media (max-width: 768px) {
   .score-circle-header { top: 12px; width: 96px; height: 96px; }

@@ -77,13 +77,16 @@ function App() {
 
   // 1) Инициализация пользователя при первом запуске
   useEffect(() => {
-    let isMounted = true;
-
+    const tg = window.Telegram?.WebApp;
     try {
-      window.Telegram?.WebApp?.expand();
+      tg?.ready();   // важно: сначала сообщаем, что UI готов
+      tg?.expand();  // затем просим максимум доступной высоты
     } catch {}
 
-    const finalUserId = initializeUserId();
+    // гарантируем старт сверху (на всякий случай)
+    try { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); } catch {}
+
+  const finalUserId = initializeUserId();
     setUserId(finalUserId);
 
     const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
