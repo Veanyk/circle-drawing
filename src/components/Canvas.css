@@ -5,7 +5,7 @@
   justify-content: flex-start;
   box-sizing: border-box;
   width: 100%;
-  padding-top: 20vh; /* <-- УВЕЛИЧИВАЕМ ОТСТУП (например, до 20% от высоты экрана) */
+  padding-top: calc(20vh - 10px);
   padding-bottom: 20px;
 }
 

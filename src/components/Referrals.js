@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './Referrals.css';
 import referralProgramImage from '../assets/referral_program.png';
 import inviteImage from '../assets/invite.png';
@@ -15,12 +15,44 @@ const BOT_USERNAME = process.env.REACT_APP_BOT_USERNAME || 'circle_drawing_bot';
 const Referrals = ({ userId }) => {
   const [referrals, setReferrals] = useState([]);
   const [referralLink, setReferralLink] = useState('');
+  const sentOnceRef = useRef(false); // чтобы не слать /acceptReferral много раз
 
   // Генерируем deep link в Telegram Mini App
   useEffect(() => {
     if (!userId) return;
     const deepLink = `https://t.me/${BOT_USERNAME}?startapp=ref_${userId}`;
     setReferralLink(deepLink);
+  }, [userId]);
+
+  // Фиксируем реферал, если Mini App открыт по ?startapp=ref_...
+  useEffect(() => {
+    if (!userId) return;
+    if (sentOnceRef.current) return;
+
+    // Безопасно читаем initData/start_param
+    const tg = (typeof window !== 'undefined' && window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+    const initDataRaw = tg?.initData || '';
+    const initUnsafe = tg?.initDataUnsafe || {};
+    const startParam = initUnsafe?.start_param;
+
+    if (typeof startParam === 'string' && startParam.startsWith('ref_')) {
+      const inviterId = Number(startParam.slice(4));
+      if (Number.isFinite(inviterId) && inviterId > 0) {
+        // Избегаем самореферала на клиенте (на сервере тоже проверяется)
+        if (Number(userId) === inviterId) return;
+
+        sentOnceRef.current = true;
+        fetch(`${SERVER_URL}/acceptReferral`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            inviter_id: inviterId,
+            // invitee_id сервер возьмёт из подписанного initData, поле добавлять не обязательно
+            initData: initDataRaw,
+          }),
+        }).catch((e) => console.error('acceptReferral failed:', e));
+      }
+    }
   }, [userId]);
 
   // Загружаем список рефералов (поллинг)

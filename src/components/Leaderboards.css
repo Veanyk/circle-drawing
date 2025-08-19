@@ -5,7 +5,7 @@
   flex-direction: column;
   align-items: center;
   padding: 20px;
-  min-height: calc(100vh px);
+  min-height: 100vh;
   box-sizing: border-box;
   overflow-y: auto;
 }
@@ -47,7 +47,10 @@
 .lb-board {
   position: relative;
   width: min(560px, 92vw);
-  aspect-ratio: 1 / 0.86; /* под вашу картинку доски */
+  aspect-ratio: 1 / 0.86;
+
+  /* Важно: включаем контейнер для единиц cqw */
+  container-type: inline-size;
 }
 
 .lb-board-img {
@@ -69,56 +72,55 @@
 
   left: 11%;
   right: 6%;
-
   top: 13%;
-
   bottom: 13%;
-  gap: 4px;
 
+  /* масштабируемые отступы/интерлиньяж от ширины доски */
+  gap: 1.2cqw;
+
+  /* fallback по вьюпорту... */
   font-size: clamp(14px, 2.7vw, 18px);
+  /* ...и точное масштабирование от доски */
+  font-size: clamp(12px, 2.7cqw, 18px);
 }
 
 .lb-row {
   display: grid;
-  /* 3 колонки: Ранг | Имя (гибкое) | Статистика (фиксированная) */
-  grid-template-columns: 30px 1fr auto;
-  gap: 10px;
-  padding: 2px 4px;
+  /* Ранг | Имя | Точность | Токены — ширины от доски */
+  grid-template-columns: 6cqw 1fr 12cqw 12cqw;
+
+  gap: 1.2cqw;
+  padding: 0.6cqw 0.8cqw;
   align-items: center;
 }
 
 .col-rank {
   text-align: center;
   opacity: 0.8;
+  min-width: 6cqw;   /* синхронизировано со столбцом сетки */
 }
 
 .col-name {
-  padding-left: 15px; /* <-- 1. СДВИГАЕМ НИКНЕЙМ ВПРАВО */
+  padding-left: 2cqw;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* Контейнер для правой части (статистики) */
 .col-stats {
   display: flex;
   justify-content: flex-end;
+  align-items: baseline;
+  gap: 1.2cqw;           /* промежуток между метриками */
   white-space: nowrap;
 }
 
-/* Задаем индивидуальные отступы для каждой колонки */
-.col-acc {
-  text-align: right;
-  padding-right: 25px;
-  position: relative;
-  right: 40px;   /* << сдвиг влево на 40px */
-}
-
+.col-acc,
 .col-tok {
   text-align: right;
-  padding-right: 10px;
-  position: relative;
-  right: 20px;   /* << сдвиг влево на 20px */
+  padding: 0;            /* убираем фиксированные padding */
+  position: static;      /* убираем "ручные" сдвиги */
+  min-width: 10cqw;      /* стабилизируем ширину ячеек */
 }
 
 /* прячем шапку столбцов */
