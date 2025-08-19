@@ -15,6 +15,15 @@ const SERVER_URL =
 
 const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000; // 1 минута
 
+const getBrowserUserId = () => {
+  let userId = localStorage.getItem('circleGameUserId');
+  if (!userId) {
+    userId = `browser_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem('circleGameUserId', userId);
+  }
+  return userId;
+};
+
 // Вспомогательный компонент для круга с результатом в шапке
 const ScoreCircle = ({ score }) => {
   const angle = (Math.max(0, Math.min(100, Number(score) || 0)) / 100) * 360;
@@ -36,10 +45,7 @@ function App() {
   const [currentTab, setCurrentTab] = useState('circle');
   const [drawingData, setDrawingData] = useState(null);
 
-  const [userId, setUserId] = useState(null); // только Telegram ID
-  const [initData, setInitData] = useState(''); // подписанные данные Telegram
-  const [notInTelegram, setNotInTelegram] = useState(false); // гейт для браузера
-
+  const [userId, setUserId] = useState(null);
   const [coins, setCoins] = useState(0);
   const [attempts, setAttempts] = useState(0);
   const [maxAttempts, setMaxAttempts] = useState(25);
@@ -47,44 +53,45 @@ function App() {
   const [nextAttemptTimestamp, setNextAttemptTimestamp] = useState(null);
   const [timeToNextAttempt, setTimeToNextAttempt] = useState(null);
 
-  // Инициализация Telegram окружения
   useEffect(() => {
-    const tg = window?.Telegram?.WebApp;
-    if (tg) {
+    if (window.Telegram && window.Telegram.WebApp) {
+      const tg = window.Telegram.WebApp;
       tg.expand();
       document.body.style.backgroundColor = tg.themeParams?.bg_color || '#0f0f0f';
-      const data = tg?.initData || '';
-      setInitData(data);
-      setNotInTelegram(!data); // если пусто — запущено не в Mini App
-      const tgUser = tg?.initDataUnsafe?.user;
-      if (tgUser?.id) setUserId(String(tgUser.id));
-    } else {
-      setNotInTelegram(true);
     }
   }, []);
 
-  // АВТОЗАХВАТ РЕФЕРАЛА из start_param / tgWebAppStartParam (только в TG, т.к. нужен initData)
-  useEffect(() => {
-    if (!initData) return; // только внутри Telegram Mini App
+useEffect(() => {
+  const tg = window?.Telegram?.WebApp;
+  const initData = tg?.initData || '';
 
-    const tg = window?.Telegram?.WebApp;
-    const url = new URL(window.location.href);
-    const qs = url.searchParams;
+  const url = new URL(window.location.href);
+  const qs = url.searchParams;
 
-    const sp = tg?.initDataUnsafe?.start_param;       // "ref_123"
-    const qStart = qs.get('tgWebAppStartParam');      // "ref_123" или "123"
+  // кандидаты источников
+  const sp = tg?.initDataUnsafe?.start_param;           // "ref_779077474"
+  const qStart = qs.get('tgWebAppStartParam');          // "ref_..." или "779077474"
+  const qRef = qs.get('ref');                           // "779077474"
 
-    const extractRef = (v) => {
-      if (!v) return null;
-      let s = String(v);
-      if (s.startsWith('ref_')) s = s.slice(4);
-      const n = Number(s);
-      return Number.isFinite(n) && n > 0 ? n : null;
-    };
+  const extractRef = (v) => {
+    if (!v) return null;
+    let s = String(v);
+    if (s.startsWith('ref_')) s = s.slice(4);
+    const n = Number(s);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
 
-    const inviterId = extractRef(sp) ?? extractRef(qStart);
-    if (!inviterId) return;
+  const inviterId =
+    extractRef(sp) ??
+    extractRef(qStart) ??
+    extractRef(qRef);
 
+  console.log('[AutoAttach] sources:', { sp, qStart, qRef, inviterId, initLen: initData?.length || 0 });
+
+  if (!inviterId) return;
+
+  // Внутри Telegram WebApp: идём через /acceptReferral (надёжная верификация initData)
+  if (initData && initData.length > 0) {
     fetch(`${SERVER_URL}/acceptReferral`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -93,50 +100,71 @@ function App() {
       .then(r => r.json().catch(() => ({})))
       .then(j => console.log('[AutoAttach] /acceptReferral resp:', j))
       .catch(e => console.error('[AutoAttach] acceptReferral failed:', e));
-  }, [initData]);
+  } else {
+    // Открыто «как сайт»: сохраняем реферала в localStorage → /getUserData получит ref_id
+    console.warn('[AutoAttach] No initData (not in Telegram WebApp). Will rely on ref_id via /getUserData.');
+    localStorage.setItem('referrerId', String(inviterId));
+  }
+}, []);
 
-  // Обновление на сервере — всегда передаём initData, user_id не шлём
   const updateUserDataOnServer = useCallback((newData) => {
-    if (!initData) return;
+    if (!userId) return;
     fetch(`${SERVER_URL}/updateUserData`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: newData, initData }),
+      body: JSON.stringify({ user_id: userId, data: newData })
     }).catch(err => console.error('Ошибка при обновлении данных на сервере:', err));
-  }, [initData]);
+  }, [userId]);
 
-  // Инициализация пользователя и первичная загрузка — только внутри Telegram
-  useEffect(() => {
-    if (notInTelegram || !initData) return;
+  // Инициализация пользователя и первичная загрузка
+useEffect(() => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
 
-    const tg = window?.Telegram?.WebApp;
-    const tgUser = tg?.initDataUnsafe?.user;
+// 1) ?ref= из URL
+let refId = urlParams.get('ref');
 
-    // достаём возможный ref из URL/start_param — сервер обработает
-    const urlParams = new URLSearchParams(window.location.search);
-    let refId = null;
+// 2) tgWebAppStartParam из URL (часто Телеграм кладёт туда start_param)
+const qStart = urlParams.get('tgWebAppStartParam');
+if (!refId && qStart) {
+const val = String(qStart);
+refId = val.startsWith('ref_') ? val.slice(4) : val;
+}
 
-    const qStart = urlParams.get('tgWebAppStartParam');
-    if (qStart) {
-      const val = String(qStart);
-      refId = val.startsWith('ref_') ? val.slice(4) : val;
-    }
+// 3) start_param из initDataUnsafe
+const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
+if (!refId && typeof startParam === 'string' && startParam.startsWith('ref_')) {
+refId = startParam.slice(4);
+}
 
-    const startParam = tg?.initDataUnsafe?.start_param;
-    if (!refId && typeof startParam === 'string' && startParam.startsWith('ref_')) {
-      refId = startParam.slice(4);
-    }
+// 4) localStorage
+if (!refId) {
+refId = localStorage.getItem('referrerId') || null;
+} else {
+localStorage.setItem('referrerId', refId);
+}
 
+  // дальше — как у вас
+  let finalUserId;
+  if (tgUser?.id) {
+    finalUserId = String(tgUser.id);
+  } else {
+    finalUserId = getBrowserUserId();
+  }
+  setUserId(finalUserId);
+
+  if (finalUserId) {
     const handle = tgUser?.username ? tgUser.username.replace(/^@/, '') : null;
+    const initialUserData = {
+      user_id: finalUserId,
+      ref_id: refId || null,
+      username: handle,
+    };
 
     fetch(`${SERVER_URL}/getUserData`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ref_id: refId || null,
-        username: handle,
-        initData, // сервер возьмёт user_id из initData
-      }),
+      body: JSON.stringify(initialUserData)
     })
       .then(res => res.json())
       .then(data => {
@@ -153,11 +181,11 @@ function App() {
         setNextAttemptTimestamp(Number.isFinite(parsedTs) && parsedTs > 0 ? parsedTs : null);
       })
       .catch(err => console.error('Ошибка при получении данных пользователя:', err));
-  }, [initData, notInTelegram]);
+  }
+}, []);
 
   // Таймер восстановления попыток (тик каждую секунду)
   useEffect(() => {
-    if (notInTelegram) return;
     if (attempts >= maxAttempts || !nextAttemptTimestamp) {
       setTimeToNextAttempt(null);
       return;
@@ -168,7 +196,7 @@ function App() {
         fetch(`${SERVER_URL}/getUserData`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ initData }),
+          body: JSON.stringify({ user_id: userId })
         })
           .then(res => res.json())
           .then(data => {
@@ -192,18 +220,18 @@ function App() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [attempts, maxAttempts, nextAttemptTimestamp, initData, notInTelegram]);
+  }, [attempts, maxAttempts, nextAttemptTimestamp, userId]);
 
-  // Автообновление монет/статуса заданий, пока открыт экран рефералов (только в TG)
+  // Автообновление монет/статуса заданий, пока открыт экран рефералов
   useEffect(() => {
-    if (notInTelegram || currentTab !== 'referrals' || !initData) return;
+    if (currentTab !== 'referrals' || !userId) return;
     let stop = false;
     const tick = async () => {
       try {
         const res = await fetch(`${SERVER_URL}/getUserData`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ initData }),
+          body: JSON.stringify({ user_id: userId }),
         });
         const data = await res.json();
         if (!stop && data) {
@@ -215,13 +243,9 @@ function App() {
     tick();
     const iv = setInterval(tick, 5000);
     return () => { stop = true; clearInterval(iv); };
-  }, [currentTab, initData, notInTelegram]);
+  }, [currentTab, userId]);
 
-  const onDrawEnd = (circleAccuracy, _points, canvas, _size) => {
-    if (notInTelegram) {
-      alert('Open in Telegram Mini App to play.');
-      return;
-    }
+  const onDrawEnd = (circleAccuracy, points, canvas, size) => {
     if (attempts <= 0) {
       alert('You are out of attempts!');
       return;
@@ -254,10 +278,6 @@ function App() {
   };
 
   const onTaskComplete = (taskId, tokens) => {
-    if (notInTelegram) {
-      alert('Open in Telegram Mini App to play.');
-      return;
-    }
     if (completedTasks.includes(taskId)) {
       alert('This task has already been completed.');
       return;
@@ -273,96 +293,74 @@ function App() {
     });
   };
 
-  // Гейт: если открыто не в Telegram — показываем инструкцию и выходим
-  if (notInTelegram) {
-    return (
-      <div className="App" style={{ padding: 24, color: '#fff' }}>
-        <h2>Open in Telegram</h2>
-        <p>This game works only inside the Telegram Mini App.</p>
-        <p>
-          Open:&nbsp;
-          <a
-            href="https://t.me/circle_drawing_bot/circle_drawer"
-            target="_blank"
-            rel="noreferrer"
-          >
-            t.me/circle_drawing_bot/circle_drawer
-          </a>
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="App">
-      {currentTab === 'circle' && (
-        <div className="app-header">
-          <div className="coins-display">
-            <div className="banner-container">
-              <img
-                src={require('./assets/total_coins.png')}
-                alt="Total coins"
-                className="banner-icon"
-              />
-              <span className="banner-text">{coins.toFixed(2)}</span>
-            </div>
-          </div>
-
-          <div className="attempts-display">
-            <div className="banner-container">
-              <img
-                src={require('./assets/total_attempts.png')}
-                alt="Total attempts"
-                className="banner-icon"
-              />
-              <span className="banner-text">{attempts}/{maxAttempts}</span>
-            </div>
-            {timeToNextAttempt && (
-              <div className="timer-display">
-                <span className="timer-text">{timeToNextAttempt}</span>
-              </div>
-            )}
-          </div>
-
-          {score !== null && <ScoreCircle score={score} />}
-        </div>
-      )}
-
-      <div className="main-content">
-        <div className={`tab-pane ${currentTab === 'circle' ? 'active' : ''}`}>
-          {score === null ? (
-            <Canvas onDrawEnd={onDrawEnd} attempts={attempts} />
-          ) : (
-            <Result
-              score={score}
-              onReset={onReset}
-              drawing={drawingData}
-              userId={userId}
+  <div className="App">
+    {currentTab === 'circle' && (
+      <div className="app-header">
+        <div className="coins-display">
+          <div className="banner-container">
+            <img
+              src={require('./assets/total_coins.png')}
+              alt="Total coins"
+              className="banner-icon"
             />
+            <span className="banner-text">{coins.toFixed(2)}</span>
+          </div>
+        </div>
+
+        <div className="attempts-display">
+          <div className="banner-container">
+            <img
+              src={require('./assets/total_attempts.png')}
+              alt="Total attempts"
+              className="banner-icon"
+            />
+            <span className="banner-text">{attempts}/{maxAttempts}</span>
+          </div>
+          {timeToNextAttempt && (
+            <div className="timer-display">
+              <span className="timer-text">{timeToNextAttempt}</span>
+            </div>
           )}
         </div>
 
-        <div className={`tab-pane ${currentTab === 'tasks' ? 'active' : ''}`}>
-          <Tasks
-            onTaskComplete={onTaskComplete}
-            completedTasks={completedTasks}
-            setCurrentTab={setCurrentTab}
+        {score !== null && <ScoreCircle score={score} />}
+      </div>
+    )}
+
+    <div className="main-content">
+      <div className={`tab-pane ${currentTab === 'circle' ? 'active' : ''}`}>
+        {score === null ? (
+          <Canvas onDrawEnd={onDrawEnd} attempts={attempts} />
+        ) : (
+          <Result
+            score={score}
+            onReset={onReset}
+            drawing={drawingData}
+            userId={userId}
           />
-        </div>
-
-        <div className={`tab-pane ${currentTab === 'referrals' ? 'active' : ''}`}>
-          {/* Referrals может использовать userId для отображения; запросы на сервер пусть шлют initData внутри самого компонента */}
-          <Referrals userId={userId} />
-        </div>
-
-        <div className={`tab-pane ${currentTab === 'leaderboards' ? 'active' : ''}`}>
-          <Leaderboards userId={userId} />
-        </div>
+        )}
       </div>
 
-      <TabBar currentTab={currentTab} setCurrentTab={setCurrentTab} />
+      <div className={`tab-pane ${currentTab === 'tasks' ? 'active' : ''}`}>
+        <Tasks
+          onTaskComplete={onTaskComplete}
+          completedTasks={completedTasks}
+          setCurrentTab={setCurrentTab}
+        />
+      </div>
+
+      <div className={`tab-pane ${currentTab === 'referrals' ? 'active' : ''}`}>
+        <Referrals userId={userId} />
+      </div>
+
+      <div className={`tab-pane ${currentTab === 'leaderboards' ? 'active' : ''}`}>
+        <Leaderboards userId={userId} />
+      </div>
     </div>
+
+    <TabBar currentTab={currentTab} setCurrentTab={setCurrentTab} />
+  </div>
   );
 }
-
 export default App;

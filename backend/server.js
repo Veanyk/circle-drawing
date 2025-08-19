@@ -14,20 +14,19 @@ const LOG_PATH = path.join(__dirname, 'server.log');
 
 // === ОБЯЗАТЕЛЬНО В .env ===
 // BOT_TOKEN=123456:ABC...
-const BOT_TOKEN = process.env.BOT_TOKEN || '7672739920:AAEJO4dq29025OPWt9Hr1fwWwPB5rYSrPKE';
+const BOT_TOKEN = process.env.BOT_TOKEN || '';
 
-// Восстановление ОДНОЙ попытки
 const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000; // 1 минута
 const REFERRAL_TASK_ID = 2;
 const REFERRAL_TASK_REWARD = 30;
 
 // ------ Admin auth ------
-const ADMIN_KEYS = (process.env.ADMIN_KEYS || '779077474')
+const ADMIN_KEYS = (process.env.ADMIN_KEYS || '')
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
 
-// ---------- простейший файловый логгер ----------
+// ---------- простой файловый лог ----------
 function toStr(a) {
   if (a === undefined) return 'undefined';
   if (a === null) return 'null';
@@ -55,12 +54,13 @@ const ORIGIN_PATTERNS = [
   /^https?:\/\/localhost(:\d+)?$/i,
   /^https?:\/\/127\.0\.0\.1(:\d+)?$/i,
   /^https?:\/\/.*\.vercel\.app$/i,
-  /^https?:\/\/draw-a-circle\.chickenkiller\.com$/i,
   /^https?:\/\/web\.telegram\.org$/i,
   /^https?:\/\/t\.me$/i,
   /^https?:\/\/desktop\.telegram\.org$/i,
   /^https?:\/\/appassets\.androidplatform\.net$/i,
   /^https?:\/\/webapp\.telegram\.org$/i,
+  // при необходимости добавьте ваш прод-домен
+  /^https?:\/\/circle-drawing\.vercel\.app$/i,
 ];
 
 const corsOptions = {
@@ -77,7 +77,6 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
-
 app.use(express.json({ limit: '1mb' }));
 
 app.use((req, _res, next) => {
@@ -98,41 +97,11 @@ function readDb() {
 function writeDb(data) { fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2)); }
 const values = obj => Object.values(obj || {}).filter(v => v && typeof v === 'object');
 
-function rebuildReferrals(db, referrerId) {
-  const rid = String(referrerId);
-  const user = db[rid];
-  if (!user) return [];
-
-  // что уже записано у пригласившего
-  const existing = new Set((Array.isArray(user.referrals) ? user.referrals : []).map(String));
-
-  // находим всех пользователей, у кого referrer_id = rid
-  const foundIds = values(db)
-    .filter(u => u && String(u.referrer_id || '') === rid)
-    .map(u => String(u.user_id));
-
-  let changed = false;
-  for (const id of foundIds) {
-    if (!existing.has(id)) {
-      existing.add(id);
-      changed = true;
-    }
-  }
-
-  const mergedIds = Array.from(existing);
-
-  // если что-то догнали — сохраним в БД (самоисправление)
-  if (changed) {
-    user.referrals = mergedIds;
-    db[rid] = user;
-    writeDb(db);
-  }
-
-  // вернём объекты пользователей
-  return mergedIds.map(id => db[id]).filter(Boolean);
+function isTelegramId(id) {
+  // Сохраняем пользователя ТОЛЬКО если его id — чисто числовая строка
+  return typeof id === 'string' && /^\d+$/.test(id);
 }
 
-// ---------- User helpers ----------
 function sanitizeTelegramUsername(name) {
   if (typeof name !== 'string') return null;
   let v = name.trim().replace(/^@+/, '');
@@ -172,7 +141,6 @@ function awardInviteIfNeeded(refUser) {
   }
 }
 
-// ---------- Regen attempts (ровно 1 за тик) ----------
 function regenAttempts(u) {
   u.max_attempts = Math.max(1, Math.floor(u.max_attempts || 25));
   u.attempts = Math.max(0, Math.min(u.max_attempts, Math.floor(u.attempts || 0)));
@@ -207,24 +175,22 @@ function getFirst(val) {
   return Array.isArray(val) ? (val[0] ?? '') : (val ?? '');
 }
 
+// ВАЖНО: исключаем и "hash", и "signature" из data_check_string
 function verifyInitData(initData, botToken) {
   if (!initData) throw new Error('initData_empty');
   if (!botToken) throw new Error('bot_token_missing');
 
-  // Разбираем querystring из initData
   const parsed = querystring.parse(initData);
 
   const providedHash = getFirst(parsed.hash);
   if (!providedHash) throw new Error('hash_missing');
 
-  // ВАЖНО: из data_check_string исключаем и "hash", и "signature"
   const entries = Object.keys(parsed)
     .filter(k => k !== 'hash' && k !== 'signature')
     .sort()
     .map(k => `${k}=${getFirst(parsed[k])}`);
   const dataCheckString = entries.join('\n');
 
-  // HMAC-SHA256(secret_key=SHA256(bot_token), data_check_string)
   const secretKey = crypto.createHash('sha256').update(botToken).digest();
   const hmac = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
 
@@ -244,27 +210,40 @@ function verifyInitData(initData, botToken) {
   return { user, start_param };
 }
 
-function requireTelegramAuth(body) {
-  const initData = body?.initData;
-  if (!initData) {
-    const err = new Error('telegram_required');
-    err.status = 403;
-    throw err;
+// ---------- Rebuild referrals ----------
+function rebuildReferrals(db, referrerId) {
+  const rid = String(referrerId);
+  const user = db[rid];
+  if (!user) return [];
+
+  const existing = new Set((Array.isArray(user.referrals) ? user.referrals : []).map(String));
+
+  const foundIds = values(db)
+    .filter(u => u && String(u.referrer_id || '') === rid)
+    .map(u => String(u.user_id));
+
+  let changed = false;
+  for (const id of foundIds) {
+    if (!existing.has(id)) {
+      existing.add(id);
+      changed = true;
+    }
   }
-  const parsed = verifyInitData(initData, BOT_TOKEN); // бросит ошибку, если подпись плохая
-  const tgId = String(parsed.user?.id || '');
-  if (!tgId) {
-    const err = new Error('telegram_user_missing');
-    err.status = 403;
-    throw err;
+
+  const mergedIds = Array.from(existing);
+
+  if (changed) {
+    user.referrals = mergedIds;
+    db[rid] = user;
+    writeDb(db);
   }
-  return { tgId, parsed, initData };
+
+  return mergedIds.map(id => db[id]).filter(Boolean);
 }
 
 // ---------- ROUTES ----------
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
-// Debug
 app.get('/debug/ping', (_req, res) => {
   try {
     const db = readDb();
@@ -272,8 +251,6 @@ app.get('/debug/ping', (_req, res) => {
     res.json({
       ok: true,
       botTokenSet: Boolean(process.env.BOT_TOKEN || BOT_TOKEN),
-      cwd: process.cwd(),
-      dirname: __dirname,
       dbUsers: keys.length,
       logFile: LOG_PATH,
       now: new Date().toISOString(),
@@ -283,31 +260,47 @@ app.get('/debug/ping', (_req, res) => {
   }
 });
 
-app.post('/debug/write-log', (req, res) => {
-  log('[debug] manual log write', req.body || {});
-  res.json({ ok: true, wrote: true, path: LOG_PATH });
-});
-
 // Создание/чтение пользователя
+// Браузерные user_id (нечисловые) — НЕ сохраняем, возвращаем эфемерные данные
 app.post('/getUserData', (req, res) => {
   try {
-    const { tgId, parsed } = requireTelegramAuth(req.body);
-    const refIdRaw = req.body?.ref_id ? String(req.body.ref_id) : null;
+    let { user_id, ref_id, username } = req.body || {};
+    if (!user_id) return res.status(400).json({ error: 'user_id не предоставлен' });
 
+    user_id = String(user_id);
+    const providedUsername = sanitizeTelegramUsername(username);
+
+    // Если не Telegram ID — отдаем «на лету» и ничего не пишем в БД
+    if (!isTelegramId(user_id)) {
+      const demo = {
+        user_id,
+        username: providedUsername || 'Guest',
+        referrer_id: null,
+        coins: 0,
+        attempts: 25,
+        max_attempts: 25,
+        best_score: 0,
+        completed_tasks: [],
+        referrals: [],
+        nextAttemptTimestamp: null,
+        wallet: null,
+        wallet_updated_at: null,
+        walletEligible: false,
+      };
+      return res.json(demo);
+    }
+
+    // Telegram user — сохраняем
     const db = readDb();
+    let user = db[user_id];
 
-    // user_id = только Telegram id
-    let user = db[tgId];
-
-    const providedUsername =
-      sanitizeTelegramUsername(parsed?.user?.username) ||
-      sanitizeTelegramUsername(req.body?.username); // на всякий случай
+    const refIdStr = ref_id ? String(ref_id) : null;
 
     if (!user) {
       user = {
-        user_id: tgId,
-        username: providedUsername || `User_${tgId.slice(-4)}`,
-        referrer_id: (refIdRaw && refIdRaw !== tgId) ? refIdRaw : null,
+        user_id,
+        username: providedUsername || `User_${user_id.slice(-4)}`,
+        referrer_id: (refIdStr && refIdStr !== user_id) ? refIdStr : null,
         coins: 0,
         attempts: 25,
         max_attempts: 25,
@@ -318,14 +311,14 @@ app.post('/getUserData', (req, res) => {
         wallet: null,
         wallet_updated_at: null,
       };
-      db[tgId] = user;
+      db[user_id] = user;
 
-      // если реферер уже существует — свяжем и наградим
+      // Если реферер уже есть в БД — сразу свяжем и наградим
       if (user.referrer_id && db[user.referrer_id]) {
         const ref = normalizeUser(db[user.referrer_id]);
         ref.referrals = Array.isArray(ref.referrals) ? ref.referrals : [];
-        if (!ref.referrals.includes(tgId)) {
-          ref.referrals.push(tgId);
+        if (!ref.referrals.includes(user_id)) {
+          ref.referrals.push(user_id);
           awardInviteIfNeeded(ref);
           db[user.referrer_id] = ref;
         }
@@ -335,12 +328,12 @@ app.post('/getUserData', (req, res) => {
       if (providedUsername && providedUsername !== user.username) {
         user.username = providedUsername;
       }
-      // «догоняем» связь, если реферер появился позже
+      // «догоняем» связь, если referrer_id уже был, но реферер появился позже
       if (user.referrer_id && db[user.referrer_id]) {
         const ref = normalizeUser(db[user.referrer_id]);
         ref.referrals = Array.isArray(ref.referrals) ? ref.referrals : [];
-        if (!ref.referrals.includes(tgId)) {
-          ref.referrals.push(tgId);
+        if (!ref.referrals.includes(user_id)) {
+          ref.referrals.push(user_id);
           awardInviteIfNeeded(ref);
           db[user.referrer_id] = ref;
         }
@@ -348,26 +341,50 @@ app.post('/getUserData', (req, res) => {
     }
 
     regenAttempts(user);
-    db[tgId] = user;
+    db[user_id] = user;
     writeDb(db);
 
     res.json({ ...user, walletEligible: (user.coins || 0) >= 100 });
   } catch (e) {
-    if (e.status) return res.status(e.status).json({ error: e.message });
-    console.error(e);
+    log(e);
     res.status(500).json({ error: 'internal_error' });
   }
 });
 
 // Обновление данных пользователя
+// Браузерные user_id — не сохраняем, просто возвращаем то, что прислали (эфемерно)
 app.post('/updateUserData', (req, res) => {
   try {
-    const { tgId } = requireTelegramAuth(req.body);
-    const { data } = req.body || {};
-    if (!data) return res.status(400).json({ error: 'Некорректные данные' });
+    let { user_id, data } = req.body || {};
+    if (!user_id || !data) return res.status(400).json({ error: 'Некорректные данные' });
 
+    user_id = String(user_id);
+
+    if (!isTelegramId(user_id)) {
+      const coins = typeof data.coins === 'number' && Number.isFinite(data.coins) ? Math.max(0, data.coins) : 0;
+      const attempts = typeof data.attempts === 'number' && Number.isFinite(data.attempts) ? Math.max(0, Math.floor(data.attempts)) : 25;
+      const max_attempts = 25;
+      const best_score = typeof data.score === 'number' ? data.score : 0;
+      return res.json({
+        user_id,
+        username: 'Guest',
+        referrer_id: null,
+        coins,
+        attempts,
+        max_attempts,
+        best_score,
+        completed_tasks: Array.isArray(data.completed_tasks) ? Array.from(new Set(data.completed_tasks)) : [],
+        referrals: [],
+        nextAttemptTimestamp: null,
+        wallet: null,
+        wallet_updated_at: null,
+        walletEligible: false,
+      });
+    }
+
+    // Telegram user — сохраняем
     const db = readDb();
-    const prev = db[tgId];
+    const prev = db[user_id];
     if (!prev) return res.status(404).json({ error: 'Пользователь не найден' });
 
     const u = normalizeUser({ ...prev });
@@ -389,21 +406,27 @@ app.post('/updateUserData', (req, res) => {
       u.best_score = data.score;
     }
 
-    // Реф. бонус с заработанного
+    if (typeof data.username === 'string') {
+      const uName = sanitizeTelegramUsername(data.username);
+      if (uName && uName !== u.username) {
+        u.username = uName;
+      }
+    }
+
     const earned = (u.coins || 0) - (prev.coins || 0);
     if (earned > 0 && prev.referrer_id && db[prev.referrer_id]) {
       const ref = normalizeUser(db[prev.referrer_id]);
       const bonus = earned * 0.05;
       ref.coins = (ref.coins || 0) + bonus;
       db[prev.referrer_id] = ref;
+      log(`Начислен бонус ${bonus.toFixed(4)} монет пользователю ${ref.user_id} от реферала ${user_id}`);
     }
 
-    db[tgId] = u;
+    db[user_id] = u;
     writeDb(db);
     res.json({ ...u, walletEligible: (u.coins || 0) >= 100 });
   } catch (e) {
-    if (e.status) return res.status(e.status).json({ error: e.message });
-    console.error(e);
+    log(e);
     res.status(500).json({ error: 'internal_error' });
   }
 });
@@ -434,30 +457,27 @@ app.get('/getLeaderboard', (_req, res) => {
   }
 });
 
-// Мои рефералы
+// Мои рефералы (для браузерных — всегда пусто)
 app.post('/getReferrals', (req, res) => {
   try {
-    const { tgId } = requireTelegramAuth(req.body);
+    let { user_id } = req.body || {};
+    if (!user_id) return res.status(400).json({ error: 'user_id не предоставлен' });
+    user_id = String(user_id);
+
+    if (!isTelegramId(user_id)) {
+      return res.json([]); // гость — не сохраняем и не показываем
+    }
 
     const db = readDb();
-    // используем твой «самоисправляющий» rebuildReferrals, если уже добавлял ранее
-    if (typeof rebuildReferrals === 'function') {
-      const refs = rebuildReferrals(db, tgId);
-      return res.json(refs);
-    }
-    // базовый вариант
-    const user = db[tgId];
-    if (!user || !Array.isArray(user.referrals)) return res.json([]);
-    const refs = user.referrals.map(id => db[String(id)]).filter(Boolean);
-    res.json(refs);
+    const refs = rebuildReferrals(db, user_id);
+    return res.json(refs);
   } catch (e) {
-    if (e.status) return res.status(e.status).json({ error: e.message });
-    console.error(e);
+    log(e);
     res.status(500).json({ error: 'internal_error' });
   }
 });
 
-// Mini App эндпоинт для закрепления реферала с верификацией initData
+// Привязка реферала через Telegram WebApp (только с валидным initData)
 app.post('/acceptReferral', (req, res) => {
   try {
     log('[acceptReferral] body =', req.body);
@@ -548,7 +568,7 @@ app.post('/acceptReferral', (req, res) => {
   }
 });
 
-// Wallet
+// Wallet (только Telegram user)
 function isWalletString(s) {
   if (typeof s !== 'string') return false;
   const v = s.trim();
@@ -558,12 +578,17 @@ function isWalletString(s) {
 
 app.post('/setWallet', (req, res) => {
   try {
-    const { user_id, wallet } = req.body || {};
+    let { user_id, wallet } = req.body || {};
     if (!user_id || typeof wallet !== 'string') return res.status(400).json({ error: 'bad_request' });
 
-    const userIdStr = String(user_id);
+    user_id = String(user_id);
+
+    if (!isTelegramId(user_id)) {
+      return res.status(403).json({ error: 'telegram_only' });
+    }
+
     const db = readDb();
-    const u = db[userIdStr];
+    const u = db[user_id];
     if (!u) return res.status(404).json({ error: 'user_not_found' });
 
     if ((u.coins || 0) < 100) {
@@ -573,7 +598,7 @@ app.post('/setWallet', (req, res) => {
 
     u.wallet = wallet.trim();
     u.wallet_updated_at = new Date().toISOString();
-    db[userIdStr] = u;
+    db[user_id] = u;
     writeDb(db);
 
     res.json({ ok: true, wallet: u.wallet });
