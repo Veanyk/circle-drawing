@@ -53,14 +53,23 @@ function App() {
   const [completedTasks, setCompletedTasks] = useState([]);
   const [nextAttemptTimestamp, setNextAttemptTimestamp] = useState(null);
   const [timeToNextAttempt, setTimeToNextAttempt] = useState(null);
-
+// --- АВТОЗАХВАТ РЕФЕРАЛА ПРИ ЛЮБОМ ЗАПУСКЕ MINI APP ---
   useEffect(() => {
-    if (window.Telegram && window.Telegram.WebApp) {
-      const tg = window.Telegram.WebApp;
-      tg.expand();
-      document.body.style.backgroundColor = tg.themeParams?.bg_color || '#0f0f0f';
-    }
-  }, []);
+    const tg = window?.Telegram?.WebApp;
+    const initData = tg?.initData || '';
+    const sp = tg?.initDataUnsafe?.start_param;
+    if (!sp || typeof sp !== 'string' || !sp.startsWith('ref_')) return;
+    const inviterId = Number(sp.slice(4));
+    if (!Number.isFinite(inviterId) || inviterId <= 0) return;
+    fetch(`${SERVER_URL}/acceptReferral`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inviter_id: inviterId, initData }),
+    })
+      .then(r => r.json().catch(() => ({})))
+      .then(j => console.log('[AutoAttach] /acceptReferral resp:', j))
+      .catch(e => console.error('[AutoAttach] acceptReferral failed:', e));
+    }, []);
 
   const updateUserDataOnServer = useCallback((newData) => {
     if (!userId) return;
@@ -79,8 +88,9 @@ function App() {
     let refId = urlParams.get('ref');
     // 2) или из Telegram start_param (ref_<id>)
     const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
-    if (!refId && startParam && String(startParam).startsWith('ref_')) {
-      refId = String(startParam).slice(4);
+    if (!refId && typeof startParam === 'string' && startParam.startsWith('ref_')) {
+      refId = String(startParam.slice(4));
+      console.log('[App] got ref from start_param:', refId);
     }
     // 3) или из localStorage (запоминаем на будущее)
     if (!refId) {

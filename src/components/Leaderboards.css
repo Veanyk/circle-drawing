@@ -76,7 +76,7 @@
   bottom: 13%;
 
   /* масштабируемые отступы/интерлиньяж от ширины доски */
-  gap: 1.2cqw;
+   gap: 0.8cqw;
 
   /* fallback по вьюпорту... */
   font-size: clamp(14px, 2.7vw, 18px);
@@ -105,6 +105,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transform: translateX(10px); /* +10px вправо */
 }
 
 .col-stats {
@@ -118,10 +119,12 @@
 .col-acc,
 .col-tok {
   text-align: right;
-  padding: 0;            /* убираем фиксированные padding */
-  position: static;      /* убираем "ручные" сдвиги */
-  min-width: 10cqw;      /* стабилизируем ширину ячеек */
+  padding: 0;
+  position: static;
+  min-width: 10cqw;
 }
+
+.col-acc { transform: translateX(-5px); } /* -5px влево */
 
 /* прячем шапку столбцов */
 .lb-head {

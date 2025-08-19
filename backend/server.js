@@ -13,7 +13,7 @@ const DB_PATH = path.join(__dirname, 'database.json');
 
 // === ОБЯЗАТЕЛЬНО В .env ===
 // BOT_TOKEN=123456:ABC...
-const BOT_TOKEN = process.env.BOT_TOKEN || ''; // для верификации initData
+const BOT_TOKEN = process.env.BOT_TOKEN || '7672739920:AAEJO4dq29025OPWt9Hr1fwWwPB5rYSrPKE';
 
 // Восстановление ОДНОЙ попытки
 const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000; // 1 минута
@@ -212,7 +212,7 @@ app.post('/getUserData', (req, res) => {
       user = {
         user_id,
         username: providedUsername || `User_${String(user_id).slice(-4)}`,
-        referrer_id: ref_id || null,
+        referrer_id: ref_id && ref_id !== String(user_id) ? String(ref_id) : null,
         coins: 0,
         attempts: 25,
         max_attempts: 25,
@@ -226,7 +226,7 @@ app.post('/getUserData', (req, res) => {
       db[user_id] = user;
 
       // первичное закрепление к рефереру и награда, если ref_id валиден
-      if (ref_id && db[ref_id] && ref_id !== user_id) {
+      if (user.referrer_id && db[user.referrer_id]) {
         const ref = normalizeUser(db[ref_id]);
         ref.referrals = Array.isArray(ref.referrals) ? ref.referrals : [];
         if (!ref.referrals.includes(user_id)) {
@@ -242,16 +242,15 @@ app.post('/getUserData', (req, res) => {
       }
 
       // «задним числом» привязка, если ещё нет
-      if (ref_id && !user.referrer_id && ref_id !== user_id && db[ref_id]) {
-        user.referrer_id = ref_id;
-        const ref = normalizeUser(db[ref_id]);
-        ref.referrals = Array.isArray(ref.referrals) ? ref.referrals : [];
-        if (!ref.referrals.includes(user_id)) {
-          ref.referrals.push(user_id);
-          awardInviteIfNeeded(ref);
-          db[ref_id] = ref;
-        }
-      }
+if (user.referrer_id && db[user.referrer_id]) {
+       const ref = normalizeUser(db[user.referrer_id]);
+       ref.referrals = Array.isArray(ref.referrals) ? ref.referrals : [];
+       if (!ref.referrals.includes(user_id)) {
+         ref.referrals.push(user_id);
+         awardInviteIfNeeded(ref);
+         db[user.referrer_id] = ref;
+       }
+     }
     }
 
     // реген попыток
@@ -263,7 +262,7 @@ app.post('/getUserData', (req, res) => {
     res.json({ ...user, walletEligible: (user.coins || 0) >= 100 });
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: 'internal_error' });
+    return res.status(400).json({ error: 'invalid_initData', reason: e.message });
   }
 });
 
@@ -370,6 +369,7 @@ app.post('/getReferrals', (req, res) => {
 // === НОВОЕ: Mini App эндпоинт для закрепления реферала с верификацией initData ===
 app.post('/acceptReferral', (req, res) => {
   try {
+    console.log('[acceptReferral] body =', req.body);
     const { inviter_id, initData } = req.body || {};
     if (!Number.isFinite(Number(inviter_id))) {
       return res.status(400).json({ error: 'inviter_id_invalid' });
@@ -388,13 +388,13 @@ app.post('/acceptReferral', (req, res) => {
     }
 
     const invitee = parsed.user || {};
-    const invitee_id = Number(invitee.id);
-    if (!Number.isFinite(invitee_id)) {
+    const invitee_id_num = Number(invitee.id);
+    if (!Number.isFinite(invitee_id_num)) {
       return res.status(400).json({ error: 'invitee_invalid' });
     }
-
-    const inviterId = Number(inviter_id);
-    if (inviterId === invitee_id) {
+    const invitee_id = String(invitee_id_num);
+    const inviter_id_str = String(inviterId);
+    if (inviterId === invitee_id_num) {
       return res.json({ ok: true, skipped: 'self_ref' });
     }
 
@@ -417,10 +417,10 @@ app.post('/acceptReferral', (req, res) => {
         wallet_updated_at: null,
       });
     }
-    if (!db[inviterId]) {
+    if (!db[inviter_id_str]) {
       // при желании можно создать "пустого" пригласившего
       db[inviterId] = normalizeUser({
-        user_id: inviterId,
+        user_id: inviter_id_str,
         username: `User_${String(inviterId).slice(-4)}`,
         coins: 0, attempts: 25, max_attempts: 25, best_score: 0,
         completed_tasks: [], referrals: [], nextAttemptTimestamp: null,
@@ -429,7 +429,7 @@ app.post('/acceptReferral', (req, res) => {
     }
 
     const inviteeUser = normalizeUser(db[invitee_id]);
-    const inviterUser = normalizeUser(db[inviterId]);
+    const inviterUser = normalizeUser(db[inviter_id_str]);
 
     // Идемпотентность: если уже есть реферер — не меняем
     if (inviteeUser.referrer_id) {
@@ -438,7 +438,7 @@ app.post('/acceptReferral', (req, res) => {
     }
 
     // Закрепление и награда
-    inviteeUser.referrer_id = inviterId;
+    inviteeUser.referrer_id = inviter_id_str;
     inviterUser.referrals = Array.isArray(inviterUser.referrals) ? inviterUser.referrals : [];
     if (!inviterUser.referrals.includes(invitee_id)) {
       inviterUser.referrals.push(invitee_id);
@@ -446,10 +446,10 @@ app.post('/acceptReferral', (req, res) => {
     awardInviteIfNeeded(inviterUser);
 
     db[invitee_id] = inviteeUser;
-    db[inviterId] = inviterUser;
+    db[inviter_id_str] = inviterUser;
     writeDb(db);
 
-    res.json({ ok: true, inviter_id: inviterId, invitee_id });
+    res.json({ ok: true, inviter_id: inviter_id_str, invitee_id });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'internal_error' });

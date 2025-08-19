@@ -5,7 +5,7 @@
   justify-content: flex-start;
   box-sizing: border-box;
   width: 100%;
-  padding-top: calc(20vh - 10px);
+  padding-top: calc(20vh - 20px);
   padding-bottom: 20px;
 }
 
