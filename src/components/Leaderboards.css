@@ -50,10 +50,10 @@
   aspect-ratio: 1 / 0.86;
   container-type: inline-size;
 
-  /* Новые переменные управления вертикальным интервалом */
-  --lb-row-gap: 0.6cqw;   /* расстояние между строками (было 0.8cqw) */
-  --lb-row-pad: 0.4cqw;   /* вертикальный внутренний отступ строки (было 0.6cqw) */
+  --lb-row-gap: 0.12cqw;  /* межстрочный зазор между пользователями */
+  --lb-row-pad: 0.10cqw;  /* вертикальный внутренний отступ строки */
 }
+
 .lb-board-img {
   width: 100%;
   height: 100%;
@@ -76,23 +76,18 @@
   top: 13%;
   bottom: 13%;
 
-  /* масштабируемые отступы/интерлиньяж от ширины доски */
-   gap: var(--lb-row-gap);
+  gap: var(--lb-row-gap);
 
-  /* fallback по вьюпорту... */
-  font-size: clamp(14px, 2.7vw, 18px);
-  /* ...и точное масштабирование от доски */
   font-size: clamp(12px, 2.7cqw, 18px);
 }
 
 .lb-row {
   display: grid;
-  /* Ранг | Имя | Точность | Токены — ширины от доски */
   grid-template-columns: 6cqw 1fr 12cqw 12cqw;
-
   gap: 1.2cqw;
   padding: var(--lb-row-pad) 0.8cqw;
   align-items: center;
+  line-height: 1; /* было по умолчанию → стало плотнее */
 }
 
 .col-rank {
