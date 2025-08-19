@@ -8,14 +8,16 @@ import Leaderboards from './components/Leaderboards';
 import resultCircleImage from './assets/result_circle.png';
 import './App.css';
 
-const SERVER_URL =
-  process.env.NODE_ENV === 'development'
-    ? 'http://localhost:8000'
-    : '/api';
+// Единый источник для URL сервера
+const SERVER_URL = process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : '/api';
+const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000;
 
-const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000; // 1 минута
-
-const getBrowserUserId = () => {
+// Функция для получения ID пользователя (вынесена для чистоты)
+const initializeUserId = () => {
+  const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+  if (tgUser?.id) {
+    return String(tgUser.id);
+  }
   let userId = localStorage.getItem('circleGameUserId');
   if (!userId) {
     userId = `browser_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -24,13 +26,11 @@ const getBrowserUserId = () => {
   return userId;
 };
 
-// Вспомогательный компонент для круга с результатом в шапке
 const ScoreCircle = ({ score }) => {
   const angle = (Math.max(0, Math.min(100, Number(score) || 0)) / 100) * 360;
   const circleStyle = {
     backgroundImage: `conic-gradient(#BE5200 ${angle}deg, #ffffff ${angle}deg 360deg)`,
   };
-
   return (
     <div className="score-circle-header">
       <div className="score-circle-dynamic" style={circleStyle}></div>
@@ -45,55 +45,79 @@ function App() {
   const [currentTab, setCurrentTab] = useState('circle');
   const [drawingData, setDrawingData] = useState(null);
 
-  const [userId, setUserId] = useState(null);
+  // Cостояния пользователя
+  const [userId, setUserId] = useState(null); // <-- Инициализируем как null
   const [coins, setCoins] = useState(0);
   const [attempts, setAttempts] = useState(0);
   const [maxAttempts, setMaxAttempts] = useState(25);
   const [completedTasks, setCompletedTasks] = useState([]);
   const [nextAttemptTimestamp, setNextAttemptTimestamp] = useState(null);
   const [timeToNextAttempt, setTimeToNextAttempt] = useState(null);
+  const [isLoading, setIsLoading] = useState(true); // <-- Состояние загрузки
 
+  // 1. Инициализация пользователя при первом запуске
   useEffect(() => {
-    if (window.Telegram && window.Telegram.WebApp) {
-      const tg = window.Telegram.WebApp;
-      tg.expand();
-      document.body.style.backgroundColor = tg.themeParams?.bg_color || '#0f0f0f';
+    // Расширяем приложение Telegram
+    window.Telegram?.WebApp?.expand();
+
+    const finalUserId = initializeUserId();
+    setUserId(finalUserId); // Устанавливаем userId один раз
+
+    const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    const urlParams = new URLSearchParams(window.location.search);
+    const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
+    let refId = urlParams.get('ref') || (startParam?.startsWith('ref_') ? startParam.slice(4) : null);
+    if (refId) {
+      localStorage.setItem('referrerId', refId);
+    } else {
+      refId = localStorage.getItem('referrerId');
     }
-  }, []);
 
-useEffect(() => {
-  const tg = window?.Telegram?.WebApp;
-  const initData = tg?.initData || '';
-
-  const url = new URL(window.location.href);
-  const qs = url.searchParams;
-
-  const sp = tg?.initDataUnsafe?.start_param;
-  const qStart = qs.get('tgWebAppStartParam');
-  const qRef = qs.get('ref');
-
-  const extractRef = (v) => {
-    if (!v) return null;
-    let s = String(v);
-    if (s.startsWith('ref_')) s = s.slice(4);
-    const n = Number(s);
-    return Number.isFinite(n) && n > 0 ? n : null;
-  };
-
-  const inviterId = extractRef(sp) ?? extractRef(qStart) ?? extractRef(qRef);
-  if (!inviterId) return;
-
-  if (initData && initData.length > 0) {
-    fetch(`${SERVER_URL}/acceptReferral`, {
+    // Запрашиваем данные пользователя с сервера
+    fetch(`${SERVER_URL}/getUserData`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ inviter_id: inviterId, initData }),
-    }).catch(() => {});
-  } else {
-    localStorage.setItem('referrerId', String(inviterId));
-  }
-}, []);
+      body: JSON.stringify({
+        user_id: finalUserId,
+        ref_id: refId,
+        username: tgUser?.username,
+      }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (!data) return;
+        setCoins(Number(data.coins) || 0);
+        setAttempts(Number(data.attempts) || 0);
+        setMaxAttempts(Number(data.max_attempts) || 25);
+        setCompletedTasks(Array.isArray(data.completed_tasks) ? data.completed_tasks : []);
+        setNextAttemptTimestamp(Number.isFinite(data.nextAttemptTimestamp) ? data.nextAttemptTimestamp : null);
+      })
+      .catch(err => console.error('Ошибка при получении данных пользователя:', err))
+      .finally(() => setIsLoading(false)); // <-- Загрузка завершена
+  }, []);
 
+  // 2. Таймер восстановления попыток
+  useEffect(() => {
+    if (!userId || attempts >= maxAttempts || !nextAttemptTimestamp) {
+      setTimeToNextAttempt(null);
+      return;
+    }
+    const timer = setInterval(() => {
+      const timeLeftMs = Math.max(0, nextAttemptTimestamp - Date.now());
+      if (timeLeftMs <= 0) {
+        // Просто сбрасываем таймер, данные сами обновятся поллингом
+        setAttempts(prev => Math.min(maxAttempts, prev + 1));
+        setNextAttemptTimestamp(Date.now() + ATTEMPT_REGEN_INTERVAL_MS);
+      }
+      const totalSec = Math.ceil(timeLeftMs / 1000);
+      const minutes = Math.floor(totalSec / 60);
+      const seconds = totalSec % 60;
+      setTimeToNextAttempt(`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [userId, attempts, maxAttempts, nextAttemptTimestamp]);
+
+  // 3. Коллбэк для обновления данных на сервере
   const updateUserDataOnServer = useCallback((newData) => {
     if (!userId) return;
     fetch(`${SERVER_URL}/updateUserData`, {
@@ -103,171 +127,20 @@ useEffect(() => {
     }).catch(err => console.error('Ошибка при обновлении данных на сервере:', err));
   }, [userId]);
 
-  // Инициализация пользователя и первичная загрузка
-useEffect(() => {
-  const urlParams = new URLSearchParams(window.location.search);
-  const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
-
-// 1) ?ref= из URL
-let refId = urlParams.get('ref');
-
-// 2) tgWebAppStartParam из URL (часто Телеграм кладёт туда start_param)
-const qStart = urlParams.get('tgWebAppStartParam');
-if (!refId && qStart) {
-const val = String(qStart);
-refId = val.startsWith('ref_') ? val.slice(4) : val;
-}
-
-// 3) start_param из initDataUnsafe
-const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
-if (!refId && typeof startParam === 'string' && startParam.startsWith('ref_')) {
-refId = startParam.slice(4);
-}
-
-// 4) localStorage
-if (!refId) {
-refId = localStorage.getItem('referrerId') || null;
-} else {
-localStorage.setItem('referrerId', refId);
-}
-
-  // дальше — как у вас
-  let finalUserId;
-  if (tgUser?.id) {
-    finalUserId = String(tgUser.id);
-  } else {
-    finalUserId = getBrowserUserId();
-  }
-  setUserId(finalUserId);
-
-  if (finalUserId) {
-    const handle = tgUser?.username ? tgUser.username.replace(/^@/, '') : null;
-    const initialUserData = {
-      user_id: finalUserId,
-      ref_id: refId || null,
-      username: handle,
-    };
-
-    fetch(`${SERVER_URL}/getUserData`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(initialUserData)
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (!data) return;
-        setCoins(Number.isFinite(Number(data.coins)) ? Number(data.coins) : 0);
-        setAttempts(Number.isFinite(Number(data.attempts)) ? Number(data.attempts) : 0);
-        setMaxAttempts(Number.isFinite(Number(data.max_attempts)) ? Number(data.max_attempts) : 25);
-        setCompletedTasks(Array.isArray(data.completed_tasks) ? data.completed_tasks : []);
-
-        const rawTs = data.nextAttemptTimestamp;
-        const parsedTs =
-          typeof rawTs === 'number' ? rawTs :
-            (typeof rawTs === 'string' ? parseInt(rawTs, 10) : NaN);
-        setNextAttemptTimestamp(Number.isFinite(parsedTs) && parsedTs > 0 ? parsedTs : null);
-      })
-      .catch(err => console.error('Ошибка при получении данных пользователя:', err));
-  }
-}, []);
-
-  // Таймер восстановления попыток (тик каждую секунду)
-  useEffect(() => {
-    if (attempts >= maxAttempts || !nextAttemptTimestamp) {
-      setTimeToNextAttempt(null);
-      return;
-    }
-    const timer = setInterval(() => {
-      const timeLeftMs = Math.max(0, nextAttemptTimestamp - Date.now());
-      if (timeLeftMs <= 0) {
-        fetch(`${SERVER_URL}/getUserData`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: userId })
-        })
-          .then(res => res.json())
-          .then(data => {
-            if (!data) return;
-            setAttempts(Number.isFinite(Number(data.attempts)) ? Number(data.attempts) : attempts);
-            const rawTs = data.nextAttemptTimestamp;
-            const parsedTs =
-              typeof rawTs === 'number' ? rawTs :
-                (typeof rawTs === 'string' ? parseInt(rawTs, 10) : NaN);
-            setNextAttemptTimestamp(Number.isFinite(parsedTs) && parsedTs > 0 ? parsedTs : null);
-          })
-          .catch(() => { /* no-op */ });
-        setTimeToNextAttempt(null);
-        clearInterval(timer);
-        return;
-      }
-      const totalSec = Math.ceil(timeLeftMs / 1000);
-      const minutes = Math.floor(totalSec / 60);
-      const seconds = totalSec % 60;
-      setTimeToNextAttempt(`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [attempts, maxAttempts, nextAttemptTimestamp, userId]);
-
-    // ГЛОБАЛЬНОЕ автообновление баланса/заданий
-    useEffect(() => {
-      if (!userId) return;
-      let stop = false;
-
-      const tick = async () => {
-        try {
-          const res = await fetch(`${SERVER_URL}/getUserData`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId }),
-          });
-          const data = await res.json();
-          if (!stop && data) {
-            setCoins(Number.isFinite(Number(data.coins)) ? Number(data.coins) : 0);
-            setCompletedTasks(Array.isArray(data.completed_tasks) ? data.completed_tasks : []);
-          }
-        } catch { /* ignore */ }
-      };
-
-      tick(); // сразу
-      const iv = setInterval(tick, 5000); // и далее каждые 5с
-
-      // Подхватываем изменения при возврате в приложение
-      const onFocus = () => tick();
-      window.addEventListener('focus', onFocus);
-
-      return () => {
-        stop = true;
-        clearInterval(iv);
-        window.removeEventListener('focus', onFocus);
-      };
-    }, [userId]);
-
-  const onDrawEnd = (circleAccuracy, points, canvas, size) => {
-    if (attempts <= 0) {
-      alert('You are out of attempts!');
-      return;
-    }
-
+  const onDrawEnd = (circleAccuracy, points, canvas) => {
+    if (attempts <= 0) return;
     const newAttempts = attempts - 1;
     const tokensEarned = parseFloat((0.01 * circleAccuracy).toFixed(2));
     const newCoins = coins + tokensEarned;
-
-    if (attempts === maxAttempts) {
-      const ts = Date.now() + ATTEMPT_REGEN_INTERVAL_MS;
-      setNextAttemptTimestamp(ts);
-    }
 
     setScore(circleAccuracy);
     setDrawingData(canvas.toDataURL());
     setCoins(newCoins);
     setAttempts(newAttempts);
-
-    updateUserDataOnServer({
-      coins: newCoins,
-      attempts: newAttempts,
-      score: circleAccuracy,
-    });
+    if (newAttempts < maxAttempts && !nextAttemptTimestamp) {
+      setNextAttemptTimestamp(Date.now() + ATTEMPT_REGEN_INTERVAL_MS);
+    }
+    updateUserDataOnServer({ coins: newCoins, attempts: newAttempts, score: circleAccuracy });
   };
 
   const onReset = () => {
@@ -276,89 +149,58 @@ localStorage.setItem('referrerId', refId);
   };
 
   const onTaskComplete = (taskId, tokens) => {
-    if (completedTasks.includes(taskId)) {
-      alert('This task has already been completed.');
-      return;
-    }
+    if (completedTasks.includes(taskId)) return;
     const newCompletedTasks = [...completedTasks, taskId];
     const newCoins = coins + tokens;
     setCompletedTasks(newCompletedTasks);
     setCoins(newCoins);
-    alert(`You have earned ${tokens} tokens!`);
-    updateUserDataOnServer({
-      coins: newCoins,
-      completed_tasks: newCompletedTasks,
-    });
+    updateUserDataOnServer({ coins: newCoins, completed_tasks: newCompletedTasks });
   };
 
+  // Показываем заглушку, пока userId не определен
+  if (isLoading) {
+    return <div className="App-loading">Loading...</div>;
+  }
+
   return (
-  <div className="App">
-    {currentTab === 'circle' && (
-      <div className="app-header">
-        <div className="coins-display">
-          <div className="banner-container">
-            <img
-              src={require('./assets/total_coins.png')}
-              alt="Total coins"
-              className="banner-icon"
-            />
-            <span className="banner-text">{coins.toFixed(2)}</span>
-          </div>
-        </div>
-
-        <div className="attempts-display">
-          <div className="banner-container">
-            <img
-              src={require('./assets/total_attempts.png')}
-              alt="Total attempts"
-              className="banner-icon"
-            />
-            <span className="banner-text">{attempts}/{maxAttempts}</span>
-          </div>
-          {timeToNextAttempt && (
-            <div className="timer-display">
-              <span className="timer-text">{timeToNextAttempt}</span>
+    <div className="App">
+      {currentTab === 'circle' && (
+        <div className="app-header">
+            <div className="coins-display">
+                <div className="banner-container">
+                <img src={require('./assets/total_coins.png')} alt="Total coins" className="banner-icon"/>
+                <span className="banner-text">{coins.toFixed(2)}</span>
+                </div>
             </div>
-          )}
+            <div className="attempts-display">
+                <div className="banner-container">
+                <img src={require('./assets/total_attempts.png')} alt="Total attempts" className="banner-icon"/>
+                <span className="banner-text">{attempts}/{maxAttempts}</span>
+                </div>
+                {timeToNextAttempt && <div className="timer-display"><span className="timer-text">{timeToNextAttempt}</span></div>}
+            </div>
+            {score !== null && <ScoreCircle score={score} />}
         </div>
+      )}
 
-        {score !== null && <ScoreCircle score={score} />}
-      </div>
-    )}
-
-    <div className="main-content">
-      <div className={`tab-pane ${currentTab === 'circle' ? 'active' : ''}`}>
-        {score === null ? (
-          <Canvas onDrawEnd={onDrawEnd} attempts={attempts} />
-        ) : (
-          <Result
-            score={score}
-            onReset={onReset}
-            drawing={drawingData}
-            userId={userId}
-          />
-        )}
-      </div>
-
-      <div className={`tab-pane ${currentTab === 'tasks' ? 'active' : ''}`}>
-        <Tasks
-          onTaskComplete={onTaskComplete}
-          completedTasks={completedTasks}
-          setCurrentTab={setCurrentTab}
-        />
+      <div className="main-content">
+        <div className={`tab-pane ${currentTab === 'circle' ? 'active' : ''}`}>
+          {score === null ? <Canvas onDrawEnd={onDrawEnd} attempts={attempts} /> : <Result score={score} onReset={onReset} drawing={drawingData} userId={userId} />}
+        </div>
+        <div className={`tab-pane ${currentTab === 'tasks' ? 'active' : ''}`}>
+          <Tasks onTaskComplete={onTaskComplete} completedTasks={completedTasks} setCurrentTab={setCurrentTab} />
+        </div>
+        <div className={`tab-pane ${currentTab === 'referrals' ? 'active' : ''}`}>
+          {/* Передаем userId, который теперь точно не null */}
+          <Referrals userId={userId} />
+        </div>
+        <div className={`tab-pane ${currentTab === 'leaderboards' ? 'active' : ''}`}>
+          <Leaderboards userId={userId} />
+        </div>
       </div>
 
-      <div className={`tab-pane ${currentTab === 'referrals' ? 'active' : ''}`}>
-        <Referrals userId={userId} />
-      </div>
-
-      <div className={`tab-pane ${currentTab === 'leaderboards' ? 'active' : ''}`}>
-        <Leaderboards userId={userId} />
-      </div>
+      <TabBar currentTab={currentTab} setCurrentTab={setCurrentTab} />
     </div>
-
-    <TabBar currentTab={currentTab} setCurrentTab={setCurrentTab} />
-  </div>
   );
 }
 export default App;
