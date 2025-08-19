@@ -20,6 +20,7 @@ const BOT_TOKEN = process.env.BOT_TOKEN || '7672739920:AAEJO4dq29025OPWt9Hr1fwWw
 const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000; // 1 минута
 const REFERRAL_TASK_ID = 2;
 const REFERRAL_TASK_REWARD = 30;
+const WALLET_MIN_TOKENS = Number(process.env.WALLET_MIN_TOKENS || 10);
 
 // ------ Admin auth ------
 const ADMIN_KEYS = (process.env.ADMIN_KEYS || '779077474')
@@ -97,6 +98,40 @@ function readDb() {
 }
 function writeDb(data) { fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2)); }
 const values = obj => Object.values(obj || {}).filter(v => v && typeof v === 'object');
+
+function rebuildReferrals(db, referrerId) {
+  const rid = String(referrerId);
+  const user = db[rid];
+  if (!user) return [];
+
+  // что уже записано у пригласившего
+  const existing = new Set((Array.isArray(user.referrals) ? user.referrals : []).map(String));
+
+  // находим всех пользователей, у кого referrer_id = rid
+  const foundIds = values(db)
+    .filter(u => u && String(u.referrer_id || '') === rid)
+    .map(u => String(u.user_id));
+
+  let changed = false;
+  for (const id of foundIds) {
+    if (!existing.has(id)) {
+      existing.add(id);
+      changed = true;
+    }
+  }
+
+  const mergedIds = Array.from(existing);
+
+  // если что-то догнали — сохраним в БД (самоисправление)
+  if (changed) {
+    user.referrals = mergedIds;
+    db[rid] = user;
+    writeDb(db);
+  }
+
+  // вернём объекты пользователей
+  return mergedIds.map(id => db[id]).filter(Boolean);
+}
 
 // ---------- User helpers ----------
 function sanitizeTelegramUsername(name) {
@@ -177,17 +212,20 @@ function verifyInitData(initData, botToken) {
   if (!initData) throw new Error('initData_empty');
   if (!botToken) throw new Error('bot_token_missing');
 
+  // Разбираем querystring из initData
   const parsed = querystring.parse(initData);
 
   const providedHash = getFirst(parsed.hash);
   if (!providedHash) throw new Error('hash_missing');
 
+  // ВАЖНО: из data_check_string исключаем и "hash", и "signature"
   const entries = Object.keys(parsed)
-    .filter(k => k !== 'hash')
+    .filter(k => k !== 'hash' && k !== 'signature')
     .sort()
     .map(k => `${k}=${getFirst(parsed[k])}`);
   const dataCheckString = entries.join('\n');
 
+  // HMAC-SHA256(secret_key=SHA256(bot_token), data_check_string)
   const secretKey = crypto.createHash('sha256').update(botToken).digest();
   const hmac = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
 
@@ -205,6 +243,23 @@ function verifyInitData(initData, botToken) {
   const start_param = getFirst(parsed.start_param) || '';
 
   return { user, start_param };
+}
+
+function requireTelegramAuth(body) {
+  const initData = body?.initData;
+  if (!initData) {
+    const err = new Error('telegram_required');
+    err.status = 403;
+    throw err;
+  }
+  const parsed = verifyInitData(initData, BOT_TOKEN); // бросит ошибку, если подпись плохая
+  const tgId = String(parsed.user?.id || '');
+  if (!tgId) {
+    const err = new Error('telegram_user_missing');
+    err.status = 403;
+    throw err;
+  }
+  return { tgId, parsed, initData };
 }
 
 // ---------- ROUTES ----------
@@ -237,21 +292,23 @@ app.post('/debug/write-log', (req, res) => {
 // Создание/чтение пользователя
 app.post('/getUserData', (req, res) => {
   try {
-    const { user_id, ref_id, username } = req.body || {};
-    if (!user_id) return res.status(400).json({ error: 'user_id не предоставлен' });
-
-    const userIdStr = String(user_id);
-    const refIdStr = ref_id ? String(ref_id) : null;
+    const { tgId, parsed } = requireTelegramAuth(req.body);
+    const refIdRaw = req.body?.ref_id ? String(req.body.ref_id) : null;
 
     const db = readDb();
-    const providedUsername = sanitizeTelegramUsername(username);
-    let user = db[userIdStr];
+
+    // user_id = только Telegram id
+    let user = db[tgId];
+
+    const providedUsername =
+      sanitizeTelegramUsername(parsed?.user?.username) ||
+      sanitizeTelegramUsername(req.body?.username); // на всякий случай
 
     if (!user) {
       user = {
-        user_id: userIdStr,
-        username: providedUsername || `User_${String(userIdStr).slice(-4)}`,
-        referrer_id: (refIdStr && refIdStr !== userIdStr) ? refIdStr : null,
+        user_id: tgId,
+        username: providedUsername || `User_${tgId.slice(-4)}`,
+        referrer_id: (refIdRaw && refIdRaw !== tgId) ? refIdRaw : null,
         coins: 0,
         attempts: 25,
         max_attempts: 25,
@@ -262,14 +319,14 @@ app.post('/getUserData', (req, res) => {
         wallet: null,
         wallet_updated_at: null,
       };
-      db[userIdStr] = user;
+      db[tgId] = user;
 
-      // если реферер уже существует — связываем и награждаем сейчас же
+      // если реферер уже существует — свяжем и наградим
       if (user.referrer_id && db[user.referrer_id]) {
         const ref = normalizeUser(db[user.referrer_id]);
         ref.referrals = Array.isArray(ref.referrals) ? ref.referrals : [];
-        if (!ref.referrals.includes(userIdStr)) {
-          ref.referrals.push(userIdStr);
+        if (!ref.referrals.includes(tgId)) {
+          ref.referrals.push(tgId);
           awardInviteIfNeeded(ref);
           db[user.referrer_id] = ref;
         }
@@ -279,12 +336,12 @@ app.post('/getUserData', (req, res) => {
       if (providedUsername && providedUsername !== user.username) {
         user.username = providedUsername;
       }
-      // если у пользователя уже записан referrer_id, но реферер появился позже — догоним связь
+      // «догоняем» связь, если реферер появился позже
       if (user.referrer_id && db[user.referrer_id]) {
         const ref = normalizeUser(db[user.referrer_id]);
         ref.referrals = Array.isArray(ref.referrals) ? ref.referrals : [];
-        if (!ref.referrals.includes(userIdStr)) {
-          ref.referrals.push(userIdStr);
+        if (!ref.referrals.includes(tgId)) {
+          ref.referrals.push(tgId);
           awardInviteIfNeeded(ref);
           db[user.referrer_id] = ref;
         }
@@ -292,13 +349,13 @@ app.post('/getUserData', (req, res) => {
     }
 
     regenAttempts(user);
-
-    db[userIdStr] = user;
+    db[tgId] = user;
     writeDb(db);
 
-    res.json({ ...user, walletEligible: (user.coins || 0) >= 100 });
+    res.json({ ...user, walletEligible: (user.coins || 0) >= WALLET_MIN_TOKENS });
   } catch (e) {
-    log(e);
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    console.error(e);
     res.status(500).json({ error: 'internal_error' });
   }
 });
@@ -306,12 +363,12 @@ app.post('/getUserData', (req, res) => {
 // Обновление данных пользователя
 app.post('/updateUserData', (req, res) => {
   try {
-    const { user_id, data } = req.body || {};
-    if (!user_id || !data) return res.status(400).json({ error: 'Некорректные данные' });
+    const { tgId } = requireTelegramAuth(req.body);
+    const { data } = req.body || {};
+    if (!data) return res.status(400).json({ error: 'Некорректные данные' });
 
-    const userIdStr = String(user_id);
     const db = readDb();
-    const prev = db[userIdStr];
+    const prev = db[tgId];
     if (!prev) return res.status(404).json({ error: 'Пользователь не найден' });
 
     const u = normalizeUser({ ...prev });
@@ -333,27 +390,21 @@ app.post('/updateUserData', (req, res) => {
       u.best_score = data.score;
     }
 
-    if (typeof data.username === 'string') {
-      const uName = sanitizeTelegramUsername(data.username);
-      if (uName && uName !== u.username) {
-        u.username = uName;
-      }
-    }
-
+    // Реф. бонус с заработанного
     const earned = (u.coins || 0) - (prev.coins || 0);
     if (earned > 0 && prev.referrer_id && db[prev.referrer_id]) {
       const ref = normalizeUser(db[prev.referrer_id]);
       const bonus = earned * 0.05;
       ref.coins = (ref.coins || 0) + bonus;
       db[prev.referrer_id] = ref;
-      log(`Начислен бонус ${bonus.toFixed(4)} монет пользователю ${ref.user_id} от реферала ${userIdStr}`);
     }
 
-    db[userIdStr] = u;
+    db[tgId] = u;
     writeDb(db);
     res.json({ ...u, walletEligible: (u.coins || 0) >= 100 });
   } catch (e) {
-    log(e);
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    console.error(e);
     res.status(500).json({ error: 'internal_error' });
   }
 });
@@ -387,18 +438,22 @@ app.get('/getLeaderboard', (_req, res) => {
 // Мои рефералы
 app.post('/getReferrals', (req, res) => {
   try {
-    const { user_id } = req.body || {};
-    if (!user_id) return res.status(400).json({ error: 'user_id не предоставлен' });
+    const { tgId } = requireTelegramAuth(req.body);
 
-    const userIdStr = String(user_id);
     const db = readDb();
-    const user = db[userIdStr];
+    // используем твой «самоисправляющий» rebuildReferrals, если уже добавлял ранее
+    if (typeof rebuildReferrals === 'function') {
+      const refs = rebuildReferrals(db, tgId);
+      return res.json(refs);
+    }
+    // базовый вариант
+    const user = db[tgId];
     if (!user || !Array.isArray(user.referrals)) return res.json([]);
-
     const refs = user.referrals.map(id => db[String(id)]).filter(Boolean);
     res.json(refs);
   } catch (e) {
-    log(e);
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    console.error(e);
     res.status(500).json({ error: 'internal_error' });
   }
 });
@@ -504,27 +559,28 @@ function isWalletString(s) {
 
 app.post('/setWallet', (req, res) => {
   try {
-    const { user_id, wallet } = req.body || {};
-    if (!user_id || typeof wallet !== 'string') return res.status(400).json({ error: 'bad_request' });
+    const { tgId } = requireTelegramAuth(req.body);
+    const { wallet } = req.body || {};
+    if (typeof wallet !== 'string') return res.status(400).json({ error: 'bad_request' });
 
-    const userIdStr = String(user_id);
     const db = readDb();
-    const u = db[userIdStr];
+    const u = db[tgId];
     if (!u) return res.status(404).json({ error: 'user_not_found' });
 
-    if ((u.coins || 0) < 100) {
+    if ((u.coins || 0) < WALLET_MIN_TOKENS) {
       return res.status(403).json({ error: 'not_eligible', need: 100, have: u.coins || 0 });
     }
     if (!isWalletString(wallet)) return res.status(400).json({ error: 'invalid_wallet' });
 
     u.wallet = wallet.trim();
     u.wallet_updated_at = new Date().toISOString();
-    db[userIdStr] = u;
+    db[tgId] = u;
     writeDb(db);
 
     res.json({ ok: true, wallet: u.wallet });
   } catch (e) {
-    log(e);
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    console.error(e);
     res.status(500).json({ error: 'internal_error' });
   }
 });

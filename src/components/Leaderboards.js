@@ -9,6 +9,9 @@ const SERVER_URL =
     ? 'http://localhost:8000'
     : '/api';
 
+// ↓↓↓ Порог для кошелька — 10 токенов (вместо 100)
+const WALLET_THRESHOLD = 10;
+
 function shortId(id) {
   const s = String(id || '');
   return s.length > 10 ? `${s.slice(0, 10)}…` : s;
@@ -20,7 +23,7 @@ function displayName(u) {
       || shortId(u?.user_id);
 }
 
-// постараемся взять тот же userId, что использует приложение
+// Пытаемся взять тот же userId, что использует приложение (для подписи внизу)
 function getStoredUserId() {
   try {
     const tgId = window?.Telegram?.WebApp?.initDataUnsafe?.user?.id;
@@ -43,7 +46,10 @@ const Leaderboards = ({ userId: propUserId }) => {
   const [walletMsg, setWalletMsg] = useState(null);
   const [savingWallet, setSavingWallet] = useState(false);
 
-  // определяем userId (из пропса или из хранилища/Telegram)
+  // initData из Telegram (нужно серверу для авторизации)
+  const INIT_DATA = window?.Telegram?.WebApp?.initData || '';
+
+  // определяем userId (из пропса или из хранилища/Telegram) — чисто для UI
   const [userId, setUserId] = useState(propUserId || null);
   useEffect(() => {
     if (propUserId) { setUserId(String(propUserId)); return; }
@@ -79,9 +85,9 @@ const Leaderboards = ({ userId: propUserId }) => {
     return () => { stop = true; clearInterval(t); };
   }, []);
 
-  // Мои текущие данные (для подписи + кошелёк)
+  // Мои текущие данные (для подписи + кошелёк) — теперь с initData
   useEffect(() => {
-    if (!userId) return;
+    if (!INIT_DATA) return; // работаем только в Telegram Mini App
     let stop = false;
 
     const loadMe = async () => {
@@ -90,7 +96,7 @@ const Leaderboards = ({ userId: propUserId }) => {
         const res = await fetch(`${SERVER_URL}/getUserData`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: userId }),
+          body: JSON.stringify({ initData: INIT_DATA }),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
@@ -107,7 +113,7 @@ const Leaderboards = ({ userId: propUserId }) => {
     loadMe();
     const t = setInterval(loadMe, 30000);
     return () => { stop = true; clearInterval(t); };
-  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [INIT_DATA]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ранг пользователя в топ-10 (если входит)
   const myRankInTop = useMemo(() => {
@@ -116,21 +122,21 @@ const Leaderboards = ({ userId: propUserId }) => {
     return idx >= 0 ? idx + 1 : null;
   }, [me, leaders]);
 
-  // Порог для кошелька
-  const eligible = !!me && ((me.walletEligible === true) || ((me.coins || 0) >= 100));
+  // Порог для кошелька: 10
+  const eligible = !!me && ((me.walletEligible === true) || ((me.coins || 0) >= WALLET_THRESHOLD));
   const hasWallet = !!me?.wallet;
 
-  // Одноразовое уведомление при достижении 100+
+  // Одноразовое уведомление при достижении порога
   useEffect(() => {
     if (!eligible || !userId) return;
     const key = `wallet_notified_${userId}`;
     if (!localStorage.getItem(key)) {
-      setWalletMsg('🎉 You reached 100 tokens! Add your crypto wallet to receive rewards.');
+      setWalletMsg(`🎉 You reached ${WALLET_THRESHOLD} tokens! Add your crypto wallet to receive rewards.`);
       localStorage.setItem(key, '1');
     }
   }, [eligible, userId]);
 
-  // Сохранение кошелька
+  // Сохранение кошелька (теперь с initData)
   const saveWallet = useCallback(async () => {
     setWalletMsg(null);
     const val = String(wallet || '').trim();
@@ -143,7 +149,7 @@ const Leaderboards = ({ userId: propUserId }) => {
       const res = await fetch(`${SERVER_URL}/setWallet`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId, wallet: val }),
+        body: JSON.stringify({ wallet: val, initData: INIT_DATA }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
@@ -154,7 +160,7 @@ const Leaderboards = ({ userId: propUserId }) => {
     } finally {
       setSavingWallet(false);
     }
-  }, [userId, wallet]);
+  }, [wallet, INIT_DATA]);
 
   return (
     <div className="lb-wrapper">
@@ -184,7 +190,6 @@ const Leaderboards = ({ userId: propUserId }) => {
                     {Number.isFinite(u?.best_score) ? `${Math.round(u.best_score)}%` : '—'}
                   </span>
                   <span className="col-tok">
-                    {/* Код для токенов теперь ВНУТРИ своего span */}
                     {Number.isFinite(u?.coins) ? Number(u.coins).toFixed(2) : '0.00'}
                   </span>
                 </div>
@@ -197,25 +202,25 @@ const Leaderboards = ({ userId: propUserId }) => {
       </div>
 
       {/* подпись снизу: текущий пользователь */}
-        <div className="lb-me">
-                {errMe ? (
-                  <span className="faded">Failed to load your results ({errMe})</span>
-                ) : me ? (
-                  <>
-                    <span className="lb-me-rank">
-                      Rank: {typeof myRankInTop === 'number' ? `#${myRankInTop}` : 'N/A'}
-                    </span>
-                    <span className="lb-me-accuracy">
-                      Accuracy: {Math.round(me.best_score || 0)}%
-                    </span>
-                    <span className="lb-me-tokens">
-                      Tokens: {Number(me.coins || 0).toFixed(2)}
-                    </span>
-                  </>
-                ) : (
-                  <span className="faded">Loading your results…</span>
-                )}
-              </div>
+      <div className="lb-me">
+        {errMe ? (
+          <span className="faded">Failed to load your results ({errMe})</span>
+        ) : me ? (
+          <>
+            <span className="lb-me-rank">
+              Rank: {typeof myRankInTop === 'number' ? `#${myRankInTop}` : 'N/A'}
+            </span>
+            <span className="lb-me-accuracy">
+              Accuracy: {Math.round(me.best_score || 0)}%
+            </span>
+            <span className="lb-me-tokens">
+              Tokens: {Number(me.coins || 0).toFixed(2)}
+            </span>
+          </>
+        ) : (
+          <span className="faded">Loading your results…</span>
+        )}
+      </div>
 
       {/* поле кошелька — под "Your position" */}
       {me && (
@@ -223,7 +228,7 @@ const Leaderboards = ({ userId: propUserId }) => {
           {eligible && !hasWallet ? (
             <>
               <div className="wallet-hint">
-                {walletMsg || '🎉 You reached 100 tokens! Add your crypto wallet to receive rewards.'}
+                {walletMsg || `🎉 You reached ${WALLET_THRESHOLD} tokens! Add your crypto wallet to receive rewards.`}
               </div>
               <div className="wallet-form">
                 <input
