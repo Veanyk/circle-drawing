@@ -70,24 +70,29 @@
   flex-direction: column;
   font-family: 'Gloria Hallelujah', cursive;
   color: #ffffff;
-  padding-top: 1cqw;
+
   left: 11%;
   right: 6%;
   top: 13%;
   bottom: 13%;
 
-  gap: var(--lb-row-gap);
+  /* масштабируемые отступы/интерлиньяж от ширины доски */
+   gap: var(--lb-row-gap);
 
+  /* fallback по вьюпорту... */
+  font-size: clamp(14px, 2.7vw, 18px);
+  /* ...и точное масштабирование от доски */
   font-size: clamp(12px, 2.7cqw, 18px);
 }
 
 .lb-row {
   display: grid;
+  /* Ранг | Имя | Точность | Токены — ширины от доски */
   grid-template-columns: 6cqw 1fr 12cqw 12cqw;
+
   gap: 1.2cqw;
   padding: var(--lb-row-pad) 0.8cqw;
   align-items: center;
-  line-height: 1; /* было по умолчанию → стало плотнее */
 }
 
 .col-rank {

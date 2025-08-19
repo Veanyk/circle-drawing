@@ -1,6 +1,18 @@
 /* src/App.css */
 @import url('https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap');
 
+:root {
+  /* современные единицы – учитывают динамические панели браузера */
+  --vh: 1dvh;
+
+  /* масштаб относительно высоты: 800px = «единица» */
+  --h: calc(100 * var(--vh));
+  --scale: clamp(0.85, calc(var(--h) / 800), 1.35);
+}
+
+/* базовый размер шрифта теперь зависит от высоты */
+html { font-size: calc(16px * var(--scale)); }
+
 body {
   margin: 0;
   font-family: 'Gloria Hallelujah', cursive;
@@ -62,6 +74,17 @@ body {
 .banner-icon {
   width: 150px;
   height: auto;
+}
+
+.banner-text,
+.timer-text {
+  font-size: clamp(14px, 2.2dvh, 26px);
+  line-height: 1.1;
+}
+
+.score-circle-text {
+  font-size: clamp(18px, 3.2dvh, 42px);
+  font-weight: 700;
 }
 
 .banner-text {

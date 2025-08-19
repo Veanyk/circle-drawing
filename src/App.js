@@ -77,56 +77,63 @@ function App() {
 
   // 1) Инициализация пользователя при первом запуске
   useEffect(() => {
-    const tg = window.Telegram?.WebApp;
-    try {
-      tg?.ready();   // важно: сначала сообщаем, что UI готов
-      tg?.expand();  // затем просим максимум доступной высоты
-    } catch {}
+  let isMounted = true; // Declare isMounted here
 
-    // гарантируем старт сверху (на всякий случай)
-    try { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); } catch {}
+  const tg = window.Telegram?.WebApp;
+  try {
+    tg?.ready();
+    tg?.expand();
+  } catch {}
+
+  try {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  } catch {}
 
   const finalUserId = initializeUserId();
-    setUserId(finalUserId);
+  setUserId(finalUserId);
 
-    const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
-    const urlParams = new URLSearchParams(window.location.search);
-    const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
-    let refId = urlParams.get('ref') || (startParam?.startsWith('ref_') ? startParam.slice(4) : null);
-    if (refId) {
-      localStorage.setItem('referrerId', refId);
-    } else {
-      refId = localStorage.getItem('referrerId');
-    }
+  const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+  const urlParams = new URLSearchParams(window.location.search);
+  const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
+  let refId = urlParams.get('ref') || (startParam?.startsWith('ref_') ? startParam.slice(4) : null);
+  if (refId) {
+    localStorage.setItem('referrerId', refId);
+  } else {
+    refId = localStorage.getItem('referrerId');
+  }
 
-    (async () => {
-      try {
-        const data = await fetchJSON(`${SERVER_URL}/getUserData`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            user_id: finalUserId,
-            ref_id: refId,
-            username: tgUser?.username,
-          }),
-        }, { timeout: 10000, retries: 2 });
+  (async () => {
+    try {
+      const data = await fetchJSON(`${SERVER_URL}/getUserData`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: finalUserId,
+          ref_id: refId,
+          username: tgUser?.username,
+        }),
+      }, { timeout: 10000, retries: 2 });
 
-        if (isMounted && data) {
-          setCoins(Number(data.coins) || 0);
-          setAttempts(Number(data.attempts) || 0);
-          setMaxAttempts(Number(data.max_attempts) || 25);
-          setCompletedTasks(Array.isArray(data.completed_tasks) ? data.completed_tasks : []);
-          setNextAttemptTimestamp(Number.isFinite(data.nextAttemptTimestamp) ? data.nextAttemptTimestamp : null);
-        }
-      } catch (err) {
-        console.error('getUserData failed:', err);
-      } finally {
-        if (isMounted) setIsLoading(false);
+      if (isMounted && data) { // Check if the component is still mounted
+        setCoins(Number(data.coins) || 0);
+        setAttempts(Number(data.attempts) || 0);
+        setMaxAttempts(Number(data.max_attempts) || 25);
+        setCompletedTasks(Array.isArray(data.completed_tasks) ? data.completed_tasks : []);
+        setNextAttemptTimestamp(Number.isFinite(data.nextAttemptTimestamp) ? data.nextAttemptTimestamp : null);
       }
-    })();
+    } catch (err) {
+      console.error('getUserData failed:', err);
+    } finally {
+      if (isMounted) { // Also check here before setting loading state
+        setIsLoading(false);
+      }
+    }
+  })();
 
-    return () => { isMounted = false; };
-  }, []);
+  return () => {
+    isMounted = false; // This cleanup function runs when the component unmounts
+  };
+}, []);
 
   // 2) Таймер восстановления попыток (без «залипания»)
   useEffect(() => {

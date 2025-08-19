@@ -5,15 +5,38 @@
   justify-content: flex-start;
   box-sizing: border-box;
   width: 100%;
-  padding-top: calc(20vh - 25px);
-  padding-bottom: 20px;
+  /* сдвиг вниз в процентах от высоты, но ограничим */
+  padding-top: clamp(8px, calc(12 * var(--vh)), 60px);
+  padding-bottom: clamp(12px, calc(2 * var(--vh)), 28px);
 }
 
+/* Картинка «нарисуй круг» — зависит от высоты */
 .draw-circle-image {
-  width: 100%;
-  max-width: 500px;
+  width: clamp(220px, 50dvh, 540px);
   height: auto;
-  margin-bottom: 20px;
+  margin-bottom: clamp(8px, 2dvh, 24px);
+}
+
+/* Сам холст — квадрат, ограниченный и шириной, и высотой */
+.drawing-canvas {
+  border: none;
+  border-radius: clamp(6px, 1.2dvh, 16px);
+  cursor: crosshair;
+  touch-action: none;
+
+  /* квадрат: «сторона = минимум из 82vw и 70dvh» */
+  width: min(82vw, 70dvh);
+  height: min(82vw, 70dvh);
+
+  margin-bottom: clamp(10px, 2.2dvh, 26px);
+  box-shadow: none;
+
+  background-image: url('../assets/drawing_field.png');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+
+  /* если поддерживается */
+  aspect-ratio: 1 / 1;
 }
 
 /* Медиа-запрос для экранов шириной до 600px */
@@ -34,21 +57,6 @@
   }
 }
 
-.drawing-canvas {
-  border: none;
-  border-radius: 10px;
-  cursor: crosshair;
-  touch-action: none;
-  width: 80vw;
-  height: auto;
-  max-width: 500px;
-  margin-bottom: 20px;
-  box-shadow: none;
-
-  /* ДОБАВЛЯЕМ ЭТИ СТРОКИ */
-  background-image: url('../assets/drawing_field.png');
-  background-size: 100% 100%; /* Растягиваем фон точно по размеру холста */
-}
 
 .chalk-image {
   position: fixed; /* Fixed, чтобы мел не пропадал при скролле */
