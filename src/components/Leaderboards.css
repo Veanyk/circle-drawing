@@ -51,8 +51,8 @@
   container-type: inline-size;
 
   /* Новые переменные управления вертикальным интервалом */
-  --lb-row-gap: 0.6cqw;   /* расстояние между строками (было 0.8cqw) */
-  --lb-row-pad: 0.4cqw;   /* вертикальный внутренний отступ строки (было 0.6cqw) */
+  --lb-row-gap: 0.4cqw;   /* расстояние между строками (было 0.8cqw) */
+  --lb-row-pad: 0.2cqw;   /* вертикальный внутренний отступ строки (было 0.6cqw) */
 }
 .lb-board-img {
   width: 100%;
@@ -70,7 +70,7 @@
   flex-direction: column;
   font-family: 'Gloria Hallelujah', cursive;
   color: #ffffff;
-
+  padding-top: 1cqw;
   left: 11%;
   right: 6%;
   top: 13%;
