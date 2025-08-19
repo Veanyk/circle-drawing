@@ -50,22 +50,27 @@ const loadMyRefs = useCallback(async () => {
 
   // Привязка реферала по initData (если зашли по startapp=ref_...), затем сразу подтянуть список
   useEffect(() => {
-    if (sentOnceRef.current) return;
+  if (sentOnceRef.current) return;
 
-    const tg = (typeof window !== 'undefined' && window.Telegram && window.Telegram.WebApp)
-      ? window.Telegram.WebApp
-      : null;
+  const tg = (typeof window !== 'undefined' && window.Telegram && window.Telegram.WebApp)
+    ? window.Telegram.WebApp
+    : null;
 
-    const initDataRaw = tg?.initData || '';
-    const startParam = tg?.initDataUnsafe?.start_param;
+  const initDataRaw = tg?.initData || '';
+  const startParam = tg?.initDataUnsafe?.start_param;
 
-    if (!initDataRaw || typeof startParam !== 'string' || !startParam.startsWith('ref_')) return;
+  if (typeof startParam !== 'string' || !startParam.startsWith('ref_')) return;
 
-    const inviterId = Number(startParam.slice(4));
-    if (!Number.isFinite(inviterId) || inviterId <= 0) return;
+  const inviterId = Number(startParam.slice(4));
+  if (!Number.isFinite(inviterId) || inviterId <= 0) return;
 
-    sentOnceRef.current = true;
+  sentOnceRef.current = true;
 
+  // ВАЖНО: всегда кладём инвайтера в localStorage — для поздней привязки
+  try { localStorage.setItem('referrerId', String(inviterId)); } catch (_) {}
+
+  // Пытаемся привязать через проверенный канал
+  if (initDataRaw && initDataRaw.length > 0) {
     fetch(`${SERVER_URL}/acceptReferral`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -74,11 +79,14 @@ const loadMyRefs = useCallback(async () => {
       .then(r => r.json().catch(() => ({})))
       .catch((e) => console.error('acceptReferral failed:', e))
       .finally(() => {
-        // В любом случае пробуем подтянуть список (работает и когда acceptReferral завершается ошибкой,
-        // если на сервере включена «поздняя привязка» через /getUserData).
+        // В любом случае подтянем список (после /getUserData поздняя привязка тоже сработает)
         loadMyRefs();
       });
-  }, [loadMyRefs]);
+  } else {
+    // Без initData — опираемся на позднюю привязку; просто грузим список
+    loadMyRefs();
+  }
+}, [loadMyRefs]);
 
   // Поллинг списка рефералов
   useEffect(() => {

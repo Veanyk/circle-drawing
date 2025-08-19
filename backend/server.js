@@ -14,7 +14,7 @@ const LOG_PATH = path.join(__dirname, 'server.log');
 
 // === ОБЯЗАТЕЛЬНО В .env ===
 // BOT_TOKEN=123456:ABC...
-const BOT_TOKEN = process.env.BOT_TOKEN || '7672739920:AAEJO4dq29025OPWt9Hr1fwWwPB5rYSrPKE';
+const BOT_TOKEN = process.env.BOT_TOKEN;
 
 const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000; // 1 минута
 const REFERRAL_TASK_ID = 2;
@@ -183,46 +183,43 @@ function getFirst(val) {
   return Array.isArray(val) ? (val[0] ?? '') : (val ?? '');
 }
 
-// ВЕРНО для Telegram Mini Apps:
-// secret_key = HMAC_SHA256(bot_token, key="WebAppData")
-// hash = HMAC_SHA256(data_check_string, key=secret_key)
 function verifyInitData(initData, botToken) {
   if (!initData) throw new Error('initData_empty');
   if (!botToken) throw new Error('bot_token_missing');
 
   const params = new URLSearchParams(initData);
+  const providedHashHex = params.get('hash');
+  if (!providedHashHex) throw new Error('hash_missing');
 
-  const providedHash = params.get('hash');
-  if (!providedHash) throw new Error('hash_missing');
-
-  // формируем data_check_string (исключая 'hash' и 'signature')
+  // Составляем data_check_string (все поля кроме hash и signature)
   const keys = Array.from(params.keys())
     .filter(k => k !== 'hash' && k !== 'signature')
     .sort();
 
-  const dataCheckString = keys
-    .map(k => `${k}=${params.get(k) ?? ''}`)
-    .join('\n');
+  const dataCheckString = keys.map(k => `${k}=${params.get(k) ?? ''}`).join('\n');
 
-  // secret_key = HMAC_SHA256(botToken, key="WebAppData")
-  const secretKey = crypto
-    .createHmac('sha256', 'WebAppData')
-    .update(botToken)
-    .digest();
+  // Считаем 2 варианта секрета:
+  // v1 (старый): secret = sha256(bot_token)
+  const secretV1 = crypto.createHash('sha256').update(botToken).digest();
 
-  const calcHex = crypto
-    .createHmac('sha256', secretKey)
-    .update(dataCheckString)
-    .digest('hex');
+  // v2 (новый): secret = HMAC_SHA256(message=bot_token, key="WebAppData")
+  const secretV2 = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
 
-  // сравниваем в константное время
-  const recv = Buffer.from(providedHash, 'hex');
-  const calc = Buffer.from(calcHex, 'hex');
-  if (recv.length !== calc.length || !crypto.timingSafeEqual(recv, calc)) {
-    throw new Error('bad_signature');
-  }
+  // Строим подпись для обоих секретов
+  const calcHexV1 = crypto.createHmac('sha256', secretV1).update(dataCheckString).digest('hex');
+  const calcHexV2 = crypto.createHmac('sha256', secretV2).update(dataCheckString).digest('hex');
 
-  // распарсим полезные поля
+  const recv = Buffer.from(providedHashHex, 'hex');
+  const c1 = Buffer.from(calcHexV1, 'hex');
+  const c2 = Buffer.from(calcHexV2, 'hex');
+
+  const ok =
+    (recv.length === c1.length && crypto.timingSafeEqual(recv, c1)) ||
+    (recv.length === c2.length && crypto.timingSafeEqual(recv, c2));
+
+  if (!ok) throw new Error('bad_signature');
+
+  // Распарсим полезные поля
   let user = {};
   const userRaw = params.get('user');
   if (userRaw) {
@@ -319,7 +316,6 @@ app.get('/debug/ping', (_req, res) => {
 });
 
 // Создание/чтение пользователя
-// Браузерные user_id (нечисловые) — НЕ сохраняем, возвращаем эфемерные данные
 app.post('/getUserData', (req, res) => {
   try {
     let { user_id, ref_id, username } = req.body || {};
@@ -328,9 +324,9 @@ app.post('/getUserData', (req, res) => {
     user_id = String(user_id);
     const providedUsername = sanitizeTelegramUsername(username);
 
-    // Гость (браузерный id) — не сохраняем в БД
+    // Гость: не пишем в БД
     if (!isTelegramId(user_id)) {
-      const demo = {
+      return res.json({
         user_id,
         username: providedUsername || 'Guest',
         referrer_id: null,
@@ -344,21 +340,16 @@ app.post('/getUserData', (req, res) => {
         wallet: null,
         wallet_updated_at: null,
         walletEligible: false,
-      };
-      return res.json(demo);
+      });
     }
 
     const db = readDb();
     let user = db[user_id];
 
     const refIdStr = ref_id ? String(ref_id) : null;
-    const validRef =
-      refIdStr &&
-      refIdStr !== user_id &&
-      /^\d+$/.test(refIdStr);
+    const validRef = refIdStr && refIdStr !== user_id && /^\d+$/.test(refIdStr);
 
     if (!user) {
-      // создаём нового пользователя
       user = normalizeUser({
         user_id,
         username: providedUsername || `User_${user_id.slice(-4)}`,
@@ -374,58 +365,50 @@ app.post('/getUserData', (req, res) => {
         wallet_updated_at: null,
         referral_processed: false,
       });
-      db[user_id] = user;
     } else {
       user = normalizeUser(user);
       if (providedUsername && providedUsername !== user.username) {
         user.username = providedUsername;
       }
-
-      // поздняя привязка: если прилетел ref_id, а у пользователя ещё нет реферера
+      // поздняя привязка (если ещё не было)
       if (validRef && !user.referrer_id && !user.referral_processed) {
         user.referrer_id = refIdStr;
       }
     }
 
-    // Если есть реферер и мы ещё НЕ обрабатывали привязку — обработаем сейчас
+    // Если есть реферер и не обработано — обработаем сейчас
     if (user.referrer_id && !user.referral_processed) {
       const inviterId = String(user.referrer_id);
-
-      // гарантируем наличие инвайтера
       let inviter = db[inviterId];
+
       if (!inviter) {
         inviter = normalizeUser({
           user_id: inviterId,
           username: `User_${inviterId.slice(-4)}`,
           coins: 0, attempts: 25, max_attempts: 25, best_score: 0,
           completed_tasks: [], referrals: [], nextAttemptTimestamp: null,
-          wallet: null, wallet_updated_at: null,
-          referral_processed: false,
+          wallet: null, wallet_updated_at: null, referral_processed: false,
         });
       } else {
         inviter = normalizeUser(inviter);
       }
 
-      // добавим invitee в список рефералов инвайтера
       inviter.referrals = Array.isArray(inviter.referrals) ? inviter.referrals : [];
       if (!inviter.referrals.includes(user_id)) {
         inviter.referrals.push(user_id);
       }
 
-      // единоразово начислим награду по заданию
-      const rewardGiven = awardInviteIfNeeded(inviter);
+      const rewardGiven = awardInviteIfNeeded(inviter); // единоразово
       if (rewardGiven) {
-        log(`Referral task awarded (late bind): +${REFERRAL_TASK_REWARD} tokens to ${inviter.user_id}`);
+        log(`Referral task awarded (late): +${REFERRAL_TASK_REWARD} to ${inviter.user_id} by ${user_id}`);
       }
 
-      // пометим привязку обработанной
       user.referral_processed = true;
 
       db[inviterId] = inviter;
       db[user_id] = user;
       writeDb(db);
     } else {
-      // просто обновим базовые поля и таймеры
       regenAttempts(user);
       db[user_id] = user;
       writeDb(db);
