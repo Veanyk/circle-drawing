@@ -61,16 +61,38 @@ function App() {
     }
   }, []);
 
-  // АВТОЗАХВАТ РЕФЕРАЛА при любом заходе в Mini App
-  useEffect(() => {
-    const tg = window?.Telegram?.WebApp;
-    const initData = tg?.initData || '';
-    const sp = tg?.initDataUnsafe?.start_param;
-    console.log('[AutoAttach] initData len =', initData?.length || 0);
-    console.log('[AutoAttach] start_param =', sp);
-    if (!sp || typeof sp !== 'string' || !sp.startsWith('ref_')) return;
-    const inviterId = Number(sp.slice(4));
-    if (!Number.isFinite(inviterId) || inviterId <= 0) return;
+useEffect(() => {
+  const tg = window?.Telegram?.WebApp;
+  const initData = tg?.initData || '';
+
+  const url = new URL(window.location.href);
+  const qs = url.searchParams;
+
+  // кандидаты источников
+  const sp = tg?.initDataUnsafe?.start_param;                // "ref_779077474"
+  const qStart = qs.get('tgWebAppStartParam');               // "ref_779077474" или "779077474"
+  const qRef = qs.get('ref');                                // "779077474"
+
+  // утилита: привести к числу ID
+  const extractRef = (v) => {
+    if (!v) return null;
+    let s = String(v);
+    if (s.startsWith('ref_')) s = s.slice(4);
+    const n = Number(s);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+
+  const inviterId =
+    extractRef(sp) ??
+    extractRef(qStart) ??
+    extractRef(qRef);
+
+  console.log('[AutoAttach] sources:', { sp, qStart, qRef, inviterId, initLen: initData?.length || 0 });
+
+  if (!inviterId) return;
+
+  // если мы действительно внутри Telegram WebApp (есть initData) — закрепляем через сервер
+  if (initData && initData.length > 0) {
     fetch(`${SERVER_URL}/acceptReferral`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -79,7 +101,12 @@ function App() {
       .then(r => r.json().catch(() => ({})))
       .then(j => console.log('[AutoAttach] /acceptReferral resp:', j))
       .catch(e => console.error('[AutoAttach] acceptReferral failed:', e));
-  }, []);
+  } else {
+    // не в WebApp: просто кладём в localStorage, чтобы /getUserData получил ref_id
+    console.warn('[AutoAttach] No initData (not in Telegram WebApp). Will rely on ref_id via /getUserData.');
+    localStorage.setItem('referrerId', String(inviterId));
+  }
+}, []);
 
   const updateUserDataOnServer = useCallback((newData) => {
     if (!userId) return;
@@ -91,62 +118,72 @@ function App() {
   }, [userId]);
 
   // Инициализация пользователя и первичная загрузка
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
-    // 1) берём из URL (?ref=)
-    let refId = urlParams.get('ref');
-    // 2) или из Telegram start_param (ref_<id>)
-    const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
-    if (!refId && typeof startParam === 'string' && startParam.startsWith('ref_')) {
-      refId = String(startParam.slice(4));
-      console.log('[App] got ref from start_param:', refId);
-    }
-    // 3) или из localStorage (запоминаем на будущее)
-    if (!refId) {
-      refId = localStorage.getItem('referrerId') || null;
-    } else {
-      localStorage.setItem('referrerId', refId);
-    }
+useEffect(() => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
 
-    let finalUserId;
-    if (tgUser?.id) {
-      finalUserId = String(tgUser.id);
-    } else {
-      finalUserId = getBrowserUserId();
-    }
-    setUserId(finalUserId);
+  // 1) ?ref= в URL (ваш собственный формат)
+  let refId = urlParams.get('ref');
 
-    if (finalUserId) {
-      const handle = tgUser?.username ? tgUser.username.replace(/^@/, '') : null;
-      const initialUserData = {
-        user_id: finalUserId,
-        ref_id: refId || null,
-        username: handle,
-      };
+  // 2) tgWebAppStartParam в URL (Телеграм часто кладёт сюда start_param)
+  const qStart = urlParams.get('tgWebAppStartParam');
+  if (!refId && qStart) {
+    const val = String(qStart);
+    refId = val.startsWith('ref_') ? val.slice(4) : val;
+  }
 
-      fetch(`${SERVER_URL}/getUserData`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(initialUserData)
+  // 3) start_param из initDataUnsafe
+  const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
+  if (!refId && typeof startParam === 'string' && startParam.startsWith('ref_')) {
+    refId = startParam.slice(4);
+  }
+
+  // 4) localStorage (если не из URL/initData)
+  if (!refId) {
+    refId = localStorage.getItem('referrerId') || null;
+  } else {
+    localStorage.setItem('referrerId', refId);
+  }
+
+  // дальше — как у вас
+  let finalUserId;
+  if (tgUser?.id) {
+    finalUserId = String(tgUser.id);
+  } else {
+    finalUserId = getBrowserUserId();
+  }
+  setUserId(finalUserId);
+
+  if (finalUserId) {
+    const handle = tgUser?.username ? tgUser.username.replace(/^@/, '') : null;
+    const initialUserData = {
+      user_id: finalUserId,
+      ref_id: refId || null,
+      username: handle,
+    };
+
+    fetch(`${SERVER_URL}/getUserData`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(initialUserData)
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (!data) return;
+        setCoins(Number.isFinite(Number(data.coins)) ? Number(data.coins) : 0);
+        setAttempts(Number.isFinite(Number(data.attempts)) ? Number(data.attempts) : 0);
+        setMaxAttempts(Number.isFinite(Number(data.max_attempts)) ? Number(data.max_attempts) : 25);
+        setCompletedTasks(Array.isArray(data.completed_tasks) ? data.completed_tasks : []);
+
+        const rawTs = data.nextAttemptTimestamp;
+        const parsedTs =
+          typeof rawTs === 'number' ? rawTs :
+            (typeof rawTs === 'string' ? parseInt(rawTs, 10) : NaN);
+        setNextAttemptTimestamp(Number.isFinite(parsedTs) && parsedTs > 0 ? parsedTs : null);
       })
-        .then(res => res.json())
-        .then(data => {
-          if (!data) return;
-          setCoins(Number.isFinite(Number(data.coins)) ? Number(data.coins) : 0);
-          setAttempts(Number.isFinite(Number(data.attempts)) ? Number(data.attempts) : 0);
-          setMaxAttempts(Number.isFinite(Number(data.max_attempts)) ? Number(data.max_attempts) : 25);
-          setCompletedTasks(Array.isArray(data.completed_tasks) ? data.completed_tasks : []);
-
-          const rawTs = data.nextAttemptTimestamp;
-          const parsedTs =
-            typeof rawTs === 'number' ? rawTs :
-              (typeof rawTs === 'string' ? parseInt(rawTs, 10) : NaN);
-          setNextAttemptTimestamp(Number.isFinite(parsedTs) && parsedTs > 0 ? parsedTs : null);
-        })
-        .catch(err => console.error('Ошибка при получении данных пользователя:', err));
-    }
-  }, []);
+      .catch(err => console.error('Ошибка при получении данных пользователя:', err));
+  }
+}, []);
 
   // Таймер восстановления попыток (тик каждую секунду)
   useEffect(() => {

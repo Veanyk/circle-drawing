@@ -105,9 +105,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  transform: translateX(10px); /* +10px вправо */
+  transform: translateX(30px);
 }
-
 .col-stats {
   display: flex;
   justify-content: flex-end;
@@ -124,8 +123,8 @@
   min-width: 10cqw;
 }
 
-.col-acc { transform: translateX(-5px); } /* -5px влево */
-
+.col-acc { transform: translateX(-25px); }
+.col-tok { transform: translateX(5px); }
 /* прячем шапку столбцов */
 .lb-head {
   display: none;
