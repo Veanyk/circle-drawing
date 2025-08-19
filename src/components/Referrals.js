@@ -58,29 +58,33 @@ const Referrals = ({ userId }) => {
     }
   }, [userId]);
 
-  // Загружаем список рефералов (поллинг)
-  useEffect(() => {
-    if (!userId) return;
-    let stop = false;
+    // Загружаем список рефералов (поллинг)
+    useEffect(() => {
+      if (!userId) return;
+      let stop = false;
 
-    const loadMyRefs = async () => {
-      try {
-        const res = await fetch(`${SERVER_URL}/getReferrals`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: userId }),
-        });
-        const data = await res.json();
-        if (!stop && Array.isArray(data)) setReferrals(data);
-      } catch (e) {
-        console.error('Ошибка при получении рефералов:', e);
-      }
-    };
+      // берём настоящий tg id, если мы внутри Telegram
+      const tgId = window?.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+      const effectiveId = tgId ? String(tgId) : String(userId);
 
-    loadMyRefs();
-    const iv = setInterval(loadMyRefs, 5000);
-    return () => { stop = true; clearInterval(iv); };
-  }, [userId]);
+      const loadMyRefs = async () => {
+        try {
+          const res = await fetch(`${SERVER_URL}/getReferrals`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: effectiveId }),
+          });
+          const data = await res.json();
+          if (!stop && Array.isArray(data)) setReferrals(data);
+        } catch (e) {
+          console.error('Ошибка при получении рефералов:', e);
+        }
+      };
+
+      loadMyRefs();
+      const iv = setInterval(loadMyRefs, 5000);
+      return () => { stop = true; clearInterval(iv); };
+    }, [userId]);
 
   const copyToClipboard = async () => {
     const text = referralLink;

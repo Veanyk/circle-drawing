@@ -222,28 +222,39 @@ localStorage.setItem('referrerId', refId);
     return () => clearInterval(timer);
   }, [attempts, maxAttempts, nextAttemptTimestamp, userId]);
 
-  // Автообновление монет/статуса заданий, пока открыт экран рефералов
-  useEffect(() => {
-    if (currentTab !== 'referrals' || !userId) return;
-    let stop = false;
-    const tick = async () => {
-      try {
-        const res = await fetch(`${SERVER_URL}/getUserData`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: userId }),
-        });
-        const data = await res.json();
-        if (!stop && data) {
-          setCoins(Number.isFinite(Number(data.coins)) ? Number(data.coins) : 0);
-          setCompletedTasks(Array.isArray(data.completed_tasks) ? data.completed_tasks : []);
-        }
-      } catch { /* ignore */ }
-    };
-    tick();
-    const iv = setInterval(tick, 5000);
-    return () => { stop = true; clearInterval(iv); };
-  }, [currentTab, userId]);
+    // ГЛОБАЛЬНОЕ автообновление баланса/заданий
+    useEffect(() => {
+      if (!userId) return;
+      let stop = false;
+
+      const tick = async () => {
+        try {
+          const res = await fetch(`${SERVER_URL}/getUserData`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId }),
+          });
+          const data = await res.json();
+          if (!stop && data) {
+            setCoins(Number.isFinite(Number(data.coins)) ? Number(data.coins) : 0);
+            setCompletedTasks(Array.isArray(data.completed_tasks) ? data.completed_tasks : []);
+          }
+        } catch { /* ignore */ }
+      };
+
+      tick(); // сразу
+      const iv = setInterval(tick, 5000); // и далее каждые 5с
+
+      // Подхватываем изменения при возврате в приложение
+      const onFocus = () => tick();
+      window.addEventListener('focus', onFocus);
+
+      return () => {
+        stop = true;
+        clearInterval(iv);
+        window.removeEventListener('focus', onFocus);
+      };
+    }, [userId]);
 
   const onDrawEnd = (circleAccuracy, points, canvas, size) => {
     if (attempts <= 0) {
