@@ -20,7 +20,6 @@ const BOT_TOKEN = process.env.BOT_TOKEN || '7672739920:AAEJO4dq29025OPWt9Hr1fwWw
 const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000; // 1 минута
 const REFERRAL_TASK_ID = 2;
 const REFERRAL_TASK_REWARD = 30;
-const WALLET_MIN_TOKENS = Number(process.env.WALLET_MIN_TOKENS || 10);
 
 // ------ Admin auth ------
 const ADMIN_KEYS = (process.env.ADMIN_KEYS || '779077474')
@@ -352,7 +351,7 @@ app.post('/getUserData', (req, res) => {
     db[tgId] = user;
     writeDb(db);
 
-    res.json({ ...user, walletEligible: (user.coins || 0) >= WALLET_MIN_TOKENS });
+    res.json({ ...user, walletEligible: (user.coins || 0) >= 100 });
   } catch (e) {
     if (e.status) return res.status(e.status).json({ error: e.message });
     console.error(e);
@@ -559,28 +558,27 @@ function isWalletString(s) {
 
 app.post('/setWallet', (req, res) => {
   try {
-    const { tgId } = requireTelegramAuth(req.body);
-    const { wallet } = req.body || {};
-    if (typeof wallet !== 'string') return res.status(400).json({ error: 'bad_request' });
+    const { user_id, wallet } = req.body || {};
+    if (!user_id || typeof wallet !== 'string') return res.status(400).json({ error: 'bad_request' });
 
+    const userIdStr = String(user_id);
     const db = readDb();
-    const u = db[tgId];
+    const u = db[userIdStr];
     if (!u) return res.status(404).json({ error: 'user_not_found' });
 
-    if ((u.coins || 0) < WALLET_MIN_TOKENS) {
+    if ((u.coins || 0) < 100) {
       return res.status(403).json({ error: 'not_eligible', need: 100, have: u.coins || 0 });
     }
     if (!isWalletString(wallet)) return res.status(400).json({ error: 'invalid_wallet' });
 
     u.wallet = wallet.trim();
     u.wallet_updated_at = new Date().toISOString();
-    db[tgId] = u;
+    db[userIdStr] = u;
     writeDb(db);
 
     res.json({ ok: true, wallet: u.wallet });
   } catch (e) {
-    if (e.status) return res.status(e.status).json({ error: e.message });
-    console.error(e);
+    log(e);
     res.status(500).json({ error: 'internal_error' });
   }
 });
