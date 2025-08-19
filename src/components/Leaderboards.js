@@ -1,5 +1,5 @@
 // src/components/Leaderboards.js
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo } from 'react'; // 1. Удалён неиспользуемый 'useCallback'
 import './Leaderboards.css';
 import leaderboardText from '../assets/leaderboard_text.png';
 import boardImage from '../assets/board.png';
@@ -38,10 +38,6 @@ const Leaderboards = ({ userId: propUserId }) => {
   const [me, setMe] = useState(null);
   const [errTop, setErrTop] = useState(null);
   const [errMe, setErrMe] = useState(null);
-
-  const [wallet, setWallet] = useState('');
-  const [walletMsg, setWalletMsg] = useState(null);
-  const [savingWallet, setSavingWallet] = useState(false);
 
   // определяем userId (из пропса или из хранилища/Telegram)
   const [userId, setUserId] = useState(propUserId || null);
@@ -94,9 +90,9 @@ const Leaderboards = ({ userId: propUserId }) => {
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
+        // 2. Сохраняем полученные данные в состояние
         if (!stop) {
-          setMe(data || null);
-          if (data?.wallet && !wallet) setWallet(String(data.wallet));
+          setMe(data);
         }
       } catch (e) {
         if (!stop) setErrMe(e.message || 'Failed to load your data');
@@ -107,7 +103,7 @@ const Leaderboards = ({ userId: propUserId }) => {
     loadMe();
     const t = setInterval(loadMe, 30000);
     return () => { stop = true; clearInterval(t); };
-  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   // Ранг пользователя в топ-10 (если входит)
   const myRankInTop = useMemo(() => {
@@ -115,46 +111,6 @@ const Leaderboards = ({ userId: propUserId }) => {
     const idx = leaders.findIndex(u => String(u.user_id) === String(me.user_id));
     return idx >= 0 ? idx + 1 : null;
   }, [me, leaders]);
-
-  // Порог для кошелька
-  const eligible = !!me && ((me.walletEligible === true) || ((me.coins || 0) >= 100));
-  const hasWallet = !!me?.wallet;
-
-  // Одноразовое уведомление при достижении 100+
-  useEffect(() => {
-    if (!eligible || !userId) return;
-    const key = `wallet_notified_${userId}`;
-    if (!localStorage.getItem(key)) {
-      setWalletMsg('🎉 You reached 100 tokens! Add your crypto wallet to receive rewards.');
-      localStorage.setItem(key, '1');
-    }
-  }, [eligible, userId]);
-
-  // Сохранение кошелька
-  const saveWallet = useCallback(async () => {
-    setWalletMsg(null);
-    const val = String(wallet || '').trim();
-    if (val.length < 6) {
-      setWalletMsg('The wallet address looks too short.');
-      return;
-    }
-    try {
-      setSavingWallet(true);
-      const res = await fetch(`${SERVER_URL}/setWallet`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId, wallet: val }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-      setWalletMsg('Wallet saved ✅');
-      setMe(prev => prev ? { ...prev, wallet: data.wallet } : prev);
-    } catch (e) {
-      setWalletMsg(`Failed to save: ${e.message}`);
-    } finally {
-      setSavingWallet(false);
-    }
-  }, [userId, wallet]);
 
   return (
     <div className="lb-wrapper">
@@ -216,39 +172,6 @@ const Leaderboards = ({ userId: propUserId }) => {
                   <span className="faded">Loading your results…</span>
                 )}
               </div>
-
-      {/* поле кошелька — под "Your position" */}
-      {me && (
-        <div className="wallet-block">
-          {eligible && !hasWallet ? (
-            <>
-              <div className="wallet-hint">
-                {walletMsg || '🎉 You reached 100 tokens! Add your crypto wallet to receive rewards.'}
-              </div>
-              <div className="wallet-form">
-                <input
-                  className="wallet-input"
-                  type="text"
-                  placeholder="Paste your wallet address"
-                  value={wallet}
-                  onChange={e => setWallet(e.target.value)}
-                  disabled={savingWallet}
-                />
-                <button
-                  className="wallet-save"
-                  onClick={saveWallet}
-                  disabled={savingWallet || !wallet.trim()}>
-                  {savingWallet ? 'Saving…' : 'Save'}
-                </button>
-              </div>
-            </>
-          ) : hasWallet ? (
-            <div className="wallet-view">
-              Wallet: <span className="mono">{me.wallet}</span>
-            </div>
-          ) : null}
-        </div>
-      )}
     </div>
   );
 };
