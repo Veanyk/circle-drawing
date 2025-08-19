@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './Referrals.css';
 import referralProgramImage from '../assets/referral_program.png';
 import inviteImage from '../assets/invite.png';
@@ -13,103 +13,81 @@ const SERVER_URL =
 const BOT_USERNAME = process.env.REACT_APP_BOT_USERNAME || 'circle_drawing_bot';
 
 const Referrals = ({ userId }) => {
+  const [referrals, setReferrals] = useState([]);
   const [referralLink, setReferralLink] = useState('');
-  const sentOnceRef = useRef(false);
+  const sentOnceRef = useRef(false); // защита от повторного acceptReferral
 
   const isNumericId = /^\d+$/.test(String(userId || ''));
 
-  // Генерируем deep link в Telegram Mini App (только для числового id)
+  // Сформировать deep-link (показываем/копируем только для числового userId)
   useEffect(() => {
     if (!userId || !isNumericId) {
       setReferralLink('');
       return;
     }
-    const deepLink = `https://t.me/${BOT_USERNAME}?startapp=ref_${userId}`;
-    setReferralLink(deepLink);
+    setReferralLink(`https://t.me/${BOT_USERNAME}?startapp=ref_${userId}`);
   }, [userId, isNumericId]);
 
-  // Фиксируем реферал, если Mini App открыт по ?startapp=ref_...
-    useEffect(() => {
-      if (sentOnceRef.current) return;
-
-      const tg = (typeof window !== 'undefined' && window.Telegram && window.Telegram.WebApp)
-        ? window.Telegram.WebApp
-        : null;
-
-      const initDataRaw = tg?.initData || '';
-      const startParam = tg?.initDataUnsafe?.start_param;
-
-      if (!initDataRaw || typeof startParam !== 'string' || !startParam.startsWith('ref_')) {
+  // ЕДИНАЯ функция загрузки рефералов
+  const loadMyRefs = useCallback(async () => {
+    try {
+      if (!isNumericId) {
+        setReferrals([]);
         return;
       }
-
-      const inviterId = Number(startParam.slice(4));
-      if (!Number.isFinite(inviterId) || inviterId <= 0) return;
-
-      sentOnceRef.current = true;
-      fetch(`${SERVER_URL}/acceptReferral`, {
+      const res = await fetch(`${SERVER_URL}/getReferrals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inviter_id: inviterId, initData: initDataRaw }),
-      })
-        .then(r => r.json().catch(() => ({})))
-        .then(() => {
-          // после успешной привязки — сразу перезагрузим список
-          if (typeof loadMyRefs === 'function') loadMyRefs();
-        })
-        .catch((e) => console.error('acceptReferral failed:', e));
-    }, []);
-
-    // 2) Загрузка списка рефералов (оставляем поллинг, но выносим функцию наружу,
-    //    чтобы можно было вызвать её после acceptReferral)
-    const [referrals, setReferrals] = useState([]);
-
-    const loadMyRefs = React.useCallback(async () => {
-      try {
-        if (!userId || !/^\d+$/.test(String(userId))) return;
-        const res = await fetch(`${SERVER_URL}/getReferrals`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: userId }),
-        });
-        const data = await res.json();
-        if (Array.isArray(data)) setReferrals(data);
-      } catch (e) {
-        console.error('Ошибка при получении рефералов:', e);
-      }
-    }, [userId]);
-
-    useEffect(() => {
-      let stop = false;
-      const tick = async () => { if (!stop) await loadMyRefs(); };
-      tick();
-      const iv = setInterval(tick, 5000);
-      return () => { stop = true; clearInterval(iv); };
-    }, [loadMyRefs]);
-
-  // Загружаем список рефералов (поллинг)
-  useEffect(() => {
-    if (!userId || !isNumericId) return;
-    let stop = false;
-
-    const loadMyRefs = async () => {
-      try {
-        const res = await fetch(`${SERVER_URL}/getReferrals`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: userId }),
-        });
-        const data = await res.json();
-        if (!stop && Array.isArray(data)) setReferrals(data);
-      } catch (e) {
-        console.error('Ошибка при получении рефералов:', e);
-      }
-    };
-
-    loadMyRefs();
-    const iv = setInterval(loadMyRefs, 5000);
-    return () => { stop = true; clearInterval(iv); };
+        body: JSON.stringify({ user_id: String(userId) }),
+      });
+      const data = await res.json();
+      if (Array.isArray(data)) setReferrals(data);
+      else setReferrals([]);
+    } catch (e) {
+      console.error('Ошибка при получении рефералов:', e);
+    }
   }, [userId, isNumericId]);
+
+  // Привязка реферала по initData (если зашли по startapp=ref_...), затем сразу подтянуть список
+  useEffect(() => {
+    if (sentOnceRef.current) return;
+
+    const tg = (typeof window !== 'undefined' && window.Telegram && window.Telegram.WebApp)
+      ? window.Telegram.WebApp
+      : null;
+
+    const initDataRaw = tg?.initData || '';
+    const startParam = tg?.initDataUnsafe?.start_param;
+
+    if (!initDataRaw || typeof startParam !== 'string' || !startParam.startsWith('ref_')) return;
+
+    const inviterId = Number(startParam.slice(4));
+    if (!Number.isFinite(inviterId) || inviterId <= 0) return;
+
+    sentOnceRef.current = true;
+
+    fetch(`${SERVER_URL}/acceptReferral`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inviter_id: inviterId, initData: initDataRaw }),
+    })
+      .then(r => r.json().catch(() => ({})))
+      .catch((e) => console.error('acceptReferral failed:', e))
+      .finally(() => {
+        // В любом случае пробуем подтянуть список (работает и когда acceptReferral завершается ошибкой,
+        // если на сервере включена «поздняя привязка» через /getUserData).
+        loadMyRefs();
+      });
+  }, [loadMyRefs]);
+
+  // Поллинг списка рефералов
+  useEffect(() => {
+    let stop = false;
+    const tick = async () => { if (!stop) await loadMyRefs(); };
+    tick(); // первая загрузка
+    const iv = setInterval(tick, 5000);
+    return () => { stop = true; clearInterval(iv); };
+  }, [loadMyRefs]);
 
   const copyToClipboard = async () => {
     const text = referralLink;
@@ -166,8 +144,6 @@ const Referrals = ({ userId }) => {
           <img src={copyImage} alt="Copy" />
         </button>
       </div>
-
-      {/* САМУ ССЫЛКУ НЕ ОТОБРАЖАЕМ */}
 
       <img src={yourReferralsImage} alt="Your Referrals" className="your-referrals-image" />
 
