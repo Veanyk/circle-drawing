@@ -4,56 +4,63 @@
 @import url('https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap');
 
 .result-container {
+  /* Скроллим внутри компонента, чтобы не зависеть от родителя */
+  min-height: 100vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start; /* <-- Этот параметр уже правильный */
-  padding: 20px;
+  justify-content: flex-start;
+
   box-sizing: border-box;
   width: 100%;
+  padding: 20px;
+
+  /* Больше верхнего паддинга, чтобы не наезжать на верхний HUD */
   padding-top: 120px;
+
+  /* Критично: большой нижний паддинг, чтобы кнопки не упирались в TabBar
+     и всегда можно было доскроллить до них */
+  padding-bottom: calc(env(safe-area-inset-bottom, 0) + 240px);
 }
 
-/* Родительский контейнер для круга, PNG и текста */
+/* Блок с кругом результата — теперь часть прокручиваемого контента */
 .result-image {
   position: relative;
-  width: 100px; /* Уменьшили */
-  height: 100px; /* Уменьшили */
-  margin-bottom: 0px;
+  width: 120px;
+  height: 120px;
+  margin-bottom: 6px;
 }
 
-/* Динамический круг (градиент) — самый нижний слой */
+/* Динамический круг (progress) — нижний слой */
 .result-circle-dynamic {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100px; /* Уменьшили */
-  height: 100px; /* Уменьшили */
+  inset: 0;
   border-radius: 50%;
-  z-index: 1; /* Ниже PNG и текста */
-  background-color: #ffffff; /* Базовый цвет на случай отсутствия градиента */
+  z-index: 1;
+  background-color: #ffffff; /* fallback */
   /* backgroundImage задаётся инлайн-стилем в Result.js */
 }
 
-/* PNG-кружок (располагается поверх градиента) */
+/* (опционально) PNG-ободок поверх градиента
 .result-circle-image {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100px; /* Уменьшили */
-  height: 100px; /* Уменьшили */
-  z-index: 2; /* Выше градиента, но ниже текста */
+  inset: 0;
+  z-index: 2;
 }
+*/
 
-/* Текст поверх всего */
+/* Текст процента поверх всего */
 .result-text-overlay {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 3; /* Самый верхний слой */
-  color: red;
-  font-size: 28px; /* Уменьшили */
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 3;
+  color: #000;
+  font-size: 28px;
   font-weight: bold;
   text-shadow: none;
   font-family: 'Gloria Hallelujah', cursive;
@@ -64,37 +71,37 @@
 .earned-tokens-text {
   font-family: 'Gloria Hallelujah', cursive;
   color: #000000;
-  font-size: 21px; /* Уменьшили размер */
-  margin: 1px 0;   /* Уменьшили вертикальные отступы */
+  font-size: 21px;
+  margin: 2px 0;
   text-align: center;
-  line-height: 1.2; /* Сделали строки ближе друг к другу */
+  line-height: 1.2;
 }
 
+/* Контейнер с рисунком — на той же странице, скролл общий */
 .result-drawing-container {
-  position: relative; /* Нужно для позиционирования рисунка */
-  width: 80vw; /* Задаем те же размеры, что и у холста для рисования */
+  position: relative;
+  width: 80vw;
   max-width: 500px;
-  aspect-ratio: 1 / 1; /* Делаем контейнер квадратным */
-  margin-top: 6px;
-  margin-bottom: 10px;
-  background-image: url('../assets/drawing_field.png'); /* Задаем фон-доску */
+  aspect-ratio: 1 / 1;
+  margin-top: 8px;
+  margin-bottom: 12px;
+  background-image: url('../assets/drawing_field.png');
   background-size: 100% 100%;
   border-radius: 10px;
 }
 
 .result-drawing-preview {
   position: absolute;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain; /* Вписываем рисунок в контейнер */
+  object-fit: contain;
 }
 
 .buttons {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
   max-width: 300px;
 }
@@ -120,7 +127,7 @@
   width: auto;
   height: auto;
   margin-bottom: 10px;
-  max-width: 300px; /* Базовая максимальная ширина */
+  max-width: 300px;
 }
 
 .social-icon-btn {
@@ -130,26 +137,25 @@
   background: transparent;
   padding: 0;
   margin: 0;
-  border-radius: 9999px; /* круглая */
-  line-height: 0;        /* убрать лишнюю высоту */
+  border-radius: 9999px;
+  line-height: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  /* увеличим «зону тапа», но не трогаем саму картинку */
   width: 48px;
   height: 48px;
 }
 
 .social-icon-btn .social-icon {
   display: block;
-  width: 30px;   /* подгони под свою картинку */
-  height: 30px;  /* подгони под свою картинку */
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
 }
 
 .social-icon-btn:focus-visible {
-  outline: 2px solid rgba(59, 130, 246, 0.8); /* аккуратный фокус */
+  outline: 2px solid rgba(59, 130, 246, 0.8);
   outline-offset: 2px;
 }
 
@@ -157,39 +163,29 @@
   transform: translateY(-1px);
 }
 
-/* Адаптивная верстка */
+/* Адаптив */
 @media (max-width: 768px) {
-    .result-container { padding-top: 105px; }
-    .social-icon {
-    width: 30px;
-    height: 30px;
-    }
-    .result-image {
-      width: 60px; /* Уменьшили */
-      height: 60px; /* Уменьшили */
-    }
-    .result-circle-dynamic {
-      width: 60px; /* Уменьшили */
-      height: 60px; /* Уменьшили */
-    }
-    .result-circle-image {
-      width: 60px; /* Уменьшили */
-      height: 60px; /* Уменьшили */
-    }
-    .result-text-overlay {
-      font-size: 26px; /* Уменьшили */
-    }
-    .circle-accuracy-text,
-    .earned-tokens-text {
+  .result-container { padding-top: 105px; padding-bottom: calc(env(safe-area-inset-bottom, 0) + 220px); }
+
+  .result-image {
+    width: 90px;
+    height: 90px;
+  }
+  .result-text-overlay {
+    font-size: 24px;
+  }
+
+  .circle-accuracy-text,
+  .earned-tokens-text {
     font-size: 18px;
-    margin: 1px 0;
-    }
+    margin: 2px 0;
+  }
 
-    .button-icon {
+  .button-icon {
     width: 120px;
-    }
+  }
 
-    .share-results-image {
-    max-width: 160px;
-    }
+  .share-results-image {
+    max-width: 180px;
+  }
 }

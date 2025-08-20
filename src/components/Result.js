@@ -11,50 +11,70 @@ import shareResultsImage from '../assets/share_results.png';
 const Result = ({ score, onReset, drawing, userId }) => {
   const BOT_USERNAME = 'circle_drawing_bot';
   const APP_SHORT_NAME = process.env.REACT_APP_TG_APP_SHORTNAME || 'circle_drawer';
-  const deepLink = `https://t.me/${BOT_USERNAME}?startapp=ref_${userId}`;
-  const shareText = `I drew a circle with ${Math.round(score)}% accuracy! Can you beat me?`;
-  const telegramShareUrl = deepLink; // телега открывает сразу мини-апп с параметром
-  const shareUrl = `https://t.me/${BOT_USERNAME}?startapp=ref_${userId}`;
 
-    // токены совпадают с логикой onDrawEnd (0.01 * score)
-    const decimalTokens = (score / 100).toFixed(2);
-    // формируем корректный deep link c учётом short name
-    const buildDeepLink = React.useCallback(() => {
+  // корректный deep link (с поддержкой short name)
+  const buildDeepLink = React.useCallback(() => {
     const base = APP_SHORT_NAME
-    ? `https://t.me/${BOT_USERNAME}/${APP_SHORT_NAME}`
-    : `https://t.me/${BOT_USERNAME}`;
+      ? `https://t.me/${BOT_USERNAME}/${APP_SHORT_NAME}`
+      : `https://t.me/${BOT_USERNAME}`;
     return `${base}?startapp=ref_${userId}`;
-    }, [userId]);
+  }, [userId, APP_SHORT_NAME]);
 
-    // открыть нативный Telegram share (внутри Telegram) или t.me/share в браузере
-    const handleShareTelegram = React.useCallback((e) => {
-    e.preventDefault();
-    const url = buildDeepLink();
-    const text = `I drew a circle with ${Math.round(score)}% accuracy! Can you beat me?`;
-    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+  const decimalTokens = (score / 100).toFixed(2);
+  const shareText = `I drew a circle with ${Math.round(score)}% accuracy! Can you beat me?`;
+  const shareUrl = buildDeepLink();
 
-    if (window?.Telegram?.WebApp?.openTelegramLink) {
-    window.Telegram.WebApp.openTelegramLink(shareUrl);
-    } else {
-    window.open(shareUrl, '_blank', 'noopener,noreferrer');
-    }
-    }, [buildDeepLink, score]);
+  // открыть нативный Telegram share (внутри Telegram) или t.me/share в браузере
+  const handleShareTelegram = React.useCallback(
+    (e) => {
+      e.preventDefault();
+      const url = buildDeepLink();
+      const text = `I drew a circle with ${Math.round(score)}% accuracy! Can you beat me?`;
+      const tgShare = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
 
-    return (
+      if (window?.Telegram?.WebApp?.openTelegramLink) {
+        window.Telegram.WebApp.openTelegramLink(tgShare);
+      } else {
+        window.open(tgShare, '_blank', 'noopener,noreferrer');
+      }
+    },
+    [buildDeepLink, score]
+  );
+
+  // стиль для динамического круга через conic-gradient
+  const pct = Math.max(0, Math.min(100, Math.round(score)));
+  const circleStyle = React.useMemo(
+    () => ({
+      backgroundImage: `conic-gradient(#22c55e ${pct}%, #e5e7eb ${pct}% 100%)`,
+    }),
+    [pct]
+  );
+
+  return (
     <div className="result-container">
-      {/* ТОЛЬКО текстовые итоги — без второго круга */}
+      {/* КРУГ РЕЗУЛЬТАТА — теперь в том же прокручиваемом холсте */}
+      <div className="result-image">
+        <div className="result-circle-dynamic" style={circleStyle} />
+        <div className="result-text-overlay">{pct}%</div>
+        {/* Если понадобится ободок PNG — раскомментируй и добавь импорт
+        <img src={ringPng} alt="" className="result-circle-image" />
+        */}
+      </div>
+
+      {/* Текстовые итоги под кругом */}
       <p className="circle-accuracy-text">
-        Your circle is {Math.round(score)}% accurate
+        Your circle is {pct}% accurate
       </p>
       <p className="earned-tokens-text">
         You've earned {decimalTokens} tokens
       </p>
 
-      {/* ваш рисунок */}
+      {/* ваш рисунок на доске */}
       <div className="result-drawing-container">
         <img src={drawing} alt="Your drawing" className="result-drawing-preview" />
       </div>
 
+      {/* Кнопки — внутри той же прокручиваемой области */}
       <div className="buttons">
         <button className="reset-button" onClick={onReset}>
           <img src={tryAgainIcon} alt="Try again" className="button-icon" />
@@ -70,14 +90,15 @@ const Result = ({ score, onReset, drawing, userId }) => {
             <TwitterShareButton url={shareUrl} title={shareText}>
               <img src={twitterIcon} alt="Twitter" className="social-icon" />
             </TwitterShareButton>
-                <button
-                  type="button"
-                  className="social-icon-btn"
-                  onClick={handleShareTelegram}
-                  aria-label="Share on Telegram"
-                >
-                  <img src={telegramIcon} alt="Telegram" className="social-icon" />
-                </button>
+
+            <button
+              type="button"
+              className="social-icon-btn"
+              onClick={handleShareTelegram}
+              aria-label="Share on Telegram"
+            >
+              <img src={telegramIcon} alt="Telegram" className="social-icon" />
+            </button>
           </div>
         </div>
       </div>
