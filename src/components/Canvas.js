@@ -153,15 +153,27 @@ const Canvas = ({ onDrawEnd, attempts }) => {
       updateChalkPosition(event);
     };
 
-  // ⬇️ ХЕЛПЕР: вычисляем "защитную" высоту нижних системных/телеграм-кнопок
-    const getBottomGuardPx = (min = 80) => {
-      const vv = window.visualViewport;
-      const overlay = vv ? Math.max(0, window.innerHeight - Math.floor(vv.height)) : 0;
-      return Math.max(min, overlay + 16); // небольшой запас
+    // 1) Универсальный корень скролла
+    const getScrollRoot = () => {
+      const candidates = ['.app', '#root', '.root', '.page', 'main'];
+      for (const s of candidates) {
+        const el = document.querySelector(s);
+        if (el && el.scrollHeight > el.clientHeight + 1) return el;
+      }
+      return document.scrollingElement || document.documentElement;
     };
 
-    // ⬇️ ХЕЛПЕР: если блок с «Поделиться» перекрыт снизу — аккуратно доскроллить
-    const revealShareButtonsIfCovered = () => {
+    // 2) ЕДИНСТВЕННАЯ версия: учесть .tab-bar + overlay visualViewport + запас
+    const getBottomGuardPx = (min = 80) => {
+      const bar = document.querySelector('.tab-bar');
+      const barH = bar ? bar.offsetHeight : 0;
+      const vv = window.visualViewport;
+      const overlay = vv ? Math.max(0, window.innerHeight - Math.floor(vv.height)) : 0;
+      return Math.max(min, barH + overlay + 16);
+    };
+
+    // 3) Найти контейнер с кнопками «Поделиться/Рестарт»
+    const findShareContainer = () => {
       const selectors = [
         '#shareButtons',
         '.share-buttons',
@@ -171,13 +183,29 @@ const Canvas = ({ onDrawEnd, attempts }) => {
         '.result-buttons',
         '[data-share-buttons]',
       ];
-      const el = selectors.map(s => document.querySelector(s)).find(Boolean);
+      for (const s of selectors) {
+        const el = document.querySelector(s);
+        if (el) return el;
+      }
+      // эвристика (если у тебя свои классы)
+      const guess = Array.from(document.querySelectorAll('[class*="result"]'))
+        .find(el => /подел|share|restart|try/i.test(el.textContent || ''));
+      return guess || null;
+    };
 
-      // если конкретный контейнер не нашли — прокрутим к низу как фолбэк
+    // 4) Доскроллить, если кнопки перекрыты таб-баром/системными панелями
+    const revealShareButtonsIfCovered = () => {
+      const el = findShareContainer();
+      const root = getScrollRoot();
+
       if (!el) {
-        const root = document.scrollingElement || document.documentElement;
-        window.scrollTo({ top: root.scrollHeight, behavior: 'smooth' });
-        return;
+        const target = (root === document.documentElement || root === document.body)
+          ? (document.scrollingElement || document.documentElement)
+          : root;
+        (target.scrollTo
+          ? target.scrollTo({ top: target.scrollHeight, behavior: 'smooth' })
+          : window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }));
+        return false;
       }
 
       const rect = el.getBoundingClientRect();
@@ -185,32 +213,72 @@ const Canvas = ({ onDrawEnd, attempts }) => {
       const guard = getBottomGuardPx();
 
       if (rect.bottom > viewH - guard) {
-        const delta = rect.bottom - (viewH - guard) + 16; // +паддинг
-        window.scrollBy({ top: delta, behavior: 'smooth' });
+        const delta = rect.bottom - (viewH - guard) + 16;
+        if (root === document.documentElement || root === document.body) {
+          window.scrollBy({ top: delta, behavior: 'smooth' });
+        } else {
+          root.scrollBy({ top: delta, behavior: 'smooth' });
+        }
+        return true;
+      }
+
+      if (rect.top < 0) {
+        const deltaUp = rect.top - 16;
+        if (root === document.documentElement || root === document.body) {
+          window.scrollBy({ top: deltaUp, behavior: 'smooth' });
+        } else {
+          root.scrollBy({ top: deltaUp, behavior: 'smooth' });
+        }
+      }
+      return true;
+    };
+
+    // 5) Запланировать автодоскролл, когда Result смонтируется/перерисуется
+    const scheduleRevealShareButtons = () => {
+      const root = getScrollRoot();
+
+      // Добавим нижний паддинг ровно на тот контейнер, который скроллится
+      const bar = document.querySelector('.tab-bar');
+      const barH = bar ? bar.offsetHeight : 0;
+      const currentPB = parseInt(getComputedStyle(root).paddingBottom) || 0;
+      if (barH + 8 > currentPB) {
+        root.style.paddingBottom = `${barH + 8}px`;
+      }
+
+      // Несколько кадров подряд — на случай поздней загрузки изображений/шрифтов
+      let tries = 0;
+      const maxTries = 24;
+      const rafTick = () => {
+        tries += 1;
+        revealShareButtonsIfCovered();
+        if (tries < maxTries) requestAnimationFrame(rafTick);
+      };
+      // маленькая задержка — даём родителю переключиться на экран результата
+      setTimeout(() => requestAnimationFrame(rafTick), 80);
+
+      // Следим за изменениями DOM короткое время
+      const mo = new MutationObserver(() => revealShareButtonsIfCovered());
+      mo.observe(document.body, { childList: true, subtree: true });
+      setTimeout(() => mo.disconnect(), 3000);
+
+      // Реагируем на изменения визуального вьюпорта (клавиатура/системные панели)
+      if (window.visualViewport) {
+        const onVV = () => revealShareButtonsIfCovered();
+        visualViewport.addEventListener('resize', onVV);
+        visualViewport.addEventListener('scroll', onVV);
+        setTimeout(() => {
+          visualViewport.removeEventListener('resize', onVV);
+          visualViewport.removeEventListener('scroll', onVV);
+        }, 3000);
       }
     };
 
-    // ⬇️ ХЕЛПЕР: подождать, пока отрисуется экран результата, и попробовать несколько раз
-    const scheduleRevealShareButtons = () => {
-      let tries = 0;
-      const maxTries = 8;
 
-      const tick = () => {
-        tries += 1;
-        revealShareButtonsIfCovered();
-        if (tries < maxTries) requestAnimationFrame(tick);
-      };
-
-      // Небольшая задержка — даём родителю отрендерить Result и изображения
-      setTimeout(() => requestAnimationFrame(tick), 60);
-    };
-
-  // ⬇️ ОБНОВЛЁННАЯ ФУНКЦИЯ: завершение рисования + автопрокрутка к «Поделиться», если нужно
+   // 6) Завершение рисования — вызвать планировщик автопрокрутки
     const endDrawing = () => {
       if (!isDrawing) return;
       setIsDrawing(false);
 
-      // Убираем мел
       setChalkStyle({ display: 'none' });
 
       const canvas = canvasRef.current;
@@ -224,7 +292,6 @@ const Canvas = ({ onDrawEnd, attempts }) => {
       clearCanvas();
       setPoints([]);
 
-      // ВАЖНО: после перехода на экран результата — проверить видимость кнопок «Поделиться»
       scheduleRevealShareButtons();
     };
 
