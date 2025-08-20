@@ -1,0 +1,49 @@
+.wm-backdrop {
+  position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.5); z-index: 9999; padding: 16px;
+}
+
+.wm-modal {
+  width: 100%; max-width: 520px;
+  background: #ffffff; border-radius: 18px; padding: 20px 20px 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2); position: relative;
+}
+
+.wm-close {
+  position: absolute; right: 10px; top: 8px; border: none; background: transparent;
+  font-size: 28px; line-height: 28px; cursor: pointer;
+}
+
+.wm-title { margin: 0 0 6px 0; font-size: 22px; }
+.wm-subtitle { margin: 0 0 14px 0; color: #333; font-size: 14px; line-height: 1.4; }
+
+.wm-label { display: block; font-size: 13px; margin-bottom: 6px; color: #444; }
+.wm-input {
+  width: 100%; padding: 10px 12px; font-size: 14px;
+  border: 1px solid #ddd; border-radius: 10px; outline: none;
+}
+.wm-input:focus { border-color: #be5200; }
+
+.wm-error { margin-top: 8px; color: #b00020; font-size: 13px; }
+
+.wm-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; }
+
+.wm-btn {
+  border: none; border-radius: 12px; padding: 10px 14px; font-size: 14px; cursor: pointer;
+}
+.wm-btn-primary { background: #be5200; color: #fff; }
+.wm-btn-primary:disabled { opacity: 0.7; cursor: default; }
+.wm-btn-secondary { background: #efefef; color: #111; }
+
+.wm-hint { margin-top: 8px; font-size: 12px; color: #666; }
+
+/* Кнопка в шапке */
+.wallet-button {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 10px; border-radius: 12px; border: 1px solid #e9e9e9; background: #fff;
+  font-size: 13px; cursor: pointer; user-select: none;
+}
+.wallet-button:hover { background: #f8f8f8; }
+.wallet-button .dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #be5200;
+}

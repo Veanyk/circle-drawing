@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import WalletModal from './components/WalletModal';
+import './components/WalletModal.css';
 import Canvas from './components/Canvas';
 import Result from './components/Result';
 import Tasks from './components/Tasks';
@@ -11,6 +13,11 @@ import './App.css';
 // Единый источник для URL сервера
 const SERVER_URL = process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : '/api';
 const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000;
+
+// Порог №1 — первый ввод кошелька
+const WALLET_CREATE_THRESHOLD = 420;
+// Порог №2 — повторный ввод (изменение) кошелька
+const WALLET_EDIT_THRESHOLD = 1000;
 
 // Универсальный fetch с таймаутом и ретраями (чтобы UI не «вис»)
 const fetchJSON = async (url, options = {}, { timeout = 10000, retries = 2, retryDelay = 300 } = {}) => {
@@ -65,75 +72,127 @@ function App() {
   const [currentTab, setCurrentTab] = useState('circle');
   const [drawingData, setDrawingData] = useState(null);
 
-  // Cостояния пользователя
+  // Wallet
+  const [wallet, setWallet] = useState(null);
+  const [walletModalOpen, setWalletModalOpen] = useState(false);
+  const [walletModalMode, setWalletModalMode] = useState('create'); // 'create' | 'edit'
+
+  // Состояния пользователя
   const [userId, setUserId] = useState(null);
   const [coins, setCoins] = useState(0);
   const [attempts, setAttempts] = useState(0);
-  const [maxAttempts, setMaxAttempts] = useState(25);
+  const [maxAttempts, setMaxAttempts] = useState(10);
   const [completedTasks, setCompletedTasks] = useState([]);
   const [nextAttemptTimestamp, setNextAttemptTimestamp] = useState(null);
   const [timeToNextAttempt, setTimeToNextAttempt] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Ключи для "не надоедать" по этапам
+  const DISMISS_CREATE = 'walletPromptDismissed_create';
+  const DISMISS_EDIT = 'walletPromptDismissed_edit';
+
+  const isDismissed = (key) => localStorage.getItem(key) === '1';
+  const dismiss = (key) => localStorage.setItem(key, '1');
+  const undismiss = (key) => localStorage.removeItem(key);
+
+  const openCreateWalletModal = () => { setWalletModalMode('create'); setWalletModalOpen(true); };
+  const openEditWalletModal = () => { setWalletModalMode('edit'); setWalletModalOpen(true); };
+  const closeWalletModal = () => setWalletModalOpen(false);
+
+  const canAddWallet = coins >= WALLET_CREATE_THRESHOLD && !wallet;
+  const canEditWallet = coins >= WALLET_EDIT_THRESHOLD && !!wallet;
+
   // 1) Инициализация пользователя при первом запуске
-  useEffect(() => {
-  let isMounted = true; // Declare isMounted here
+    useEffect(() => {
+      let isMounted = true;
 
-  const tg = window.Telegram?.WebApp;
-  try {
-    tg?.ready();
-    tg?.expand();
-  } catch {}
+      const tg = window.Telegram?.WebApp;
+      try { tg?.ready(); tg?.expand(); } catch {}
+      try { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); } catch {}
 
-  try {
-    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-  } catch {}
+      const finalUserId = initializeUserId();
+      setUserId(finalUserId);
 
-  const finalUserId = initializeUserId();
-  setUserId(finalUserId);
+      const tgUnsafe   = window.Telegram?.WebApp?.initDataUnsafe;
+      const tgInitData = window.Telegram?.WebApp?.initData || '';
+      const tgUser     = tgUnsafe?.user;
 
-  const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
-  const urlParams = new URLSearchParams(window.location.search);
-  const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
-  let refId = urlParams.get('ref') || (startParam?.startsWith('ref_') ? startParam.slice(4) : null);
-  if (refId) {
-    localStorage.setItem('referrerId', refId);
-  } else {
-    refId = localStorage.getItem('referrerId');
-  }
+      const urlParams  = new URLSearchParams(window.location.search);
+      const urlRef     = urlParams.get('ref');
+      const startParam = tgUnsafe?.start_param;
+      const startRef   = (typeof startParam === 'string' && startParam.startsWith('ref_'))
+        ? startParam.slice(4)
+        : null;
 
-  (async () => {
-    try {
-      const data = await fetchJSON(`${SERVER_URL}/getUserData`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: finalUserId,
-          ref_id: refId,
-          username: tgUser?.username,
-        }),
-      }, { timeout: 10000, retries: 2 });
+      // Фолбэк через localStorage: сохраним ref до успешной привязки в Телеграме
+      let refId = urlRef || startRef || localStorage.getItem('referrerId') || null;
+      if (refId) localStorage.setItem('referrerId', refId);
 
-      if (isMounted && data) { // Check if the component is still mounted
-        setCoins(Number(data.coins) || 0);
-        setAttempts(Number(data.attempts) || 0);
-        setMaxAttempts(Number(data.max_attempts) || 25);
-        setCompletedTasks(Array.isArray(data.completed_tasks) ? data.completed_tasks : []);
-        setNextAttemptTimestamp(Number.isFinite(data.nextAttemptTimestamp) ? data.nextAttemptTimestamp : null);
-      }
-    } catch (err) {
-      console.error('getUserData failed:', err);
-    } finally {
-      if (isMounted) { // Also check here before setting loading state
-        setIsLoading(false);
-      }
-    }
-  })();
+      (async () => {
+        try {
+          const data = await fetchJSON(`${SERVER_URL}/getUserData`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: finalUserId,
+              ref_id: refId,
+              username: tgUser?.username,
+            }),
+          }, { timeout: 10000, retries: 2 });
 
-  return () => {
-    isMounted = false; // This cleanup function runs when the component unmounts
-  };
-}, []);
+          if (!isMounted || !data) return;
+
+          const nextCoins = Number(data.coins) || 0;
+          setCoins(nextCoins);
+          setAttempts(Number(data.attempts) || 0);
+          setMaxAttempts(Number(data.max_attempts) || 10);
+          setCompletedTasks(Array.isArray(data.completed_tasks) ? data.completed_tasks : []);
+          setNextAttemptTimestamp(Number.isFinite(data.nextAttemptTimestamp) ? data.nextAttemptTimestamp : null);
+          setWallet(data.wallet ?? null);
+
+          // НАДЁЖНАЯ привязка через /acceptReferral (только внутри Telegram, с подписью initData)
+          const isTelegramUserId = /^\d+$/.test(String(finalUserId));
+          const inviterNumeric   = /^\d+$/.test(String(refId || '')) ? String(refId) : null;
+          const hasInitData      = typeof tgInitData === 'string' && tgInitData.length > 0;
+
+          if (
+            hasInitData &&
+            isTelegramUserId &&
+            inviterNumeric &&
+            inviterNumeric !== String(finalUserId) &&
+            (!data.referrer_id || !data.referral_processed)
+          ) {
+            try {
+              const resp = await fetch(`${SERVER_URL}/acceptReferral`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ inviter_id: inviterNumeric, initData: tgInitData }),
+              });
+              if (resp.ok) {
+                // Привязали — можно очистить сохранённый реф
+                localStorage.removeItem('referrerId');
+              }
+            } catch (e) {
+              console.warn('acceptReferral failed (ignored):', e);
+            }
+          }
+
+          // Пороговые модалки
+          if (nextCoins >= WALLET_CREATE_THRESHOLD && !data.wallet && !isDismissed(DISMISS_CREATE)) {
+            openCreateWalletModal();
+          }
+          if (nextCoins >= WALLET_EDIT_THRESHOLD && data.wallet && !isDismissed(DISMISS_EDIT)) {
+            openEditWalletModal();
+          }
+        } catch (err) {
+          console.error('getUserData failed:', err);
+        } finally {
+          if (isMounted) setIsLoading(false);
+        }
+      })();
+
+      return () => { isMounted = false; };
+    }, []);
 
   // 2) Таймер восстановления попыток (без «залипания»)
   useEffect(() => {
@@ -168,6 +227,35 @@ function App() {
     });
   }, [userId]);
 
+  // 4) Сохранение кошелька на сервере (тот же эндпоинт — перезаписывает адрес при режиме 'edit')
+  const saveWalletOnServer = useCallback(async (walletStr) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort('timeout'), 10000);
+    try {
+      const response = await fetch(`${SERVER_URL}/setWallet`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, wallet: walletStr }),
+        signal: controller.signal
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const code = payload?.error || `HTTP_${response.status}`;
+        throw new Error(code);
+      }
+      setWallet(payload?.wallet || walletStr);
+      // Сохранили — очистим оба "dismiss", чтобы можно было предлагать снова при будущих изменениях логики
+      undismiss(DISMISS_CREATE);
+      undismiss(DISMISS_EDIT);
+      closeWalletModal();
+      try {
+        window.Telegram?.WebApp?.showPopup?.({ title: 'Готово', message: 'Кошелёк сохранён ✅' });
+      } catch {}
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }, [userId]);
+
   const onDrawEnd = (circleAccuracy, points, canvas) => {
     if (attempts <= 0) return;
     const newAttempts = attempts - 1;
@@ -182,6 +270,17 @@ function App() {
       setNextAttemptTimestamp(Date.now() + ATTEMPT_REGEN_INTERVAL_MS);
     }
     updateUserDataOnServer({ coins: newCoins, attempts: newAttempts, score: circleAccuracy });
+
+    // Переход 420+ (первый ввод)
+    if (coins < WALLET_CREATE_THRESHOLD && newCoins >= WALLET_CREATE_THRESHOLD && !wallet) {
+      undismiss(DISMISS_CREATE);
+      openCreateWalletModal();
+    }
+    // Переход 1000+ (второй ввод — изменение)
+    if (coins < WALLET_EDIT_THRESHOLD && newCoins >= WALLET_EDIT_THRESHOLD && wallet) {
+      undismiss(DISMISS_EDIT);
+      openEditWalletModal();
+    }
   };
 
   const onReset = () => {
@@ -196,6 +295,16 @@ function App() {
     setCompletedTasks(newCompletedTasks);
     setCoins(newCoins);
     updateUserDataOnServer({ coins: newCoins, completed_tasks: newCompletedTasks });
+
+    // Переходы порогов и тут:
+    if (coins < WALLET_CREATE_THRESHOLD && newCoins >= WALLET_CREATE_THRESHOLD && !wallet) {
+      undismiss(DISMISS_CREATE);
+      openCreateWalletModal();
+    }
+    if (coins < WALLET_EDIT_THRESHOLD && newCoins >= WALLET_EDIT_THRESHOLD && wallet) {
+      undismiss(DISMISS_EDIT);
+      openEditWalletModal();
+    }
   };
 
   if (isLoading) {
@@ -212,6 +321,7 @@ function App() {
               <span className="banner-text">{coins.toFixed(2)}</span>
             </div>
           </div>
+
           <div className="attempts-display">
             <div className="banner-container">
               <img src={require('./assets/total_attempts.png')} alt="Total attempts" className="banner-icon"/>
@@ -223,6 +333,32 @@ function App() {
               </div>
             )}
           </div>
+
+          {/* Кнопка появляется только когда доступно действие */}
+          {canAddWallet && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                className="wallet-button"
+                onClick={() => { undismiss(DISMISS_CREATE); openCreateWalletModal(); }}
+              >
+                <span className="dot" />
+                Добавить кошелёк
+              </button>
+            </div>
+          )}
+
+          {canEditWallet && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                className="wallet-button"
+                onClick={() => { undismiss(DISMISS_EDIT); openEditWalletModal(); }}
+              >
+                <span className="dot" />
+                Изменить кошелёк
+              </button>
+            </div>
+          )}
+
           {score !== null && <ScoreCircle score={score} />}
         </div>
       )}
@@ -249,6 +385,19 @@ function App() {
       </div>
 
       <TabBar currentTab={currentTab} setCurrentTab={setCurrentTab} />
+
+      <WalletModal
+        isOpen={walletModalOpen}
+        initialWallet={wallet || ''}
+        onSave={saveWalletOnServer}
+        onCancel={() => {
+          // Разные "не надоедать" для разных этапов
+          if (walletModalMode === 'edit') dismiss(DISMISS_EDIT);
+          else dismiss(DISMISS_CREATE);
+          closeWalletModal();
+        }}
+        onRequestClose={closeWalletModal}
+      />
     </div>
   );
 }

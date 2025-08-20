@@ -163,7 +163,7 @@ function sanitizeTelegramUsername(name) {
 function normalizeUser(u) {
   const n = { ...u };
   n.user_id = String(n.user_id);
-  n.max_attempts = Number.isFinite(n.max_attempts) && n.max_attempts > 0 ? Math.floor(n.max_attempts) : 25;
+  n.max_attempts = Number.isFinite(n.max_attempts) && n.max_attempts > 0 ? Math.floor(n.max_attempts) : 10;
 
   if (!Number.isFinite(n.attempts) || n.attempts < 0) n.attempts = n.max_attempts;
   n.attempts = Math.min(n.max_attempts, Math.floor(n.attempts));
@@ -198,7 +198,7 @@ function awardInviteIfNeeded(refUser) {
 }
 
 function regenAttempts(u) {
-  u.max_attempts = Math.max(1, Math.floor(u.max_attempts || 25));
+  u.max_attempts = Math.max(1, Math.floor(u.max_attempts || 10));
   u.attempts = Math.max(0, Math.min(u.max_attempts, Math.floor(u.attempts || 0)));
 
   const now = Date.now();
@@ -285,6 +285,17 @@ app.get('/debug/ping', (_req, res) => {
   }
 });
 
+// Возвращает { link: string }
+app.get('/getTask3', (_req, res) => {
+  try {
+    const db = readDb(); // тот же helper, что у вас уже есть
+    const link = db.__config?.task3_link || '';
+    res.json({ link });
+  } catch (e) {
+    res.status(500).json({ error: 'internal_error' });
+  }
+});
+
 // ========= getUserData =========
 app.post('/getUserData', async (req, res) => {
   try {
@@ -294,12 +305,12 @@ app.post('/getUserData', async (req, res) => {
     user_id = String(user_id);
     const providedUsername = sanitizeTelegramUsername(username);
 
-    // Гость: не пишем в БД, возвращаем стандартные данные
+    // Логика для гостевых пользователей (без изменений)
     if (!isTelegramId(user_id)) {
       return res.json({
         user_id,
         username: providedUsername || 'Guest',
-        referrer_id: null, coins: 0, attempts: 25, max_attempts: 25,
+        referrer_id: null, coins: 0, attempts: 10, max_attempts: 10,
         best_score: 0, completed_tasks: [], referrals: [],
         nextAttemptTimestamp: null, wallet: null, wallet_updated_at: null,
         walletEligible: false,
@@ -308,52 +319,75 @@ app.post('/getUserData', async (req, res) => {
 
     const db = readDb();
     let user = db[user_id];
-    let inviter = null;
+    let inviter = null; // Переменная для хранения данных пригласившего
 
     const refIdStr = ref_id ? String(ref_id) : null;
-    const validRef = refIdStr && refIdStr !== user_id && /^\d+$/.test(refIdStr);
+    const isRefLinkValid = refIdStr && refIdStr !== user_id && isTelegramId(refIdStr);
 
+    // --- Сценарий 1: Новый пользователь ---
     if (!user) {
       user = normalizeUser({
         user_id,
         username: providedUsername || `User_${user_id.slice(-4)}`,
-        referrer_id: validRef ? refIdStr : null,
+        // Сразу записываем реферера, если ссылка валидная
+        referrer_id: isRefLinkValid ? refIdStr : null,
       });
     } else {
+      // --- Сценарий 2: Существующий пользователь ---
       user = normalizeUser(user);
+      // Обновляем username, если он изменился в Telegram
       if (providedUsername && providedUsername !== user.username) {
         user.username = providedUsername;
       }
-      if (validRef && !user.referrer_id) {
+      // Если у пользователя еще нет реферера, а он пришел по валидной ссылке - записываем
+      if (isRefLinkValid && !user.referrer_id) {
         user.referrer_id = refIdStr;
       }
     }
 
+    // --- ОБЩАЯ ЛОГИКА ДЛЯ ОБОИХ СЦЕНАРИЕВ: ОБРАБОТКА РЕФЕРАЛА ---
+    // Проверяем, есть ли у пользователя реферер и не был ли он уже обработан
     if (user.referrer_id && !user.referral_processed) {
-      const inviterId = String(user.referrer_id);
+      const inviterId = user.referrer_id;
+
+      // Проверяем, существует ли пригласивший в базе
       if (db[inviterId]) {
-        inviter = normalizeUser(db[inviterId]);
+        inviter = normalizeUser(db[inviterId]); // Загружаем данные пригласившего
+
+        // 1. Добавляем нового пользователя в список рефералов пригласившего
         if (!inviter.referrals.includes(user_id)) {
           inviter.referrals.push(user_id);
         }
+
+        // 2. *** НОВАЯ ЛОГИКА: НАГРАДА ЗА ПРИГЛАШЕНИЕ ***
+        // Вызываем функцию, которая проверяет, нужно ли выдать награду.
+        // Она сама добавит монеты и taskId.
         const rewardGiven = awardInviteIfNeeded(inviter);
         if (rewardGiven) {
-          log(`Referral task awarded (late): +${REFERRAL_TASK_REWARD} to ${inviter.user_id} by ${user_id}`);
+          log(`Награда за реферала (+${REFERRAL_TASK_REWARD}) начислена ${inviter.user_id} от ${user_id}`);
         }
+
+        // 3. Помечаем, что реферал для этого пользователя обработан
         user.referral_processed = true;
       }
     }
 
+    // Восстанавливаем попытки пользователя (без изменений)
     regenAttempts(user);
 
+    // Сохраняем все изменения в базу данных
     db[user_id] = user;
-    if (inviter) db[inviter.user_id] = inviter;
+    if (inviter) {
+      // Если мы изменяли данные пригласившего, их тоже нужно сохранить
+      db[inviter.user_id] = inviter;
+    }
     writeDb(db);
 
-    res.json({ ...user, walletEligible: (user.coins || 0) >= 100 });
+    // Отправляем ответ клиенту
+    res.json({ ...user, walletEligible: (user.coins || 0) >= 420 });
 
   } catch (e) {
-    log(e);
+    log('Ошибка в /getUserData:', e);
     res.status(500).json({ error: 'internal_error' });
   }
 });
@@ -368,11 +402,11 @@ app.post('/updateUserData', async (req, res) => {
 
     if (!isTelegramId(user_id)) {
       const coins = typeof data.coins === 'number' && Number.isFinite(data.coins) ? Math.max(0, data.coins) : 0;
-      const attempts = typeof data.attempts === 'number' && Number.isFinite(data.attempts) ? Math.max(0, Math.floor(data.attempts)) : 25;
+      const attempts = typeof data.attempts === 'number' && Number.isFinite(data.attempts) ? Math.max(0, Math.floor(data.attempts)) : 10;
       const best_score = typeof data.score === 'number' ? data.score : 0;
       return res.json({
         user_id,
-        username: 'Guest', referrer_id: null, coins, attempts, max_attempts: 25, best_score,
+        username: 'Guest', referrer_id: null, coins, attempts, max_attempts: 10, best_score,
         completed_tasks: Array.isArray(data.completed_tasks) ? Array.from(new Set(data.completed_tasks)) : [],
         referrals: [], nextAttemptTimestamp: null, wallet: null, wallet_updated_at: null,
         walletEligible: false,
@@ -418,7 +452,7 @@ app.post('/updateUserData', async (req, res) => {
 
     db[user_id] = u;
     writeDb(db);
-    res.json({ ...u, walletEligible: (u.coins || 0) >= 100 });
+    res.json({ ...u, walletEligible: (u.coins || 0) >= 420 });
   } catch (e) {
     log(e);
     res.status(500).json({ error: 'internal_error' });
@@ -560,8 +594,8 @@ app.post('/setWallet', (req, res) => {
     const u = db[user_id];
     if (!u) return res.status(404).json({ error: 'user_not_found' });
 
-    if ((u.coins || 0) < 100) {
-      return res.status(403).json({ error: 'not_eligible', need: 100, have: u.coins || 0 });
+    if ((u.coins || 0) < 420) {
+      return res.status(403).json({ error: 'not_eligible', need: 420, have: u.coins || 0 });
     }
     if (typeof wallet !== 'string' || wallet.trim().length < 6 || wallet.trim().length > 120) {
         return res.status(400).json({ error: 'invalid_wallet' });

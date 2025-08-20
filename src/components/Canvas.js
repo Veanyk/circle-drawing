@@ -14,34 +14,37 @@ const Canvas = ({ onDrawEnd, attempts }) => {
   const [points, setPoints] = useState([]);
   const [chalkStyle, setChalkStyle] = useState({ display: 'none' });
 
-  useEffect(() => {
+    useEffect(() => {
     const canvas = canvasRef.current;
+    if (!canvas) return;
     const context = canvas.getContext('2d');
 
-    function resizeCanvas() {
+    // Переменная для хранения фонового изображения
+    const background = new Image();
+    background.src = drawingFieldImage;
+
+    const resizeCanvas = () => {
       const container = canvas.parentElement;
-      const computedStyle = getComputedStyle(container);
-      const width = parseInt(computedStyle.getPropertyValue('width'), 10);
+      if (!container) return;
+
+      // Используем clientWidth для более надежного измерения в скрытых элементах
+      const containerWidth = container.clientWidth;
+      if (containerWidth === 0) return; // Не делаем ничего, если контейнер все еще невидимый
 
       const maxWidth = 500;
-      const canvasWidth = Math.min(width * 0.8, maxWidth);
-      const canvasHeight = canvasWidth; // квадрат
+      const canvasWidth = Math.min(containerWidth * 0.8, maxWidth);
+      const canvasHeight = canvasWidth;
 
-      canvas.width = canvasWidth;
-      canvas.height = canvasHeight;
-      canvas.style.width = `${canvasWidth}px`;
-      canvas.style.height = `${canvasHeight}px`;
+      // Применяем размеры, только если они изменились, чтобы избежать лишних перерисовок
+      if (canvas.width !== canvasWidth || canvas.height !== canvasHeight) {
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+      }
 
       // Очищаем и рисуем фон
       context.clearRect(0, 0, canvas.width, canvas.height);
-      if (backgroundRef.current) {
-        context.drawImage(
-          backgroundRef.current,
-          0,
-          0,
-          canvas.width,
-          canvas.height
-        );
+      if (background.complete) { // Убедимся, что фон загрузился
+        context.drawImage(background, 0, 0, canvas.width, canvas.height);
       }
 
       // Настройки кисти
@@ -49,27 +52,32 @@ const Canvas = ({ onDrawEnd, attempts }) => {
       context.strokeStyle = '#ffffff';
       context.lineCap = 'round';
       context.lineJoin = 'round';
+    };
+
+    // Вызываем resizeCanvas, когда фон загрузится
+    background.onload = resizeCanvas;
+
+    // --- КЛЮЧЕВОЕ ИЗМЕНЕНИЕ ---
+    // Создаем наблюдателя, который будет следить за родительским элементом
+    const observer = new ResizeObserver(() => {
+      // Вызываем resizeCanvas каждый раз, когда размер родителя меняется
+      // (включая тот момент, когда он становится видимым из display: none)
+      resizeCanvas();
+    });
+
+    // Начинаем наблюдение
+    if (canvas.parentElement) {
+      observer.observe(canvas.parentElement);
     }
 
-    const background = new Image();
-    background.src = drawingFieldImage;
-    background.onload = () => {
-      backgroundRef.current = background;
-      resizeCanvas();
-      window.addEventListener('resize', resizeCanvas);
-    };
-
-    // Предотвращаем прокрутку при тач-событиях
-    const preventDefault = (e) => e.preventDefault();
-    canvas.addEventListener('touchstart', preventDefault, { passive: false });
-    canvas.addEventListener('touchmove', preventDefault, { passive: false });
-
+    // Очистка при размонтировании
     return () => {
-      window.removeEventListener('resize', resizeCanvas);
-      canvas.removeEventListener('touchstart', preventDefault);
-      canvas.removeEventListener('touchmove', preventDefault);
+      if (canvas.parentElement) {
+        observer.unobserve(canvas.parentElement);
+      }
     };
-  }, []);
+  }, []); // Пустой массив зависимостей
+
 
   // Координаты события
   const getEventPos = (event) => {
@@ -108,36 +116,42 @@ const Canvas = ({ onDrawEnd, attempts }) => {
   };
 
   // Начало рисования
-  const startDrawing = (event) => {
-    if (attempts <= 0) {
-      alert('You are out of attempts!');
-      return;
-    }
+    const startDrawing = (event) => {
+      if (attempts <= 0) {
+        alert('You are out of attempts!');
+        return;
+      }
 
-    const { x, y } = getEventPos(event);
-    setIsDrawing(true);
-    setPoints([{ x, y }]);
+      // Блокируем прокрутку/зум только если пользователь действительно начал рисовать
+      if (event.cancelable) event.preventDefault();
 
-    const context = canvasRef.current.getContext('2d');
-    context.beginPath();
-    context.moveTo(x, y);
+      const { x, y } = getEventPos(event);
+      setIsDrawing(true);
+      setPoints([{ x, y }]);
 
-    updateChalkPosition(event);
-  };
+      const context = canvasRef.current.getContext('2d');
+      context.beginPath();
+      context.moveTo(x, y);
+
+      updateChalkPosition(event);
+    };
 
   // Рисование
-  const draw = (event) => {
-    if (!isDrawing) return;
+    const draw = (event) => {
+      if (!isDrawing) return;
 
-    const { x, y } = getEventPos(event);
-    setPoints((prevPoints) => [...prevPoints, { x, y }]);
+      // Во время рисования блокируем скролл
+      if (event.cancelable) event.preventDefault();
 
-    const context = canvasRef.current.getContext('2d');
-    context.lineTo(x, y);
-    context.stroke();
+      const { x, y } = getEventPos(event);
+      setPoints((prevPoints) => [...prevPoints, { x, y }]);
 
-    updateChalkPosition(event);
-  };
+      const context = canvasRef.current.getContext('2d');
+      context.lineTo(x, y);
+      context.stroke();
+
+      updateChalkPosition(event);
+    };
 
   // Завершение рисования
   const endDrawing = () => {
