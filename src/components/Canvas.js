@@ -153,25 +153,80 @@ const Canvas = ({ onDrawEnd, attempts }) => {
       updateChalkPosition(event);
     };
 
-  // Завершение рисования
-  const endDrawing = () => {
-    if (!isDrawing) return;
-    setIsDrawing(false);
+  // ⬇️ ХЕЛПЕР: вычисляем "защитную" высоту нижних системных/телеграм-кнопок
+    const getBottomGuardPx = (min = 80) => {
+      const vv = window.visualViewport;
+      const overlay = vv ? Math.max(0, window.innerHeight - Math.floor(vv.height)) : 0;
+      return Math.max(min, overlay + 16); // небольшой запас
+    };
 
-    // Убираем мел
-    setChalkStyle({ display: 'none' });
+    // ⬇️ ХЕЛПЕР: если блок с «Поделиться» перекрыт снизу — аккуратно доскроллить
+    const revealShareButtonsIfCovered = () => {
+      const selectors = [
+        '#shareButtons',
+        '.share-buttons',
+        '.share-container',
+        '#share',
+        '.result-actions',
+        '.result-buttons',
+        '[data-share-buttons]',
+      ];
+      const el = selectors.map(s => document.querySelector(s)).find(Boolean);
 
-    const canvas = canvasRef.current;
-    const score = calculateFinalScore(points);
+      // если конкретный контейнер не нашли — прокрутим к низу как фолбэк
+      if (!el) {
+        const root = document.scrollingElement || document.documentElement;
+        window.scrollTo({ top: root.scrollHeight, behavior: 'smooth' });
+        return;
+      }
 
-    onDrawEnd(score, points, canvas, {
-      width: canvas.width,
-      height: canvas.height,
-    });
+      const rect = el.getBoundingClientRect();
+      const viewH = window.innerHeight || document.documentElement.clientHeight;
+      const guard = getBottomGuardPx();
 
-    clearCanvas();
-    setPoints([]);
-  };
+      if (rect.bottom > viewH - guard) {
+        const delta = rect.bottom - (viewH - guard) + 16; // +паддинг
+        window.scrollBy({ top: delta, behavior: 'smooth' });
+      }
+    };
+
+    // ⬇️ ХЕЛПЕР: подождать, пока отрисуется экран результата, и попробовать несколько раз
+    const scheduleRevealShareButtons = () => {
+      let tries = 0;
+      const maxTries = 8;
+
+      const tick = () => {
+        tries += 1;
+        revealShareButtonsIfCovered();
+        if (tries < maxTries) requestAnimationFrame(tick);
+      };
+
+      // Небольшая задержка — даём родителю отрендерить Result и изображения
+      setTimeout(() => requestAnimationFrame(tick), 60);
+    };
+
+  // ⬇️ ОБНОВЛЁННАЯ ФУНКЦИЯ: завершение рисования + автопрокрутка к «Поделиться», если нужно
+    const endDrawing = () => {
+      if (!isDrawing) return;
+      setIsDrawing(false);
+
+      // Убираем мел
+      setChalkStyle({ display: 'none' });
+
+      const canvas = canvasRef.current;
+      const score = calculateFinalScore(points);
+
+      onDrawEnd(score, points, canvas, {
+        width: canvas.width,
+        height: canvas.height,
+      });
+
+      clearCanvas();
+      setPoints([]);
+
+      // ВАЖНО: после перехода на экран результата — проверить видимость кнопок «Поделиться»
+      scheduleRevealShareButtons();
+    };
 
   // Очистка канваса и фона
   const clearCanvas = () => {
