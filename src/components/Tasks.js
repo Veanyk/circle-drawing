@@ -10,7 +10,7 @@ import task1Icon from '../assets/1.png';
 import task2Icon from '../assets/2.png';
 import completeBtn from '../assets/complete.png';
 import task3Icon from '../assets/3.png';
-import task3Desc from '../assets/task_2.png';
+import task3Desc from '../assets/task_3.png';
 
 const DEFAULT_TASK3_LINK =
   'https://twitter.com/intent/tweet?text=Check%20out%20this%20awesome%20circle%20drawing%20game!&url=https%3A%2F%2Fdraw-a-circle.chickenkiller.com';
@@ -108,13 +108,13 @@ const Tasks = memo(function Tasks({ onTaskComplete, completedTasks, setCurrentTa
               <img
                 src={task.image}
                 alt={task.title}
-                className="task-image"
+                className={`task-image ${task.id === 3 ? 'task3-image' : ''}`}
                 loading="lazy"
               />
               <img
                 src={task.descriptionImage}
                 alt={task.title}
-                className="task-description-image"
+                className={`task-description-image ${task.id === 3 ? 'task3-description-image' : ''}`}
                 loading="lazy"
               />
               <button

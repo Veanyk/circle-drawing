@@ -11,8 +11,8 @@
 .tasks-title-image {
   display: block;
   margin: 0 auto 20px auto;
-  width: 100%; /* Используем проценты для адаптивности */
-  max-width: 220px; /* <-- УМЕНЬШАЕМ МАКСИМАЛЬНУЮ ШИРИНУ */
+  width: 100%;
+  max-width: 220px;
   height: auto;
 }
 
@@ -29,7 +29,7 @@
   padding: 20px;
   margin-bottom: 20px;
   background-image: url('../assets/background_task.png');
-  background-size: contain; /* Изменено с cover на contain */
+  background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
   width: 100%;
@@ -38,9 +38,9 @@
   box-sizing: border-box;
 }
 
-/* Найдите в Tasks.css этот блок */
+/* Выполненные */
 .task-card.completed {
-  opacity: 0.6; /* Затемнение выполненных заданий */
+  opacity: 0.6;
 }
 .task-card.completed .task-image,
 .task-card.completed .task-description-image,
@@ -53,7 +53,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  width: 100%; /* Добавлено для корректного масштабирования */
+  width: 100%;
 }
 
 .task-image {
@@ -63,11 +63,17 @@
   margin-bottom: 10px;
 }
 
-.task-description-image {
-  width: 80%;
-  max-width: 400px;
-  height: auto;
-  margin-bottom: 10px;
+/* Увеличили иконку для задания №3 */
+.task3-image {
+  width: 90px;   /* было 80px */
+  height: 90px;  /* было 80px */
+}
+
+
+/* уменьшенная версия описания для task_3 */
+.task3-description-image {
+  width: 70%;        /* было 80% */
+  max-width: 320px;  /* было 400px */
 }
 
 .task-reward {
@@ -91,36 +97,48 @@
   height: auto;
 }
 
-/* Адаптивность для мобильных устройств */
+/* Адаптивность */
 @media (max-width: 768px) {
   .task-card {
-    width: 80%; /* Уменьшаем ширину карточки на мобильных устройствах */
-    background-size: contain; /* Убедиться, что фон масштабируется */
+    width: 80%;
+    background-size: contain;
     padding: 5px;
     margin-bottom: 5px;
   }
+
   .tasks-title-image {
-  display: block;
-  margin: 0 auto 20px auto;
-  width: 100%; /* Используем проценты для адаптивности */
-  max-width: 110px; /* <-- УМЕНЬШАЕМ МАКСИМАЛЬНУЮ ШИРИНУ */
-  height: auto;
-}
+    display: block;
+    margin: 0 auto 20px auto;
+    width: 100%;
+    max-width: 110px;
+    height: auto;
+  }
 
   .task-image {
     width: 60px;
     height: 60px;
   }
 
-  .task-description-image {
-    width: 80%;
+  .task3-image {
+    width: 54px;   /* было 48px */
+    height: 54px;  /* было 48px */
+  }
+  .task3-description-image {
+    width: 62%;        /* было 70% */
+    max-width: 220px;  /* было 240px */
+  }
+
+  .task3-description-image {
+    width: 70%;        /* было 80% */
+    max-width: 240px;  /* было 400px */
   }
 
   .complete-button-image {
     width: 80px;
   }
 }
+
 .complete-button-image.completed {
-  filter: grayscale(100%) opacity(0.6); /* Делает картинку серой и полупрозрачной */
-  transition: filter 0.3s ease; /* Плавный переход для красоты */
+  filter: grayscale(100%) opacity(0.6);
+  transition: filter 0.3s ease;
 }
