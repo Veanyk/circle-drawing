@@ -17,18 +17,6 @@ const ScoreCircle = ({ score }) => {
   };
   const resultCircleImage = require('../assets/result_circle.png');
 
-  const headerStyle = {
-    position: 'sticky',  // «прилипает» к верху ТОЛЬКО внутри Result
-    top: 0,
-    left: 'auto',
-    right: 'auto',
-    transform: 'none',
-    zIndex: 1,
-    margin: '0 auto 8px',
-    width: 120,
-    height: 120,
-  };
-
   return (
     <div className="score-circle-header" style={headerStyle}>
       <div className="score-circle-dynamic" style={circleStyle} />
