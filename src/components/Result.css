@@ -12,30 +12,11 @@
 }
 
 .result-container {
-  min-height: 100vh;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-
-  box-sizing: border-box;
+  flex-direction: column; /* Элементы будут идти друг под другом */
+  align-items: center;   /* Центрирование по горизонтали */
+  padding: 20px 0;         /* Добавим немного отступов сверху и снизу */
   width: 100%;
-  padding: 20px;
-  padding-top: var(--board-top); /* синхронизировано с Canvas */
-  padding-bottom: calc(env(safe-area-inset-bottom, 0) + 240px);
-}
-
-/* КРУГ – фиксированно 50px от верха, по центру */
-.result-circle-overlay {
-  position: fixed;
-  top: 50px;             /* требуемые 50px */
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-  pointer-events: none;
 }
 
 .circle-accuracy-text,
@@ -46,6 +27,11 @@
   margin: 4px 0;
   text-align: center;
   line-height: 1.2;
+}
+
+.score-container {
+  margin-top: 30px; /* Заменяет 'top: 50px'. 30px + 20px padding = 50px от верха */
+  margin-bottom: 20px; /* Добавим отступ снизу для текста */
 }
 
 /* Центрирование снимка результата */
@@ -138,32 +124,28 @@
 /* Сам круг результата */
 .result-score-circle {
   position: relative;
-  width: 120px;
-  height: 120px;
-  margin: 0 auto;
-  pointer-events: none;
+  width: 150px; /* Пример размера */
+  height: 150px; /* Пример размера */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-
-.score-circle-image,
-.score-circle-dynamic {
+.score-circle-dynamic,
+.score-circle-image {
   position: absolute;
-  inset: 0;
-  border-radius: 50%;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .score-circle-text {
   position: absolute;
-  left: 50%;
   top: 50%;
-  transform: translate(-12%, -50%);
-  font-family: 'Gloria Hallelujah', cursive;
-  font-size: 26px;
-  color: #000;
-  user-select: none;
-}
-
-.score-circle-text.higher {
-  transform: translate(-12%, calc(-50% - 20px));
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  font-weight: bold;
 }
 
 /* опускаем цифру ещё ниже на ~20px */

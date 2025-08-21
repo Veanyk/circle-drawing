@@ -19,8 +19,8 @@ const ScoreCircle = ({ score }) => {
     <div className="result-score-circle">
       <div className="score-circle-dynamic" style={circleStyle} />
       <img src={resultCircleImage} alt="Result" className="score-circle-image" />
-      {/* текст смещён ниже на ~20px и чуть левее */}
-      <div className="score-circle-text higher">
+      {/* Этот блок теперь будет идеально центрирован с помощью CSS */}
+      <div className="score-circle-text">
         {Math.round(clamped)}%
       </div>
     </div>
@@ -61,7 +61,7 @@ const Result = ({ score, onReset, drawing, userId }) => {
   return (
     <div className="result-container">
       {/* КРУГ: фиксированно 50px от верха */}
-      <div className="result-circle-overlay">
+      <div className="score-container">
         <ScoreCircle score={pct} />
       </div>
 

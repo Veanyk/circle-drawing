@@ -48,6 +48,8 @@ const Tasks = memo(function Tasks({ onTaskComplete, completedTasks, setCurrentTa
     };
   }, []);
 
+  // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
+  // Второе и третье задания поменялись местами
   const tasksData = [
     {
       id: 1,
@@ -59,20 +61,20 @@ const Tasks = memo(function Tasks({ onTaskComplete, completedTasks, setCurrentTa
       requires_verification: true,
     },
     {
-      id: 2,
-      title: 'Invite a Friend',
-      descriptionImage: task2Desc,
-      action: 'inviteFriend',
-      tokens: 10,
-      image: task2Icon,
-    },
-    {
-      id: 3,
+      id: 3, // Раньше был 2
       title: 'Share on X (Twitter)',
       descriptionImage: task3Desc,
       link: task3Link, // динамическая ссылка
       tokens: 20,
       image: task3Icon,
+    },
+    {
+      id: 2, // Раньше был 3
+      title: 'Invite a Friend',
+      descriptionImage: task2Desc,
+      action: 'inviteFriend',
+      tokens: 10,
+      image: task2Icon,
     },
   ];
 
