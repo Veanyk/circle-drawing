@@ -11,52 +11,106 @@
   --text-size: clamp(16px, 3.5vw, 21px);
 }
 
+/*
+  ГЛАВНЫЙ КОНТЕЙНЕР:
+  Уменьшен отступ 'gap' для более плотной компоновки.
+*/
 .result-container {
   display: flex;
-  flex-direction: column; /* Все элементы идут друг под другом */
-  align-items: center;    /* Центрируем все по горизонтали */
+  flex-direction: column;
+  align-items: center;
   padding: 20px;
   box-sizing: border-box;
   width: 100%;
-  gap: 15px; /* Равномерный отступ между всеми элементами, чтобы поднять их */
+  gap: 8px; /* <-- ИСПРАВЛЕНО: Уменьшен отступ, чтобы поднять контент */
 }
 
+/*
+  ВЕРХНЯЯ СЕКЦИЯ С КРУГОМ:
+  Уменьшен нижний отступ.
+*/
 .top-section {
   width: 100%;
   display: flex;
-  justify-content: center; /* Центрирование круга */
+  justify-content: center;
   align-items: center;
-  margin-bottom: 10px; /* Небольшой отступ до текста ниже */
-  /* Если добавите плашки, используйте 'space-between' для justify-content */
+  margin-bottom: 5px; /* <-- ИСПРАВЛЕНО: Уменьшен отступ */
 }
+
+/* === СТИЛИ КРУГА: ОСНОВНЫЕ ИСПРАВЛЕНИЯ ЗДЕСЬ === */
+
+.result-score-circle {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/*
+  ИСПРАВЛЕНО (1): Слой с градиентом теперь обрезается в идеальный круг,
+  чтобы его центр совпадал с центром фоновой рамки.
+*/
+.score-circle-dynamic {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%; /* <-- КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ */
+}
+
+/* Слой с рамкой (фоновое изображение) */
+.score-circle-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/*
+  ИСПРАВЛЕНО (2): Текст с процентами.
+  Убран хак со смещением, используется только чистое центрирование.
+*/
+.score-circle-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%); /* Единственно верный способ центрирования */
+  z-index: 2; /* Гарантирует, что текст будет поверх градиента */
+
+  /* Стилизация текста, чтобы он был похож на картинку */
+  color: #BE5200;
+  font-family: 'Gloria Hallelujah', cursive; /* Используем тот же импортированный шрифт */
+  font-size: 28px;
+  font-weight: bold;
+}
+
+/* === ТЕКСТ ПОД КРУГОМ === */
 
 .circle-accuracy-text,
 .earned-tokens-text {
   font-family: 'Gloria Hallelujah', cursive;
   color: #000000;
   font-size: var(--text-size);
-  margin: 4px 0;
+  margin: 0; /* <-- ИСПРАВЛЕНО: Убраны лишние отступы */
   text-align: center;
   line-height: 1.2;
 }
 
-.score-container {
-  margin-top: 30px; /* Заменяет 'top: 50px'. 30px + 20px padding = 50px от верха */
-  margin-bottom: 20px; /* Добавим отступ снизу для текста */
-}
+/* === ДОСКА С РИСУНКОМ === */
 
-/* Центрирование снимка результата */
 .result-drawing-container {
   width: 100%;
   display: grid;
   place-items: center;
-  margin: 12px 0 16px 0;
+  margin: 5px 0; /* <-- ИСПРАВЛЕНО: Уменьшены отступы */
 }
 
-/* «Доска» на экране результата — те же размеры, что и canvas */
 .board-size {
   width: var(--board-size);
-  /* оставляем auto, файл квадратный; если нужно — можно задать aspect-ratio: 1/1; */
   height: auto;
   max-width: 500px;
 }
@@ -66,18 +120,23 @@
   display: block;
 }
 
+/* === КНОПКИ И ПОДЕЛИТЬСЯ === */
+
 .buttons {
   display: flex;
   flex-direction: column;
   gap: 10px;
   width: 100%;
   max-width: 300px;
+  align-items: center; /* Центрируем кнопки */
 }
 
 .reset-button {
   background: none;
   border: none;
   cursor: pointer;
+  padding: 0;
+  line-height: 0;
 }
 
 .button-icon {
@@ -96,6 +155,11 @@
   height: auto;
   margin-bottom: 10px;
   max-width: var(--share-max);
+}
+
+.social-icons {
+  display: flex;
+  gap: 15px;
 }
 
 .social-icon-btn {
@@ -127,49 +191,6 @@
   outline-offset: 2px;
 }
 
-/* Телега больше не подпрыгивает */
-.social-icon-btn.telegram:hover {
-  transform: none;
-}
-
-/* Сам круг результата */
-.result-score-circle {
-  position: relative; /* Обязательно для позиционирования дочерних элементов */
-  width: 120px;  /* Можете изменить размер */
-  height: 120px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.score-circle-dynamic,
-.score-circle-image {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.score-circle-text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%); /* Ключевое свойство для центрирования */
-
-  /* Стилизация текста, чтобы он был похож на картинку */
-  color: #BE5200; /* Оранжевый цвет */
-  font-family: 'Comic Sans MS', 'Chalkduster', cursive; /* Рукописный шрифт */
-  font-size: 28px;
-  font-weight: bold;
-}
-
-/* опускаем цифру ещё ниже на ~20px */
-.score-circle-text.lower {
-  transform: translate(-12%, 20px);
-}
-
-/* Twitter — «чуть побольше» */
 .social-icon.twitter-icon {
   width: 30px;
   height: 30px;
