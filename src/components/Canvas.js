@@ -7,75 +7,101 @@ import './Canvas.css';
 
 const Canvas = ({ onDrawEnd, attempts }) => {
   const canvasRef = useRef(null);
-  const backgroundRef = useRef(null);
 
   // Состояния
   const [isDrawing, setIsDrawing] = useState(false);
   const [points, setPoints] = useState([]);
   const [chalkStyle, setChalkStyle] = useState({ display: 'none' });
 
-    useEffect(() => {
+  // Подгон размера канваса под CSS + фон
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const context = canvas.getContext('2d');
 
-    // Переменная для хранения фонового изображения
     const background = new Image();
     background.src = drawingFieldImage;
 
     const resizeCanvas = () => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const context = canvas.getContext('2d');
+      const c = canvasRef.current;
+      if (!c) return;
+      const ctx = c.getContext('2d');
 
-      // Берём фактический CSS-размер (синхронен с --board-size)
-      const rect = canvas.getBoundingClientRect();
+      const rect = c.getBoundingClientRect();
       const canvasWidth = Math.max(1, Math.round(rect.width));
       const canvasHeight = canvasWidth; // квадрат
 
-      // Применяем размеры к буферу, только если изменились
-      if (canvas.width !== canvasWidth || canvas.height !== canvasHeight) {
-        canvas.width = canvasWidth;
-        canvas.height = canvasHeight;
+      if (c.width !== canvasWidth || c.height !== canvasHeight) {
+        c.width = canvasWidth;
+        c.height = canvasHeight;
       }
 
-      // Очищаем и рисуем фон
-      context.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, c.width, c.height);
       if (background.complete) {
-        context.drawImage(background, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(background, 0, 0, c.width, c.height);
       }
 
-      // Настройки кисти
-      context.lineWidth = 3;
-      context.strokeStyle = '#ffffff';
-      context.lineCap = 'round';
-      context.lineJoin = 'round';
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
     };
 
-    // Вызываем resizeCanvas, когда фон загрузится
     background.onload = resizeCanvas;
 
-    // --- КЛЮЧЕВОЕ ИЗМЕНЕНИЕ ---
-    // Создаем наблюдателя, который будет следить за родительским элементом
     const observer = new ResizeObserver(() => {
-      // Вызываем resizeCanvas каждый раз, когда размер родителя меняется
-      // (включая тот момент, когда он становится видимым из display: none)
       resizeCanvas();
     });
-
-    // Начинаем наблюдение
     if (canvas.parentElement) {
       observer.observe(canvas.parentElement);
     }
 
-    // Очистка при размонтировании
     return () => {
       if (canvas.parentElement) {
         observer.unobserve(canvas.parentElement);
       }
     };
-  }, []); // Пустой массив зависимостей
+  }, []); // ← правильное закрытие первого useEffect
 
+  // Лочим прокрутку и гасим жесты, пока идёт рисование
+  const scrollLockRef = useRef({ y: 0, locked: false });
+
+  const lockScroll = () => {
+    if (scrollLockRef.current.locked) return;
+    const y = window.scrollY || window.pageYOffset || 0;
+    scrollLockRef.current.y = y;
+    document.body.style.top = `-${y}px`;
+    document.body.classList.add('no-scroll');
+    scrollLockRef.current.locked = true;
+  };
+
+  const unlockScroll = () => {
+    if (!scrollLockRef.current.locked) return;
+    document.body.classList.remove('no-scroll');
+    document.body.style.top = '';
+    const y = scrollLockRef.current.y || 0;
+    scrollLockRef.current.locked = false;
+    window.scrollTo(0, y);
+  };
+
+  useEffect(() => {
+    const preventWhileDrawing = (e) => {
+      if (isDrawing) e.preventDefault(); // важно: listener НЕ passive
+    };
+
+    document.addEventListener('touchmove', preventWhileDrawing, { passive: false });
+    document.addEventListener('wheel', preventWhileDrawing, { passive: false });
+    document.addEventListener('gesturestart', preventWhileDrawing, { passive: false });
+    document.addEventListener('gesturechange', preventWhileDrawing, { passive: false });
+    document.addEventListener('gestureend', preventWhileDrawing, { passive: false });
+
+    return () => {
+      document.removeEventListener('touchmove', preventWhileDrawing, { passive: false });
+      document.removeEventListener('wheel', preventWhileDrawing, { passive: false });
+      document.removeEventListener('gesturestart', preventWhileDrawing, { passive: false });
+      document.removeEventListener('gesturechange', preventWhileDrawing, { passive: false });
+      document.removeEventListener('gestureend', preventWhileDrawing, { passive: false });
+    };
+  }, [isDrawing]);
 
   // Координаты события
   const getEventPos = (event) => {
@@ -90,7 +116,6 @@ const Canvas = ({ onDrawEnd, attempts }) => {
       x = event.clientX - rect.left;
       y = event.clientY - rect.top;
     }
-
     return { x, y };
   };
 
@@ -114,120 +139,71 @@ const Canvas = ({ onDrawEnd, attempts }) => {
   };
 
   // Начало рисования
-    const startDrawing = (event) => {
-      if (attempts <= 0) {
-        alert('You are out of attempts!');
-        return;
-      }
+  const startDrawing = (event) => {
+    if (attempts <= 0) {
+      alert('You are out of attempts!');
+      return;
+    }
 
-      // Блокируем прокрутку/зум только если пользователь действительно начал рисовать
-      if (event.cancelable) event.preventDefault();
+    // Сразу фиксируем скролл страницы
+    lockScroll();
 
-      const { x, y } = getEventPos(event);
-      setIsDrawing(true);
-      setPoints([{ x, y }]);
+    if (event.cancelable) event.preventDefault();
 
-      const context = canvasRef.current.getContext('2d');
-      context.beginPath();
-      context.moveTo(x, y);
+    const { x, y } = getEventPos(event);
+    setIsDrawing(true);
+    setPoints([{ x, y }]);
 
-      updateChalkPosition(event);
-    };
+    const ctx = canvasRef.current.getContext('2d');
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+
+    updateChalkPosition(event);
+  };
 
   // Рисование
-    const draw = (event) => {
-      if (!isDrawing) return;
+  const draw = (event) => {
+    if (!isDrawing) return;
 
-      // Во время рисования блокируем скролл
-      if (event.cancelable) event.preventDefault();
+    if (event.cancelable) event.preventDefault();
 
-      const { x, y } = getEventPos(event);
-      setPoints((prevPoints) => [...prevPoints, { x, y }]);
+    const { x, y } = getEventPos(event);
+    setPoints((prevPoints) => [...prevPoints, { x, y }]);
 
-      const context = canvasRef.current.getContext('2d');
-      context.lineTo(x, y);
-      context.stroke();
+    const ctx = canvasRef.current.getContext('2d');
+    ctx.lineTo(x, y);
+    ctx.stroke();
 
-      updateChalkPosition(event);
-    };
+    updateChalkPosition(event);
+  };
 
-    // Canvas.js — добавить новый хелпер (в любое место рядом с утилитами)
-    function drawResultBadgeOnCanvas(ctx, score, w, h) {
-      const s = Math.max(0, Math.min(100, Math.round(score)));
-      const pad = Math.round(Math.min(w, h) * 0.02);
-      const size = Math.round(Math.min(w, h) * 0.22); // диаметр бейджа
-      const r = size / 2;
-      const cx = w - pad - r;
-      const cy = pad + r;
+  // Завершение рисования (единственная версия)
+  const endDrawing = () => {
+    if (!isDrawing) return;
+    setIsDrawing(false);
 
-      ctx.save();
+    // Возвращаем скролл
+    unlockScroll();
 
-      // белая подложка круга
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fillStyle = '#ffffff';
-      ctx.fill();
+    setChalkStyle({ display: 'none' });
 
-      // «прогресс» зелёным сектором
-      const angle = (s / 100) * Math.PI * 2;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + angle, false);
-      ctx.closePath();
-      ctx.fillStyle = '#22c55e';
-      ctx.fill();
+    const canvas = canvasRef.current;
+    const score = calculateFinalScore(points);
 
-      // тонкая окантовка
-      ctx.beginPath();
-      ctx.arc(cx, cy, r - 0.5, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(0,0,0,0.15)';
-      ctx.lineWidth = Math.max(1, Math.round(size * 0.03));
-      ctx.stroke();
+    onDrawEnd(score, points, canvas, {
+      width: canvas.width,
+      height: canvas.height,
+    });
 
-      // текст процента
-      ctx.fillStyle = '#000';
-      ctx.font = `${Math.round(size * 0.32)}px "Gloria Hallelujah", "Patrick Hand", system-ui, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(`${s}%`, cx, cy);
+    clearCanvas();
+    setPoints([]);
+  };
 
-      ctx.restore();
-    }
-
-    const endDrawing = () => {
-      if (!isDrawing) return;
-      setIsDrawing(false);
-
-      // спрятать «мел»
-      setChalkStyle({ display: 'none' });
-
-      const canvas = canvasRef.current;
-      const score = calculateFinalScore(points);
-
-      onDrawEnd(score, points, canvas, {
-        width: canvas.width,
-        height: canvas.height,
-      });
-
-      clearCanvas();
-      setPoints([]);
-    };
-
-  // Очистка канваса и фона
+  // Очистка канваса (фон задаётся через CSS)
   const clearCanvas = () => {
     const canvas = canvasRef.current;
-    const context = canvas.getContext('2d');
-    context.clearRect(0, 0, canvas.width, canvas.height);
-
-    if (backgroundRef.current) {
-      context.drawImage(
-        backgroundRef.current,
-        0,
-        0,
-        canvas.width,
-        canvas.height
-      );
-    }
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
   return (
@@ -270,7 +246,6 @@ const Canvas = ({ onDrawEnd, attempts }) => {
 function calculateFinalScore(allPoints) {
   if (!allPoints || allPoints.length < 8) return 0;
 
-  // Уберём подряд идущие одинаковые точки (иногда появляются на touchend)
   const dedup = [];
   for (let i = 0; i < allPoints.length; i++) {
     const p = allPoints[i];
@@ -279,19 +254,15 @@ function calculateFinalScore(allPoints) {
   }
   if (dedup.length < 8) return 0;
 
-  // Ресэмплинг траектории до стабильного числа узлов (+ лёгкое сглаживание)
   const target = clampInt(Math.round(dedup.length * 1.2), 120, 240);
   const resampled = resamplePolyline(dedup, target);
   const pts = smoothPolyline(resampled, 3);
 
-  // Робастная подгонка круга + очистка выбросов; фолбэк на алгебраический fit
   let fit = robustFitCircle(pts);
   if (!fit) fit = algebraicCircleFit(pts);
   if (!fit || !isFinite(fit.r) || fit.r <= 0) return 0;
 
-  // Композитный скор
   const acc = compositeCircleScore(pts, fit);
-  // Возможность идеального 100%
   const { cx, cy, r } = fit;
   const residuals = pts.map((p) => Math.hypot(p.x - cx, p.y - cy) - r);
   const rms = Math.sqrt(residuals.reduce((s, e) => s + e * e, 0) / pts.length);
@@ -301,8 +272,8 @@ function calculateFinalScore(allPoints) {
   const smoothOk = smoothness(pts) > 0.95;
 
   if (
-    rms <= Math.max(0.004 * r, 0.6) &&      // очень маленькая RMS
-    closure <= Math.max(0.02 * r, 2) &&     // почти замкнуто
+    rms <= Math.max(0.004 * r, 0.6) &&
+    closure <= Math.max(0.02 * r, 2) &&
     angleCov >= 0.98 &&
     aspectOk &&
     smoothOk
@@ -313,34 +284,26 @@ function calculateFinalScore(allPoints) {
   return Math.round(acc);
 }
 
-// Композитная метрика круга (аддитивная; без жёстких обнулений)
+// Композитная метрика
 function compositeCircleScore(points, circle) {
   const { cx, cy, r } = circle;
   const N = points.length;
 
-  // Радиальные ошибки
   const residuals = points.map((p) => Math.hypot(p.x - cx, p.y - cy) - r);
   const rms = Math.sqrt(residuals.reduce((s, e) => s + e * e, 0) / N);
-  // Нормируем: допускаем ~10% радиуса для «нуля», 0% — идеально
-  const radialScore = clamp01(1 - rms / (0.10 * r + 1)); // +1 защищает мелкие круги
+  const radialScore = clamp01(1 - rms / (0.10 * r + 1));
 
-  // Замкнутость
   const start = points[0];
   const end = points[points.length - 1];
   const closureDist = Math.hypot(end.x - start.x, end.y - start.y);
   const closureScore = clamp01(1 - closureDist / (0.20 * r + 6));
 
-  // Угловое покрытие
-  const angleCov = angularCoverage(points, cx, cy); // 0..1
+  const angleCov = angularCoverage(points, cx, cy);
   const angleScore = Math.pow(clamp01(angleCov), 1.05);
 
-  // Гладкость
-  const smoothScore = smoothness(points); // 0..1
-
-  // Эллиптичность
+  const smoothScore = smoothness(points);
   const aspectScore = aspectScoreFromPoints(points);
 
-  // Веса (сумма = 1)
   const wRadial = 0.6;
   const wClosure = 0.12;
   const wAngle = 0.15;
@@ -354,9 +317,7 @@ function compositeCircleScore(points, circle) {
     wSmooth * smoothScore +
     wAspect * aspectScore;
 
-  // Нежные корректировки: если недокруг — чуть прижмём
   if (angleCov < 0.6) score *= (0.8 + 0.2 * angleCov);
-  // Если радиально шумно — тоже мягкая коррекция
   if (radialScore < 0.35) score *= (0.7 + 0.3 * radialScore);
 
   return clamp01(score) * 100;
@@ -364,7 +325,6 @@ function compositeCircleScore(points, circle) {
 
 /* === Робастная подгонка круга === */
 
-// Таубин + MAD x2
 function robustFitCircle(points) {
   if (!points || points.length < 8) return null;
 
@@ -385,12 +345,10 @@ function robustFitCircle(points) {
   return fit;
 }
 
-// Таубин (устойчивее простого Касы)
 function taubinCircleFit(points) {
   const N = points.length;
   if (N < 3) return null;
 
-  // Центрирование
   let meanX = 0, meanY = 0;
   for (const p of points) { meanX += p.x; meanY += p.y; }
   meanX /= N; meanY /= N;
@@ -426,7 +384,6 @@ function taubinCircleFit(points) {
   return { cx, cy, r };
 }
 
-// Алгебраический fit (фолбэк) — ваш старый метод, слегка подправлен
 function algebraicCircleFit(points) {
   let sumX = 0, sumY = 0, sumX2 = 0, sumY2 = 0, sumX3 = 0, sumY3 = 0, sumXY = 0, sumX1Y2 = 0, sumX2Y1 = 0;
   const N = points.length;
@@ -470,7 +427,6 @@ function algebraicCircleFit(points) {
   return { cx, cy, r };
 }
 
-// MAD-отбор выбросов
 function filterOutliersByMAD(points, fit, k = 2.5) {
   const { cx, cy, r } = fit;
   const residuals = points.map((p) => Math.abs(Math.hypot(p.x - cx, p.y - cy) - r));
@@ -490,8 +446,6 @@ function filterOutliersByMAD(points, fit, k = 2.5) {
 }
 
 /* === Метрики и утилиты === */
-
-// Угловое покрытие 0..1 (с размоткой фазы)
 function angularCoverage(points, cx, cy) {
   if (points.length < 3) return 0;
   const angles = points.map((p) => Math.atan2(p.y - cy, p.x - cx));
@@ -509,7 +463,6 @@ function angularCoverage(points, cx, cy) {
   return clamp01(cov);
 }
 
-// Гладкость 0..1
 function smoothness(points) {
   if (points.length < 5) return 0.5;
   let sum = 0, cnt = 0;
@@ -521,21 +474,17 @@ function smoothness(points) {
     sum += d; cnt++;
   }
   const avg = sum / Math.max(1, cnt);
-  // 0 — идеально круговое движение; π — угловато
   return clamp01(1 - avg / (Math.PI * 0.9));
 }
 
-// Эллиптичность из bbox (простая проверка пропорций)
 function aspectScoreFromPoints(points) {
   const { minX, maxX, minY, maxY } = bounds(points);
   const w = Math.max(1, maxX - minX);
   const h = Math.max(1, maxY - minY);
   const aspect = w / h;
-  // 1 — идеально; ±20% допуска → 0
   return clamp01(1 - Math.abs(aspect - 1) / 0.20);
 }
 
-// Ресэмплинг по длине дуги до M точек
 function resamplePolyline(points, M) {
   if (points.length <= 2 || M <= 2) return points.slice();
 
@@ -567,7 +516,6 @@ function resamplePolyline(points, M) {
   return res;
 }
 
-// Простое сглаживание (скользящее среднее с окном k)
 function smoothPolyline(points, k = 3) {
   if (k < 2 || points.length <= k) return points.slice();
   const res = points.slice();

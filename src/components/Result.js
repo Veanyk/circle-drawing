@@ -20,7 +20,7 @@ const ScoreCircle = ({ score }) => {
       <div className="score-circle-dynamic" style={circleStyle} />
       <img src={resultCircleImage} alt="Result" className="score-circle-image" />
       {/* текст смещён ниже на ~20px и чуть левее */}
-      <div className="score-circle-text lower">
+      <div className="score-circle-text higher">
         {Math.round(clamped)}%
       </div>
     </div>

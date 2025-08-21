@@ -4,6 +4,10 @@
   --board-top: 120px;             /* синхронизировано с Result */
 }
 
+html, body { overscroll-behavior: none; }
+.canvas-container, .drawing-canvas { overscroll-behavior: contain; }
+body.no-scroll { position: fixed; overflow: hidden; width: 100%; }
+
 .canvas-container {
   position: relative;
   display: flex;

@@ -162,6 +162,10 @@
   user-select: none;
 }
 
+.score-circle-text.higher {
+  transform: translate(-12%, calc(-50% - 20px));
+}
+
 /* опускаем цифру ещё ниже на ~20px */
 .score-circle-text.lower {
   transform: translate(-12%, 20px);
