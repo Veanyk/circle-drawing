@@ -20,7 +20,7 @@ const ScoreCircle = ({ score }) => {
     <div className="result-score-circle">
       <div className="score-circle-dynamic" style={circleStyle} />
       <img src={resultCircleImage} alt="Result" className="score-circle-image" />
-      {/* Этот текст теперь будет идеально отцентрирован внутри круга с помощью CSS */}
+      {/* Сдвинул на 5px выше и левее */}
       <div className="score-circle-text">
         {Math.round(clamped)}%
       </div>
@@ -62,16 +62,11 @@ const Result = ({ score, onReset, drawing, userId }) => {
 
   return (
     <div className="result-container">
-      {/*
-        НОВЫЙ ВЕРХНИЙ БЛОК:
-        Центрирует круг и располагает его на одном уровне с плашками (если они будут добавлены)
-      */}
       <div className="top-section">
         <ScoreCircle score={pct} />
-        {/* Здесь можно будет разместить плашки с монетами и попытками */}
       </div>
 
-      {/* Остальные элементы теперь будут расположены ниже и ближе к центру */}
+      {/* Впритык к кругу */}
       <p className="circle-accuracy-text">Your circle is {pct}% accurate</p>
       <p className="earned-tokens-text">You've earned {decimalTokens} tokens</p>
 
@@ -101,6 +96,9 @@ const Result = ({ score, onReset, drawing, userId }) => {
           </div>
         </div>
       </div>
+
+      {/* Доп. пространство для уверенного скролла поверх TabBar */}
+      <div className="bottom-scroll-spacer" aria-hidden="true" />
     </div>
   );
 };
