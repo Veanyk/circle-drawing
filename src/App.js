@@ -403,16 +403,17 @@ function App() {
 
       <TabBar currentTab={currentTab} setCurrentTab={setCurrentTab} />
 
-      <WalletModal
-        isOpen={walletModalOpen}
-        initialWallet={walletModalSlot === '1000' ? (wallet1000 || '') : (wallet420 || '')}
-        onSave={saveWalletOnServer}
-        onCancel={() => {
-          if (walletModalSlot === '1000') dismiss(DISMISS_EDIT); else dismiss(DISMISS_CREATE);
-          closeWalletModal();
-        }}
-        onRequestClose={closeWalletModal}
-      />
+        <WalletModal
+          isOpen={walletModalOpen}
+          initialWallet={walletModalSlot === '1000' ? (wallet1000 || '') : (wallet420 || '')}
+          onSave={saveWalletOnServer}
+          onCancel={() => {
+            if (walletModalSlot === '1000') dismiss(DISMISS_EDIT); else dismiss(DISMISS_CREATE);
+            closeWalletModal();
+          }}
+          onRequestClose={closeWalletModal}
+          slot={walletModalSlot}
+        />
     </div>
   );
 }

@@ -7,9 +7,10 @@ const MAX_LEN = 120;
 export default function WalletModal({
   isOpen,
   initialWallet,
-  onSave,         // async (wallet) => Promise<void> — calls /setWallet
-  onCancel,       // user clicked "Later"
-  onRequestClose, // close (close button / overlay / ESC)
+  onSave,
+  onCancel,
+  onRequestClose,
+  slot = '420',
 }) {
   const [wallet, setWallet] = useState(initialWallet || '');
   const [error, setError] = useState('');
@@ -87,7 +88,8 @@ export default function WalletModal({
       >
         <button className="wm-close" onClick={onRequestClose} aria-label="Close">×</button>
 
-        <h2 id="wm-title" className="wm-title">🎉 Congrats! You’ve reached 100+ coins</h2>
+        <h2 className="wm-title">🎉 Congrats! You’ve reached {slot === '1000' ? 1000 : 420} coins</h2>
+
         <p className="wm-subtitle">
           Enter your crypto wallet address for future payouts. You can always change it later.
         </p>
