@@ -7,8 +7,8 @@
   --text-size: clamp(16px, 3.5vw, 21px);
 
   /* низ страницы: место под TabBar + запас для прокрутки */
-  --tabbar-clearance: max(20px, 35vh); /* зона под TabBar */
-  --extra-scroll:     max(20px, 50vh); /* доп. пустое поле */
+  --tabbar-clearance: max(30px, 50vh); /* зона под TabBar */
+  --extra-scroll:     max(30px, 60vh); /* доп. пустое поле */
 
   /* параметры круга и сдвига текста */
   --circle-size: 120px;     /* диаметр круга */
