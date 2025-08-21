@@ -125,4 +125,16 @@
 
 .social-icon-btn .social-icon { display: block; width: 30px; height: 30px; border-radius: 50%; }
 .social-icon-btn:focus-visible { outline: 2px solid rgba(59,130,246,.8); outline-offset: 2px; }
-.social-icon.twitter-icon { width: 30px; height: 3
+.social-icon.twitter-icon { width: 30px; height: 30px; }
+
+/* нижние «прокладки» для уверенного скролла */
+.bottom-scroll-spacer { width: 100%; height: var(--tabbar-clearance); }
+.extra-scroll-space   { width: 100%; height: var(--extra-scroll); }
+
+@media (max-width: 768px) {
+  .result-container {
+    padding-bottom: calc(
+      env(safe-area-inset-bottom, 0) + var(--tabbar-clearance) + var(--extra-scroll)
+    );
+  }
+}
