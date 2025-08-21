@@ -7,8 +7,8 @@
   --text-size: clamp(16px, 3.5vw, 21px);
 
   /* низ страницы: место под TabBar + запас для прокрутки */
-  --tabbar-clearance: max(40px, 60vh); /* зона под TabBar */
-  --extra-scroll:     max(40px, 70vh); /* доп. пустое поле */
+  --tabbar-clearance: max(40px, 55vh); /* зона под TabBar */
+  --extra-scroll:     max(40px, 65vh); /* доп. пустое поле */
 
   /* параметры круга и сдвига текста */
   --circle-size: 120px;     /* диаметр круга */
@@ -121,7 +121,7 @@
   cursor: pointer; width: 48px; height: 48px;
 }
 /* Телеграм — чуть выше */
-.social-icon-btn.telegram { transform: translateY(-2px); }
+.social-icon-btn.telegram { transform: translateY(-4px); }
 
 .social-icon-btn .social-icon { display: block; width: 30px; height: 30px; border-radius: 50%; }
 .social-icon-btn:focus-visible { outline: 2px solid rgba(59,130,246,.8); outline-offset: 2px; }
