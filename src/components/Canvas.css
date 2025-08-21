@@ -3,6 +3,7 @@
   --board-size: min(82vw, 70dvh); /* синхронизировано с Result */
   --board-top: 120px;             /* синхронизировано с Result */
   --hint-gap: clamp(8px, 1.6dvh, 18px);
+  --board-extra-offset: 80px;
 }
 
 html, body { overscroll-behavior: none; }
@@ -18,14 +19,14 @@ body.no-scroll { position: fixed; overflow: hidden; width: 100%; }
   box-sizing: border-box;
   width: 100%;
   padding-bottom: clamp(12px, 2dvh, 28px);
-  padding-top: var(--board-top); /* единый верхний край для доски */
+  padding-top: calc(var(--board-top) + var(--board-extra-offset));
 }
 
 /* Подсказка — не двигает доску (absolute), просто висит сверху */
 .draw-circle-image {
   position: absolute;
   /* якорим по верху доски */
-  top: var(--board-top);
+  top: calc(var(--board-top) + var(--board-extra-offset));
   left: 50%;
   /* ставим надпись ровно над доской, на расстоянии --hint-gap */
   transform: translate(-50%, calc(-100% - var(--hint-gap)));
