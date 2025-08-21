@@ -196,29 +196,25 @@ const Canvas = ({ onDrawEnd, attempts }) => {
       ctx.restore();
     }
 
-    // Canvas.js — заменить endDrawing на эту версию
+    // Canvas.js — endDrawing: УБРАТЬ дорисовку круга на холсте (чтоб остался только ScoreCircle в Result)
     const endDrawing = () => {
       if (!isDrawing) return;
       setIsDrawing(false);
 
-      // Убираем мел
+      // Спрятать мел
       setChalkStyle({ display: 'none' });
 
       const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
 
       const score = calculateFinalScore(points);
 
-      // РИСУЕМ бейдж процента ПРЯМО НА ХОЛСТЕ (чтобы Result не добавлял второй круг/фон)
-      drawResultBadgeOnCanvas(ctx, score, canvas.width, canvas.height);
-
-      // Экспортируем готовый холст (фон + ваш рисунок + бейдж результата)
+      // Экспорт снимка того, что есть (доска + ваш контур)
       onDrawEnd(score, points, canvas, {
         width: canvas.width,
         height: canvas.height,
       });
 
-      // Готовим холст к следующей попытке: остаётся только доска
+      // Подготовка к следующей попытке: перерисовать только доску
       clearCanvas();
       setPoints([]);
     };
