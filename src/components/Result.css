@@ -2,6 +2,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap');
 
 :root {
+  /* единый размер и верхний отступ для «доски» на обоих экранах */
+  --board-size: min(82vw, 70dvh);
+  --board-top: 120px;
+
   --share-max: clamp(160px, 40vw, 300px);
   --button-img: clamp(120px, 28vw, 160px);
   --text-size: clamp(16px, 3.5vw, 21px);
@@ -20,19 +24,19 @@
   box-sizing: border-box;
   width: 100%;
   padding: 20px;
-  padding-top: 120px;
+  padding-top: var(--board-top); /* синхронизировано с Canvas */
   padding-bottom: calc(env(safe-area-inset-bottom, 0) + 240px);
 }
 
+/* КРУГ – фиксированно 50px от верха, по центру */
 .result-circle-overlay {
-  position: sticky;
-  top: 8px;          /* «прилипает» к верху области Result */
-  z-index: 2;
-  height: 0;         /* не занимает места в потоке */
-  overflow: visible; /* позволяет кругу выходить за высоту 0 */
-  pointer-events: none; /* чтобы не перекрывать клики по контенту */
+  position: fixed;
+  top: 50px;             /* требуемые 50px */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  pointer-events: none;
 }
-
 
 .circle-accuracy-text,
 .earned-tokens-text {
@@ -44,7 +48,7 @@
   line-height: 1.2;
 }
 
-/* Контейнер просто центрирует изображение результата */
+/* Центрирование снимка результата */
 .result-drawing-container {
   width: 100%;
   display: grid;
@@ -52,11 +56,15 @@
   margin: 12px 0 16px 0;
 }
 
-/* Это ИМЕННО экспорт холста (уже с фоном и бейджем) */
-.result-drawing-image {
-  width: 80vw;
-  max-width: 500px;
+/* «Доска» на экране результата — те же размеры, что и canvas */
+.board-size {
+  width: var(--board-size);
+  /* оставляем auto, файл квадратный; если нужно — можно задать aspect-ratio: 1/1; */
   height: auto;
+  max-width: 500px;
+}
+
+.result-drawing-image {
   border-radius: 10px;
   display: block;
 }
@@ -122,17 +130,41 @@
   outline-offset: 2px;
 }
 
+/* Телега больше не подпрыгивает */
 .social-icon-btn.telegram:hover {
   transform: none;
 }
 
+/* Сам круг результата */
 .result-score-circle {
   position: relative;
   width: 120px;
   height: 120px;
   margin: 0 auto;
-  transform: translateY(-90px);  /* 2) перенесли «гораздо выше» текущего положения */
-  pointer-events: none;           /* круг визуальный, клики не нужны */
+  pointer-events: none;
+}
+
+.score-circle-image,
+.score-circle-dynamic {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+.score-circle-text {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-12%, -50%);
+  font-family: 'Gloria Hallelujah', cursive;
+  font-size: 26px;
+  color: #000;
+  user-select: none;
+}
+
+/* опускаем цифру ещё ниже на ~20px */
+.score-circle-text.lower {
+  transform: translate(-12%, 20px);
 }
 
 /* Twitter — «чуть побольше» */
@@ -143,7 +175,6 @@
 
 @media (max-width: 768px) {
   .result-container {
-    padding-top: 105px;
     padding-bottom: calc(env(safe-area-inset-bottom, 0) + 220px);
   }
 }

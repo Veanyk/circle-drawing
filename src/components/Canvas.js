@@ -24,18 +24,16 @@ const Canvas = ({ onDrawEnd, attempts }) => {
     background.src = drawingFieldImage;
 
     const resizeCanvas = () => {
-      const container = canvas.parentElement;
-      if (!container) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const context = canvas.getContext('2d');
 
-      // Используем clientWidth для более надежного измерения в скрытых элементах
-      const containerWidth = container.clientWidth;
-      if (containerWidth === 0) return; // Не делаем ничего, если контейнер все еще невидимый
+      // Берём фактический CSS-размер (синхронен с --board-size)
+      const rect = canvas.getBoundingClientRect();
+      const canvasWidth = Math.max(1, Math.round(rect.width));
+      const canvasHeight = canvasWidth; // квадрат
 
-      const maxWidth = 500;
-      const canvasWidth = Math.min(containerWidth * 0.8, maxWidth);
-      const canvasHeight = canvasWidth;
-
-      // Применяем размеры, только если они изменились, чтобы избежать лишних перерисовок
+      // Применяем размеры к буферу, только если изменились
       if (canvas.width !== canvasWidth || canvas.height !== canvasHeight) {
         canvas.width = canvasWidth;
         canvas.height = canvasHeight;
@@ -43,7 +41,7 @@ const Canvas = ({ onDrawEnd, attempts }) => {
 
       // Очищаем и рисуем фон
       context.clearRect(0, 0, canvas.width, canvas.height);
-      if (background.complete) { // Убедимся, что фон загрузился
+      if (background.complete) {
         context.drawImage(background, 0, 0, canvas.width, canvas.height);
       }
 

@@ -19,20 +19,8 @@ const ScoreCircle = ({ score }) => {
     <div className="result-score-circle">
       <div className="score-circle-dynamic" style={circleStyle} />
       <img src={resultCircleImage} alt="Result" className="score-circle-image" />
-      {/* 1) текст ещё ниже на 20px и немного левее */}
-      <div className="score-circle-text" style={{ transform: 'translate(-12%, 20px)' }}>
-        {Math.round(clamped)}%
-      </div>
-    </div>
-  );
-};
-
-  return (
-    <div style={wrapperStyle} className="result-score-circle">
-      <div className="score-circle-dynamic" style={circleStyle} />
-      <img src={resultCircleImage} alt="Result" className="score-circle-image" />
-      {/* 1) Сдвиг текста левее и ниже */}
-      <div className="score-circle-text" style={{ transform: 'translate(-12%, 12%)' }}>
+      {/* текст смещён ниже на ~20px и чуть левее */}
+      <div className="score-circle-text lower">
         {Math.round(clamped)}%
       </div>
     </div>
@@ -53,6 +41,7 @@ const Result = ({ score, onReset, drawing, userId }) => {
   const decimalTokens = (score / 100).toFixed(2);
   const shareText = `I drew a circle with ${Math.round(score)}% accuracy! Can you beat me?`;
   const shareUrl = buildDeepLink();
+  const pct = Math.max(0, Math.min(100, Math.round(score)));
 
   const handleShareTelegram = React.useCallback(
     (e) => {
@@ -69,20 +58,19 @@ const Result = ({ score, onReset, drawing, userId }) => {
     [buildDeepLink, score]
   );
 
-  const pct = Math.max(0, Math.min(100, Math.round(score)));
-
   return (
     <div className="result-container">
-        <div className="result-circle-overlay">
-          <ScoreCircle score={pct} />
-        </div>
+      {/* КРУГ: фиксированно 50px от верха */}
+      <div className="result-circle-overlay">
+        <ScoreCircle score={pct} />
+      </div>
 
       <p className="circle-accuracy-text">Your circle is {pct}% accurate</p>
       <p className="earned-tokens-text">You've earned {decimalTokens} tokens</p>
 
-      {/* Показываем ГОТОВЫЙ снимок холста (без дополнительного круга поверх доски) */}
+      {/* «Доска» результата — тот же размер и место, что и в Canvas */}
       <div className="result-drawing-container">
-        <img src={drawing} alt="Your drawing" className="result-drawing-image" />
+        <img src={drawing} alt="Your drawing" className="result-drawing-image board-size" />
       </div>
 
       <div className="buttons">
