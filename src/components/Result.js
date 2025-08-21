@@ -88,6 +88,8 @@ const Result = ({ score, onReset, drawing, userId }) => {
       </div>
 
       <div className="bottom-scroll-spacer" aria-hidden="true" />
+      <div className="extra-scroll-space" aria-hidden="true" />
+    </div>
     </div>
   );
 };
