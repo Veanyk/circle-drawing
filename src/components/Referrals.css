@@ -105,14 +105,13 @@
 
 .referrals-list li.ref-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 15px;
   padding: 10px 0;
   border-bottom: 1px dashed rgba(255, 255, 255, 0.3);
   font-size: 16px;
-  gap: 15px; /* Добавляем общий зазор между элементами */
+  /* было justify-content: space-between; — больше не нужно */
 }
-
 .referrals-list li.ref-item:last-child {
   border-bottom: none;
 }
@@ -126,18 +125,19 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex-grow: 1; /* <-- КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Имя теперь будет растягиваться */
-  min-width: 0; /* Технический трюк, чтобы text-overflow работал в flex-контейнере */
+  flex: 1 1 0;   /* <-- вместо просто flex-grow:1 */
+  min-width: 0;  /* обязательно для корректного ellipsis в flex */
 }
 
 /* Контейнер для статистики */
 .ref-stats {
   display: flex;
-  gap: 15px;
-  white-space: nowrap;
-  flex-shrink: 0; /* Статистика не будет сжиматься */
+  gap: 12px;
+  white-space: normal;  /* было nowrap */
+  flex-wrap: wrap;      /* разрешаем перенос на узких экранах */
+  margin-left: auto;    /* прижимает статистику вправо */
+  /* убери flex-shrink: 0; чтобы не мешать сжатию при нехватке места */
 }
-
 .invite-image {
   margin-top: 50px; /* Уменьшили отступ */
 }
@@ -157,4 +157,7 @@
   height: 100%;
   object-fit: contain;
   }
+}
+@media (max-width: 380px) {
+  .ref-stats { gap: 8px; }
 }

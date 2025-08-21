@@ -64,12 +64,8 @@ const Referrals = ({ userId }) => {
     }
   };
 
-  const displayName = (u) => {
-    const name = u?.username || u?.name || String(u?.user_id || '');
-    if (name.length > 10) {
-      return name.substring(0, 10) + '...';
-    }
-    return name;
+const displayName = (u) => {
+  return u?.username || u?.name || String(u?.user_id || '');
 };
 
   return (

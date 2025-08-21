@@ -20,6 +20,8 @@ const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS || 10000);
 const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000; // 1 минута
 const REFERRAL_TASK_ID = 2;
 const REFERRAL_TASK_REWARD = 30;
+const WALLET_THRESHOLDS = { '420': 420, '1000': 1000 };
+const parseWalletSlot = (slot) => (slot === '1000' ? '1000' : '420');
 
 // ------ Admin auth ------
 const ADMIN_KEYS = (process.env.ADMIN_KEYS || '')
@@ -178,10 +180,18 @@ function normalizeUser(u) {
   }
   if (n.referrer_id != null) n.referrer_id = String(n.referrer_id);
   n.referrals = n.referrals.map(String);
+  if (typeof n.referral_processed !== 'boolean') n.referral_processed = false;
 
-  if (typeof n.referral_processed !== 'boolean') {
-    n.referral_processed = false;
+  // ---- ДОБАВЛЕНО: миграция и дефолты для двух кошельков ----
+  // старое поле wallet маппим в wallet_420 для обратной совместимости
+  if (typeof n.wallet_420 === 'undefined') {
+    n.wallet_420 = (typeof n.wallet === 'string' && n.wallet.trim()) ? n.wallet.trim() : null;
   }
+  if (typeof n.wallet_1000 === 'undefined') {
+    n.wallet_1000 = null;
+  }
+  if (typeof n.wallet_420_updated_at !== 'string') n.wallet_420_updated_at = null;
+  if (typeof n.wallet_1000_updated_at !== 'string') n.wallet_1000_updated_at = null;
 
   return n;
 }
@@ -384,7 +394,15 @@ app.post('/getUserData', async (req, res) => {
     writeDb(db);
 
     // Отправляем ответ клиенту
-    res.json({ ...user, walletEligible: (user.coins || 0) >= 420 });
+    res.json({
+      ...user,
+      // back-compat: "wallet" считаем как кошелёк 420
+      wallet: user.wallet_420 ?? null,
+      wallet_420: user.wallet_420 ?? null,
+      wallet_1000: user.wallet_1000 ?? null,
+      walletEligible: (user.coins || 0) >= 420,
+      walletEligible1000: (user.coins || 0) >= 1000,
+    });
 
   } catch (e) {
     log('Ошибка в /getUserData:', e);
@@ -405,12 +423,25 @@ app.post('/updateUserData', async (req, res) => {
       const attempts = typeof data.attempts === 'number' && Number.isFinite(data.attempts) ? Math.max(0, Math.floor(data.attempts)) : 10;
       const best_score = typeof data.score === 'number' ? data.score : 0;
       return res.json({
-        user_id,
-        username: 'Guest', referrer_id: null, coins, attempts, max_attempts: 10, best_score,
-        completed_tasks: Array.isArray(data.completed_tasks) ? Array.from(new Set(data.completed_tasks)) : [],
-        referrals: [], nextAttemptTimestamp: null, wallet: null, wallet_updated_at: null,
-        walletEligible: false,
-      });
+          user_id,
+          username: providedUsername || 'Guest',
+          referrer_id: null,
+          coins: 0,
+          attempts: 10,
+          max_attempts: 10,
+          best_score: 0,
+          completed_tasks: [],
+          referrals: [],
+          nextAttemptTimestamp: null,
+          // два слота
+          wallet: null,
+          wallet_420: null,
+          wallet_1000: null,
+          wallet_420_updated_at: null,
+          wallet_1000_updated_at: null,
+          walletEligible: false,
+          walletEligible1000: false,
+        });
     }
 
     const db = readDb();
@@ -452,7 +483,12 @@ app.post('/updateUserData', async (req, res) => {
 
     db[user_id] = u;
     writeDb(db);
-    res.json({ ...u, walletEligible: (u.coins || 0) >= 420 });
+    res.json({
+      ...u,
+      wallet: u.wallet_420 ?? null,
+      walletEligible: (u.coins || 0) >= 420,
+      walletEligible1000: (u.coins || 0) >= 1000,
+    });
   } catch (e) {
     log(e);
     res.status(500).json({ error: 'internal_error' });
@@ -582,8 +618,10 @@ app.post('/acceptReferral', (req, res) => {
 // ========= Wallet =========
 app.post('/setWallet', (req, res) => {
   try {
-    let { user_id, wallet } = req.body || {};
-    if (!user_id || typeof wallet !== 'string') return res.status(400).json({ error: 'bad_request' });
+    let { user_id, wallet, slot } = req.body || {};
+    if (!user_id || typeof wallet !== 'string') {
+      return res.status(400).json({ error: 'bad_request' });
+    }
 
     user_id = String(user_id);
     if (!isTelegramId(user_id)) {
@@ -591,22 +629,48 @@ app.post('/setWallet', (req, res) => {
     }
 
     const db = readDb();
-    const u = db[user_id];
-    if (!u) return res.status(404).json({ error: 'user_not_found' });
+    const prev = db[user_id];
+    if (!prev) return res.status(404).json({ error: 'user_not_found' });
 
-    if ((u.coins || 0) < 420) {
-      return res.status(403).json({ error: 'not_eligible', need: 420, have: u.coins || 0 });
-    }
-    if (typeof wallet !== 'string' || wallet.trim().length < 6 || wallet.trim().length > 120) {
-        return res.status(400).json({ error: 'invalid_wallet' });
+    const u = normalizeUser({ ...prev });
+
+    // какой слот сохраняем: '420' по умолчанию, либо '1000'
+    const s = parseWalletSlot(slot);
+    const needCoins = WALLET_THRESHOLDS[s];
+
+    if ((u.coins || 0) < needCoins) {
+      return res.status(403).json({ error: 'not_eligible', need: needCoins, have: u.coins || 0 });
     }
 
-    u.wallet = wallet.trim();
-    u.wallet_updated_at = new Date().toISOString();
+    const w = wallet.trim();
+    if (w.length < 6 || w.length > 120) {
+      return res.status(400).json({ error: 'invalid_wallet' });
+    }
+
+    const nowIso = new Date().toISOString();
+
+    if (s === '1000') {
+      u.wallet_1000 = w;
+      u.wallet_1000_updated_at = nowIso;
+    } else {
+      u.wallet_420 = w;
+      u.wallet_420_updated_at = nowIso;
+      // back-compat для старых клиентов: дублируем в "wallet"
+      u.wallet = w;
+    }
+
     db[user_id] = u;
     writeDb(db);
 
-    res.json({ ok: true, wallet: u.wallet });
+    return res.json({
+      ok: true,
+      // возвращаем оба для удобства фронта
+      wallet: u.wallet_420 ?? null, // back-compat
+      wallet_420: u.wallet_420 ?? null,
+      wallet_1000: u.wallet_1000 ?? null,
+      wallet_420_updated_at: u.wallet_420_updated_at ?? null,
+      wallet_1000_updated_at: u.wallet_1000_updated_at ?? null,
+    });
   } catch (e) {
     log(e);
     res.status(500).json({ error: 'internal_error' });
