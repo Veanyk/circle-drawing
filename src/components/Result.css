@@ -112,14 +112,18 @@
   outline-offset: 2px;
 }
 
-.social-icon-btn:hover {
-  transform: translateY(-1px);
+.social-icon-btn.telegram:hover {
+  transform: none;
+}
+
+.result-score-circle {
+  position: relative; /* 3) двигается со скроллом вместе с контентом */
 }
 
 /* Twitter — «чуть побольше» */
 .social-icon.twitter-icon {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
 }
 
 @media (max-width: 768px) {

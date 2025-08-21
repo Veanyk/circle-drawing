@@ -12,17 +12,15 @@ const ScoreCircle = ({ score }) => {
   const s = Number(score) || 0;
   const clamped = Math.min(100, Math.max(0, s));
   const angle = (clamped / 100) * 360;
-  const circleStyle = {
-    backgroundImage: `conic-gradient(#BE5200 ${angle}deg, #ffffff ${angle}deg 360deg)`,
-  };
+  const circleStyle = { backgroundImage: `conic-gradient(#BE5200 ${angle}deg, #ffffff ${angle}deg 360deg)` };
   const resultCircleImage = require('../assets/result_circle.png');
 
+  // Скроллится вместе с контентом, как текст и доска
   const wrapperStyle = {
-    position: 'sticky', // прилипает внутри Result
-    top: 0,
-    margin: '0 auto 8px',
+    position: 'relative',
     width: 120,
     height: 120,
+    margin: '0 auto 8px',
     zIndex: 1,
   };
 
@@ -30,10 +28,14 @@ const ScoreCircle = ({ score }) => {
     <div style={wrapperStyle} className="result-score-circle">
       <div className="score-circle-dynamic" style={circleStyle} />
       <img src={resultCircleImage} alt="Result" className="score-circle-image" />
-      <div className="score-circle-text">{Math.round(clamped)}%</div>
+      {/* 1) Сдвиг текста левее и ниже */}
+      <div className="score-circle-text" style={{ transform: 'translate(-12%, 12%)' }}>
+        {Math.round(clamped)}%
+      </div>
     </div>
   );
 };
+
 const Result = ({ score, onReset, drawing, userId }) => {
   const BOT_USERNAME = 'circle_drawing_bot';
   const APP_SHORT_NAME = process.env.REACT_APP_TG_APP_SHORTNAME || 'circle_drawer';
@@ -93,7 +95,7 @@ const Result = ({ score, onReset, drawing, userId }) => {
 
             <button
               type="button"
-              className="social-icon-btn"
+              className="social-icon-btn telegram"
               onClick={handleShareTelegram}
               aria-label="Share on Telegram"
             >
