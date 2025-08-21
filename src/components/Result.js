@@ -52,31 +52,27 @@ const Result = ({ score, onReset, drawing, userId }) => {
 
   return (
     <div className="result-container">
-      {/* КРУГ РЕЗУЛЬТАТА — теперь в том же прокручиваемом холсте */}
-      <div className="result-image">
-        <div className="result-circle-dynamic" style={circleStyle} />
-        <div className="result-text-overlay">{pct}%</div>
-        {/* Если понадобится ободок PNG — раскомментируй и добавь импорт
-        <img src={ringPng} alt="" className="result-circle-image" />
-        */}
-      </div>
+      {/* Текстовые итоги */}
+      <p className="circle-accuracy-text">Your circle is {pct}% accurate</p>
+      <p className="earned-tokens-text">You've earned {decimalTokens} tokens</p>
 
-      {/* Текстовые итоги под кругом */}
-      <p className="circle-accuracy-text">
-        Your circle is {pct}% accurate
-      </p>
-      <p className="earned-tokens-text">
-        You've earned {decimalTokens} tokens
-      </p>
-
-      {/* ваш рисунок на доске */}
+      {/* Ваш рисунок на доске.
+          Динамический круг вынесен ВНУТРЬ этого блока, чтобы быть на том же фоне */}
       <div className="result-drawing-container">
+        {/* Динамический круг процента — поверх доски */}
+        <div className="result-circle-wrap" aria-label="Accuracy circle">
+          <div className="result-circle-dynamic" style={circleStyle} />
+          <div className="result-text-overlay">{pct}%</div>
+          {/* Если нужен PNG-ободок — можно добавить <img className="result-circle-image" /> */}
+        </div>
+
+        {/* Сам рисунок пользователя */}
         <img src={drawing} alt="Your drawing" className="result-drawing-preview" />
       </div>
 
-      {/* Кнопки — внутри той же прокручиваемой области */}
+      {/* Кнопки */}
       <div className="buttons">
-        <button className="reset-button" onClick={onReset}>
+        <button className="reset-button" onClick={onReset} aria-label="Try again">
           <img src={tryAgainIcon} alt="Try again" className="button-icon" />
         </button>
 
@@ -88,7 +84,8 @@ const Result = ({ score, onReset, drawing, userId }) => {
           />
           <div className="social-icons">
             <TwitterShareButton url={shareUrl} title={shareText}>
-              <img src={twitterIcon} alt="Twitter" className="social-icon" />
+              {/* Twitter иконку делаем сильно меньше отдельным классом */}
+              <img src={twitterIcon} alt="Twitter" className="social-icon twitter-icon" />
             </TwitterShareButton>
 
             <button

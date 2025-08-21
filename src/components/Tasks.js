@@ -34,12 +34,7 @@ const Tasks = memo(function Tasks({ onTaskComplete, completedTasks, setCurrentTa
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        if (
-          alive &&
-          data &&
-          typeof data.link === 'string' &&
-          data.link.trim()
-        ) {
+        if (alive && data && typeof data.link === 'string' && data.link.trim()) {
           setTask3Link(data.link.trim());
         }
       } catch {
@@ -108,24 +103,34 @@ const Tasks = memo(function Tasks({ onTaskComplete, completedTasks, setCurrentTa
               <img
                 src={task.image}
                 alt={task.title}
-                className={`task-image ${task.id === 3 ? 'task3-image' : ''}`}
+                className={[
+                  'task-image',
+                  task.id === 2 ? 'task2-image' : '',
+                  task.id === 3 ? 'task3-image' : '',
+                ].join(' ')}
                 loading="lazy"
               />
               <img
                 src={task.descriptionImage}
                 alt={task.title}
-                className={`task-description-image ${task.id === 3 ? 'task3-description-image' : ''}`}
+                className={[
+                  'task-description-image',
+                  task.id === 1 ? 'task1-description-image' : '',
+                  task.id === 3 ? 'task3-description-image' : '',
+                ].join(' ')}
                 loading="lazy"
               />
               <button
                 onClick={() => handleTaskClick(task)}
                 disabled={completedTasks.includes(task.id)}
                 className={`task-button ${completedTasks.includes(task.id) ? 'completed' : ''}`}
+                aria-label={completedTasks.includes(task.id) ? 'Completed' : 'Complete task'}
               >
                 <img
                   src={completeBtn}
                   alt={completedTasks.includes(task.id) ? 'Completed' : 'Complete'}
                   className={`complete-button-image ${completedTasks.includes(task.id) ? 'completed' : ''}`}
+                  loading="lazy"
                 />
               </button>
             </div>

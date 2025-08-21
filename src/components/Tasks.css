@@ -1,18 +1,43 @@
 /* src/components/Tasks.css */
 
+/* Базовое масштабирование шрифтов и отступов относительно ширины экрана */
+:root {
+  /* Масштаб от 320px до 1200px ширины окна */
+  --base-font: clamp(14px, 1.8vw, 18px);
+  --gap: clamp(8px, 2vw, 16px);
+  --card-padding: clamp(12px, 2.5vw, 24px);
+  --title-max: clamp(160px, 40vw, 280px);
+  --task-icon: clamp(72px, 18vw, 110px);
+
+  /* Индивидуальные масштабы иконок */
+  --task2-icon-scale: 0.95; /* пункт 2: чуть-чуть меньше */
+  --task3-icon-scale: 0.88; /* пункт 3: ощутимо меньше, но аккуратно */
+
+  /* Тексты/описания */
+  --desc-max: clamp(220px, 70%, 420px);
+  --desc3-max: 280px; /* пункт 3: текст для №3 меньше */
+
+  /* Кнопка */
+  --button-width: clamp(130px, 30vw, 220px);
+
+  /* Ширина карточки */
+  --card-width-max: 600px;
+}
+
 .tasks-container {
   padding: 20px;
   min-height: 100vh;
   color: #ffffff;
   box-sizing: border-box;
   padding-bottom: 100px;
+  font-size: var(--base-font);
 }
 
 .tasks-title-image {
   display: block;
   margin: 0 auto 20px auto;
   width: 100%;
-  max-width: 220px;
+  max-width: var(--title-max);
   height: auto;
 }
 
@@ -20,22 +45,21 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: var(--gap);
 }
 
 .task-card {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
-  margin-bottom: 20px;
+  padding: var(--card-padding);
   background-image: url('../assets/background_task.png');
-  background-size: contain;
+  background-size: contain;       /* фон масштабируется вместе с шириной */
   background-repeat: no-repeat;
   background-position: center;
-  width: 100%;
-  max-width: 600px;
-  flex-direction: column;
+  width: min(100%, var(--card-width-max));
   box-sizing: border-box;
+  flex-direction: column;
 }
 
 /* Выполненные */
@@ -54,31 +78,50 @@
   align-items: center;
   text-align: center;
   width: 100%;
+  gap: var(--gap);
 }
 
 .task-image {
-  width: 100px;
-  height: 100px;
+  width: var(--task-icon);
+  height: var(--task-icon);
   object-fit: contain;
-  margin-bottom: 10px;
 }
 
-/* Увеличили иконку для задания №3 */
+/* пункт 2: иконка 2.png — чуть меньше */
+.task2-image {
+  transform: scale(var(--task2-icon-scale));
+  transform-origin: center;
+}
+
+/* пункт 3: иконка 3.png — меньше */
 .task3-image {
-  width: 90px;   /* было 80px */
-  height: 90px;  /* было 80px */
+  transform: scale(var(--task3-icon-scale));
+  transform-origin: center;
 }
 
+/* Общая картинка-описание под иконкой */
+.task-description-image {
+  width: 80%;
+  max-width: var(--desc-max);
+  height: auto;
+}
 
-/* уменьшенная версия описания для task_3 */
+/* пункт 1: текст для первого задания — чуть больше */
+.task1-description-image {
+  width: 100%;
+  /* слегка увеличиваем доступный максимум, не ломая адаптивность */
+  max-width: calc(var(--desc-max) * 1.15);
+}
+
+/* пункт 3: текст (картинка) для задания №3 — меньше */
 .task3-description-image {
-  width: 70%;        /* было 80% */
-  max-width: 320px;  /* было 400px */
+  width: 50%;
+  max-width: var(--desc3-max);
 }
 
 .task-reward {
   font-weight: bold;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
 }
 
 .task-button {
@@ -86,6 +129,7 @@
   border: none;
   padding: 0;
   cursor: pointer;
+  line-height: 0;
 }
 
 .task-button:disabled {
@@ -93,52 +137,27 @@
 }
 
 .complete-button-image {
-  width: 150px;
+  width: var(--button-width);
   height: auto;
-}
-
-/* Адаптивность */
-@media (max-width: 768px) {
-  .task-card {
-    width: 80%;
-    background-size: contain;
-    padding: 5px;
-    margin-bottom: 5px;
-  }
-
-  .tasks-title-image {
-    display: block;
-    margin: 0 auto 20px auto;
-    width: 100%;
-    max-width: 110px;
-    height: auto;
-  }
-
-  .task-image {
-    width: 60px;
-    height: 60px;
-  }
-
-  .task3-image {
-    width: 54px;   /* было 48px */
-    height: 54px;  /* было 48px */
-  }
-  .task3-description-image {
-    width: 62%;        /* было 70% */
-    max-width: 220px;  /* было 240px */
-  }
-
-  .task3-description-image {
-    width: 70%;        /* было 80% */
-    max-width: 240px;  /* было 400px */
-  }
-
-  .complete-button-image {
-    width: 80px;
-  }
 }
 
 .complete-button-image.completed {
   filter: grayscale(100%) opacity(0.6);
   transition: filter 0.3s ease;
+}
+
+/* Небольшие донастройки на сверхузких экранах */
+@media (max-width: 360px) {
+  :root {
+    --task2-icon-scale: 0.94;
+    --task3-icon-scale: 0.86;
+  }
+}
+
+/* На широких экранах позволяем карточке быть визуально крупнее без выхода за 600px */
+@media (min-width: 1200px) {
+  :root {
+    --card-width-max: 680px;
+    --button-width: clamp(160px, 18vw, 260px);
+  }
 }
