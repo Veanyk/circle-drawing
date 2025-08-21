@@ -51,21 +51,7 @@ const initializeUserId = () => {
   return userId;
 };
 
-const ScoreCircle = ({ score }) => {
-  const s = Number(score) || 0;
-  const clamped = Math.min(100, Math.max(0, s));
-  const angle = (clamped / 100) * 360;
-  const circleStyle = {
-    backgroundImage: `conic-gradient(#BE5200 ${angle}deg, #ffffff ${angle}deg 360deg)`,
-  };
-  return (
-    <div className="score-circle-header">
-      <div className="score-circle-dynamic" style={circleStyle}></div>
-      <img src={resultCircleImage} alt="Result" className="score-circle-image" />
-      <div className="score-circle-text">{Math.round(clamped)}%</div>
-    </div>
-  );
-};
+const ScoreCircle = () => null;
 
 function App() {
   const [score, setScore] = useState(null);

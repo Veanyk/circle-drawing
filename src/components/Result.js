@@ -42,10 +42,13 @@ const Result = ({ score, onReset, drawing, userId }) => {
 
   return (
     <div className="result-container">
+      {/* Перенесённый круг результата (PNG + градиент) */}
+      <ScoreCircle score={pct} />
+
       <p className="circle-accuracy-text">Your circle is {pct}% accurate</p>
       <p className="earned-tokens-text">You've earned {decimalTokens} tokens</p>
 
-      {/* Показываем ГОТОВУЮ картинку, экспортированную с холста (без повторной доски и без второго круга) */}
+      {/* Готовая картинка с холста (без дополнительного круга поверх доски) */}
       <div className="result-drawing-container">
         <img src={drawing} alt="Your drawing" className="result-drawing-image" />
       </div>
