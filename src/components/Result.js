@@ -1,4 +1,3 @@
-// src/components/Result.js
 import React from 'react';
 import { TwitterShareButton } from 'react-share';
 import './Result.css';
@@ -8,7 +7,6 @@ import twitterIcon from '../assets/twitter_icon.png';
 import telegramIcon from '../assets/telegram_icon.png';
 import shareResultsImage from '../assets/share_results.png';
 
-// Компонент круга с процентами
 const ScoreCircle = ({ score }) => {
   const s = Number(score) || 0;
   const clamped = Math.min(100, Math.max(0, s));
@@ -20,15 +18,11 @@ const ScoreCircle = ({ score }) => {
     <div className="result-score-circle">
       <div className="score-circle-dynamic" style={circleStyle} />
       <img src={resultCircleImage} alt="Result" className="score-circle-image" />
-      {/* Сдвинул на 5px выше и левее */}
-      <div className="score-circle-text">
-        {Math.round(clamped)}%
-      </div>
+      <div className="score-circle-text">{Math.round(clamped)}%</div>
     </div>
   );
 };
 
-// Основной компонент результата
 const Result = ({ score, onReset, drawing, userId }) => {
   const BOT_USERNAME = 'circle_drawing_bot';
   const APP_SHORT_NAME = process.env.REACT_APP_TG_APP_SHORTNAME || 'circle_drawer';
@@ -45,20 +39,17 @@ const Result = ({ score, onReset, drawing, userId }) => {
   const shareUrl = buildDeepLink();
   const pct = Math.max(0, Math.min(100, Math.round(score)));
 
-  const handleShareTelegram = React.useCallback(
-    (e) => {
-      e.preventDefault();
-      const url = buildDeepLink();
-      const text = `I drew a circle with ${Math.round(score)}% accuracy! Can you beat me?`;
-      const tgShare = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
-      if (window?.Telegram?.WebApp?.openTelegramLink) {
-        window.Telegram.WebApp.openTelegramLink(tgShare);
-      } else {
-        window.open(tgShare, '_blank', 'noopener,noreferrer');
-      }
-    },
-    [buildDeepLink, score]
-  );
+  const handleShareTelegram = React.useCallback((e) => {
+    e.preventDefault();
+    const url = buildDeepLink();
+    const text = `I drew a circle with ${Math.round(score)}% accuracy! Can you beat me?`;
+    const tgShare = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+    if (window?.Telegram?.WebApp?.openTelegramLink) {
+      window.Telegram.WebApp.openTelegramLink(tgShare);
+    } else {
+      window.open(tgShare, '_blank', 'noopener,noreferrer');
+    }
+  }, [buildDeepLink, score]);
 
   return (
     <div className="result-container">
@@ -66,7 +57,6 @@ const Result = ({ score, onReset, drawing, userId }) => {
         <ScoreCircle score={pct} />
       </div>
 
-      {/* Впритык к кругу */}
       <p className="circle-accuracy-text">Your circle is {pct}% accurate</p>
       <p className="earned-tokens-text">You've earned {decimalTokens} tokens</p>
 
@@ -97,7 +87,6 @@ const Result = ({ score, onReset, drawing, userId }) => {
         </div>
       </div>
 
-      {/* Доп. пространство для уверенного скролла поверх TabBar */}
       <div className="bottom-scroll-spacer" aria-hidden="true" />
     </div>
   );

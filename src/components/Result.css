@@ -1,7 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap');
 
 :root {
-  /* единый размер и верхний отступ для «доски» на обоих экранах */
   --board-size: min(82vw, 70dvh);
   --board-top: 120px;
 
@@ -9,8 +8,8 @@
   --button-img: clamp(120px, 28vw, 160px);
   --text-size: clamp(16px, 3.5vw, 21px);
 
-  /* дополнительный зазор снизу под TabBar */
-  --tabbar-clearance: clamp(200px, 24vh, 360px);
+  /* больше зазора под TabBar + возможность проскроллить */
+  --tabbar-clearance: clamp(340px, 45vh, 600px);
 }
 
 .result-container {
@@ -18,10 +17,10 @@
   flex-direction: column;
   align-items: center;
   padding: 20px;
-  padding-bottom: calc(env(safe-area-inset-bottom, 0) + 180px); /* базовый запас снизу */
+  padding-bottom: calc(env(safe-area-inset-bottom, 0) + var(--tabbar-clearance));
   box-sizing: border-box;
   width: 100%;
-  gap: 0; /* убрали лишние зазоры между элементами */
+  gap: 0;
   min-height: 100vh;
 }
 
@@ -30,7 +29,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-bottom: 2px; /* «впритык» к следующему тексту */
+  margin-bottom: 2px;
 }
 
 .result-score-circle {
@@ -44,28 +43,24 @@
 
 .score-circle-dynamic {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  inset: 0;
   border-radius: 50%;
 }
 
-/* Слой с рамкой (фоновое изображение) */
+/* Ободок */
 .score-circle-image {
   position: absolute;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100%;
   height: 100%;
 }
 
-/* Сдвинул текст в круге: на 5px выше и на 5px левее */
+/* Текст: центр + тонкий сдвиг (≈2px влево и ≈1px вверх) */
 .score-circle-text {
   position: absolute;
-  top: -11px;   /* было -6px */
-  left: 1px;    /* было 6px */
-  transform: none;
+  left: calc(50% - 2px);
+  top: calc(50% - 1px);
+  transform: translate(-50%, -50%);
   z-index: 2;
 
   color: #BE5200;
@@ -74,7 +69,7 @@
   font-weight: bold;
 }
 
-/* === ТЕКСТ ПОД КРУГОМ === */
+/* Текст под кругом */
 .circle-accuracy-text,
 .earned-tokens-text {
   font-family: 'Gloria Hallelujah', cursive;
@@ -85,12 +80,10 @@
   line-height: 1.2;
 }
 
-/* подтягиваем первый текст чуть ближе к кругу */
-.circle-accuracy-text {
-  margin-top: -6px;
-}
+/* ближе к кругу */
+.circle-accuracy-text { margin-top: -6px; }
 
-/* === ДОСКА С РИСУНКОМ === */
+/* Доска */
 .result-drawing-container {
   width: 100%;
   display: grid;
@@ -109,7 +102,7 @@
   display: block;
 }
 
-/* === КНОПКИ И ПОДЕЛИТЬСЯ === */
+/* Кнопки и шаринг */
 .buttons {
   display: flex;
   flex-direction: column;
@@ -117,8 +110,7 @@
   width: 100%;
   max-width: 300px;
   align-items: center;
-  position: relative;
-  z-index: 1101; /* при пересечении с TabBar — кликаемы */
+  /* z-index убран, чтобы TabBar был выше */
 }
 
 .reset-button {
@@ -130,6 +122,7 @@
 }
 
 .button-icon {
+  width: --button-img;
   width: var(--button-img);
   height: auto;
 }
@@ -169,6 +162,9 @@
   height: 48px;
 }
 
+/* Телеграм-иконку чуть выше */
+.social-icon-btn.telegram { transform: translateY(-2px); }
+
 .social-icon-btn .social-icon {
   display: block;
   width: 30px;
@@ -186,7 +182,7 @@
   height: 30px;
 }
 
-/* Дополнительный скролл-зазор, чтобы шаринг не перекрывался TabBar */
+/* Доп. пространство для скролла, чтобы кнопки не перекрывались TabBar */
 .bottom-scroll-spacer {
   width: 100%;
   height: var(--tabbar-clearance);
@@ -194,6 +190,6 @@
 
 @media (max-width: 768px) {
   .result-container {
-    padding-bottom: calc(env(safe-area-inset-bottom, 0) + 320px); /* ещё больше места снизу на мобилках */
+    padding-bottom: calc(env(safe-area-inset-bottom, 0) + var(--tabbar-clearance));
   }
 }
