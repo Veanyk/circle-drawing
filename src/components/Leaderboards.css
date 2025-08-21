@@ -107,8 +107,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  transform: translateX(30px);
+  transform: translateX(21px); /* was 30px; moved 9px left */
 }
+
 .col-stats {
   display: flex;
   justify-content: flex-end;
@@ -126,7 +127,7 @@
 }
 
 .col-acc { transform: translateX(-25px); }
-.col-tok { transform: translateX(5px); }
+.col-tok { transform: translateX(10px); }
 /* прячем шапку столбцов */
 .lb-head {
   display: none;

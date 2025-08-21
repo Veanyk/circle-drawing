@@ -15,9 +15,11 @@ function shortId(id) {
 }
 
 function displayName(u) {
-  return (u?.username && String(u.username).trim())
-      || (u?.name && String(u.name).trim())
-      || shortId(u?.user_id);
+  const base =
+    (u?.username && String(u.username).trim()) ||
+    (u?.name && String(u.name).trim()) ||
+    String(u?.user_id || '');
+  return base.length > 10 ? `${base.slice(0, 10)}…` : base;
 }
 
 // постараемся взять тот же userId, что использует приложение

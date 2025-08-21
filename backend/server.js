@@ -21,7 +21,7 @@ const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000; // 1 минута
 const REFERRAL_TASK_ID = 2;
 const REFERRAL_TASK_REWARD = 30;
 const WALLET_THRESHOLDS = { '420': 420, '1000': 1000 };
-const parseWalletSlot = (slot) => (slot === '1000' ? '1000' : '420');
+const parseWalletSlot = (slot) => (String(slot).trim() === '1000' ? '1000' : '420');
 
 // ------ Admin auth ------
 const ADMIN_KEYS = (process.env.ADMIN_KEYS || '')
