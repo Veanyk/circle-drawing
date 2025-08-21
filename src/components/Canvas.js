@@ -153,25 +153,75 @@ const Canvas = ({ onDrawEnd, attempts }) => {
       updateChalkPosition(event);
     };
 
-  // Завершение рисования
-  const endDrawing = () => {
-    if (!isDrawing) return;
-    setIsDrawing(false);
+    // Canvas.js — добавить новый хелпер (в любое место рядом с утилитами)
+    function drawResultBadgeOnCanvas(ctx, score, w, h) {
+      const s = Math.max(0, Math.min(100, Math.round(score)));
+      const pad = Math.round(Math.min(w, h) * 0.02);
+      const size = Math.round(Math.min(w, h) * 0.22); // диаметр бейджа
+      const r = size / 2;
+      const cx = w - pad - r;
+      const cy = pad + r;
 
-    // Убираем мел
-    setChalkStyle({ display: 'none' });
+      ctx.save();
 
-    const canvas = canvasRef.current;
-    const score = calculateFinalScore(points);
+      // белая подложка круга
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
 
-    onDrawEnd(score, points, canvas, {
-      width: canvas.width,
-      height: canvas.height,
-    });
+      // «прогресс» зелёным сектором
+      const angle = (s / 100) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + angle, false);
+      ctx.closePath();
+      ctx.fillStyle = '#22c55e';
+      ctx.fill();
 
-    clearCanvas();
-    setPoints([]);
-  };
+      // тонкая окантовка
+      ctx.beginPath();
+      ctx.arc(cx, cy, r - 0.5, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+      ctx.lineWidth = Math.max(1, Math.round(size * 0.03));
+      ctx.stroke();
+
+      // текст процента
+      ctx.fillStyle = '#000';
+      ctx.font = `${Math.round(size * 0.32)}px "Gloria Hallelujah", "Patrick Hand", system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${s}%`, cx, cy);
+
+      ctx.restore();
+    }
+
+    // Canvas.js — заменить endDrawing на эту версию
+    const endDrawing = () => {
+      if (!isDrawing) return;
+      setIsDrawing(false);
+
+      // Убираем мел
+      setChalkStyle({ display: 'none' });
+
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+
+      const score = calculateFinalScore(points);
+
+      // РИСУЕМ бейдж процента ПРЯМО НА ХОЛСТЕ (чтобы Result не добавлял второй круг/фон)
+      drawResultBadgeOnCanvas(ctx, score, canvas.width, canvas.height);
+
+      // Экспортируем готовый холст (фон + ваш рисунок + бейдж результата)
+      onDrawEnd(score, points, canvas, {
+        width: canvas.width,
+        height: canvas.height,
+      });
+
+      // Готовим холст к следующей попытке: остаётся только доска
+      clearCanvas();
+      setPoints([]);
+    };
 
   // Очистка канваса и фона
   const clearCanvas = () => {
