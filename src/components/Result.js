@@ -15,14 +15,17 @@ const ScoreCircle = ({ score }) => {
   const circleStyle = { backgroundImage: `conic-gradient(#BE5200 ${angle}deg, #ffffff ${angle}deg 360deg)` };
   const resultCircleImage = require('../assets/result_circle.png');
 
-  // Скроллится вместе с контентом, как текст и доска
-  const wrapperStyle = {
-    position: 'relative',
-    width: 120,
-    height: 120,
-    margin: '0 auto 8px',
-    zIndex: 1,
-  };
+  return (
+    <div className="result-score-circle">
+      <div className="score-circle-dynamic" style={circleStyle} />
+      <img src={resultCircleImage} alt="Result" className="score-circle-image" />
+      {/* 1) текст ещё ниже на 20px и немного левее */}
+      <div className="score-circle-text" style={{ transform: 'translate(-12%, 20px)' }}>
+        {Math.round(clamped)}%
+      </div>
+    </div>
+  );
+};
 
   return (
     <div style={wrapperStyle} className="result-score-circle">
@@ -70,8 +73,9 @@ const Result = ({ score, onReset, drawing, userId }) => {
 
   return (
     <div className="result-container">
-      {/* Круг результата в шапке (PNG + градиент) */}
-      <ScoreCircle score={pct} />
+        <div className="result-circle-overlay">
+          <ScoreCircle score={pct} />
+        </div>
 
       <p className="circle-accuracy-text">Your circle is {pct}% accurate</p>
       <p className="earned-tokens-text">You've earned {decimalTokens} tokens</p>

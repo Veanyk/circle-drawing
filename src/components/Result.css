@@ -24,6 +24,16 @@
   padding-bottom: calc(env(safe-area-inset-bottom, 0) + 240px);
 }
 
+.result-circle-overlay {
+  position: sticky;
+  top: 8px;          /* «прилипает» к верху области Result */
+  z-index: 2;
+  height: 0;         /* не занимает места в потоке */
+  overflow: visible; /* позволяет кругу выходить за высоту 0 */
+  pointer-events: none; /* чтобы не перекрывать клики по контенту */
+}
+
+
 .circle-accuracy-text,
 .earned-tokens-text {
   font-family: 'Gloria Hallelujah', cursive;
@@ -117,7 +127,12 @@
 }
 
 .result-score-circle {
-  position: relative; /* 3) двигается со скроллом вместе с контентом */
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin: 0 auto;
+  transform: translateY(-90px);  /* 2) перенесли «гораздо выше» текущего положения */
+  pointer-events: none;           /* круг визуальный, клики не нужны */
 }
 
 /* Twitter — «чуть побольше» */
