@@ -334,7 +334,7 @@ function App() {
           <div className="coins-display">
             <div className="banner-container">
               <img src={require('./assets/total_coins.png')} alt="Total coins" className="banner-icon" />
-              <span className="banner-text">{coins.toFixed(2)}</span>
+              <span className="banner-text">{coins >= WALLET_EDIT_THRESHOLD ? coins.toFixed(1) : coins.toFixed(2)}</span>
             </div>
           </div>
 
