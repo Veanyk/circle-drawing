@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import './WalletModal.css';
 
 const MIN_LEN = 6;
@@ -7,24 +7,22 @@ const MAX_LEN = 120;
 export default function WalletModal({
   isOpen,
   initialWallet,
-  onSave,         // async (wallet) => Promise<void> — вызывает /setWallet
-  onCancel,       // пользователь нажал «Потом»
-  onRequestClose, // закрыть окно (крестик/оверлей/escape)
+  onSave,         // async (wallet) => Promise<void> — calls /setWallet
+  onCancel,       // user clicked "Later"
+  onRequestClose, // close (close button / overlay / ESC)
 }) {
   const [wallet, setWallet] = useState(initialWallet || '');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     if (isOpen) {
       setWallet(initialWallet || '');
       setError('');
       setSaving(false);
-      // Фокус на инпут
-      setTimeout(() => {
-        const el = document.getElementById('wallet-input');
-        if (el) el.focus();
-      }, 0);
+      // autofocus
+      setTimeout(() => inputRef.current?.focus(), 0);
     }
   }, [isOpen, initialWallet]);
 
@@ -47,7 +45,7 @@ export default function WalletModal({
     const w = wallet.trim();
 
     if (!w || tooShort || tooLong) {
-      setError(`Адрес должен быть от ${MIN_LEN} до ${MAX_LEN} символов.`);
+      setError(`Address must be between ${MIN_LEN} and ${MAX_LEN} characters.`);
       return;
     }
 
@@ -56,55 +54,73 @@ export default function WalletModal({
       await onSave(w);
     } catch (e) {
       const msg = String(e?.message || e);
-      // Маппим типовые ответы бэка
+      // map common backend responses
       if (/not_eligible/.test(msg)) {
-        setError('Недостаточно монет для привязки кошелька (нужно 100+).');
+        setError('Not enough coins to link a wallet (need 100+).');
       } else if (/invalid_wallet/.test(msg)) {
-        setError('Неверный формат кошелька. Попробуй другой.');
+        setError('Invalid wallet format. Please try another one.');
       } else if (/telegram_only/.test(msg)) {
-        setError('Привязка доступна только внутри Telegram Mini App.');
+        setError('Linking is only available inside the Telegram Mini App.');
       } else {
-        setError('Не удалось сохранить. Повтори позже.');
+        setError('Could not save. Please try again later.');
       }
     } finally {
       setSaving(false);
     }
   };
 
+  const onInputKeyDown = (e) => {
+    if (e.key === 'Enter' && !saving) {
+      e.preventDefault();
+      save();
+    }
+  };
+
   return (
     <div className="wm-backdrop" onClick={onRequestClose}>
-      <div className="wm-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="wm-close" onClick={onRequestClose} aria-label="Закрыть">×</button>
+      <div
+        className="wm-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="wm-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button className="wm-close" onClick={onRequestClose} aria-label="Close">×</button>
 
-        <h2 className="wm-title">🎉 Поздравляем! 100+ монет набрано</h2>
+        <h2 id="wm-title" className="wm-title">🎉 Congrats! You’ve reached 100+ coins</h2>
         <p className="wm-subtitle">
-          Введи адрес криптокошелька для будущих выплат. Его всегда можно изменить позже.
+          Enter your crypto wallet address for future payouts. You can always change it later.
         </p>
 
-        <label className="wm-label" htmlFor="wallet-input">Адрес кошелька</label>
+        <label className="wm-label" htmlFor="wallet-input">Wallet address</label>
         <input
           id="wallet-input"
+          ref={inputRef}
           className="wm-input"
-          placeholder="Например: 0x... или TON..."
+          placeholder="e.g., 0x... or TON..."
           value={wallet}
           onChange={(e) => setWallet(e.target.value)}
+          onKeyDown={onInputKeyDown}
           disabled={saving}
           maxLength={MAX_LEN + 2}
+          inputMode="text"
+          autoComplete="off"
+          spellCheck="false"
         />
 
-        {error && <div className="wm-error">{error}</div>}
+        {error && <div className="wm-error" role="alert">{error}</div>}
 
         <div className="wm-actions">
           <button className="wm-btn wm-btn-secondary" onClick={onCancel} disabled={saving}>
-            Потом
+            Later
           </button>
           <button className="wm-btn wm-btn-primary" onClick={save} disabled={saving}>
-            {saving ? 'Сохраняю…' : 'Сохранить'}
+            {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
 
         <div className="wm-hint">
-          Советы: копируй адрес из своего кошелька без пробелов. Поддержка форматов зависит от выплат.
+          Tips: copy the address from your wallet without spaces. Supported formats depend on payouts.
         </div>
       </div>
     </div>
