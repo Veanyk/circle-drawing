@@ -196,25 +196,21 @@ const Canvas = ({ onDrawEnd, attempts }) => {
       ctx.restore();
     }
 
-    // Canvas.js — endDrawing: УБРАТЬ дорисовку круга на холсте (чтоб остался только ScoreCircle в Result)
     const endDrawing = () => {
       if (!isDrawing) return;
       setIsDrawing(false);
 
-      // Спрятать мел
+      // спрятать «мел»
       setChalkStyle({ display: 'none' });
 
       const canvas = canvasRef.current;
-
       const score = calculateFinalScore(points);
 
-      // Экспорт снимка того, что есть (доска + ваш контур)
       onDrawEnd(score, points, canvas, {
         width: canvas.width,
         height: canvas.height,
       });
 
-      // Подготовка к следующей попытке: перерисовать только доску
       clearCanvas();
       setPoints([]);
     };

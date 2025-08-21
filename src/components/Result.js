@@ -18,14 +18,13 @@ const ScoreCircle = ({ score }) => {
   const resultCircleImage = require('../assets/result_circle.png');
 
   return (
-    <div className="score-circle-header" style={headerStyle}>
+    <div style={wrapperStyle} className="result-score-circle">
       <div className="score-circle-dynamic" style={circleStyle} />
       <img src={resultCircleImage} alt="Result" className="score-circle-image" />
       <div className="score-circle-text">{Math.round(clamped)}%</div>
     </div>
   );
 };
-
 const Result = ({ score, onReset, drawing, userId }) => {
   const BOT_USERNAME = 'circle_drawing_bot';
   const APP_SHORT_NAME = process.env.REACT_APP_TG_APP_SHORTNAME || 'circle_drawer';

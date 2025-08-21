@@ -7,7 +7,6 @@ import Tasks from './components/Tasks';
 import TabBar from './components/TabBar';
 import Referrals from './components/Referrals';
 import Leaderboards from './components/Leaderboards';
-import resultCircleImage from './assets/result_circle.png';
 import './App.css';
 
 // Единый источник для URL сервера
@@ -344,8 +343,6 @@ function App() {
               </button>
             </div>
           )}
-
-          {score !== null && <ScoreCircle score={score} />}
         </div>
       )}
 
