@@ -8,6 +8,25 @@ import twitterIcon from '../assets/twitter_icon.png';
 import telegramIcon from '../assets/telegram_icon.png';
 import shareResultsImage from '../assets/share_results.png';
 
+const ScoreCircle = ({ score }) => {
+  const s = Number(score) || 0;
+  const clamped = Math.min(100, Math.max(0, s));
+  const angle = (clamped / 100) * 360;
+  const circleStyle = {
+    backgroundImage: `conic-gradient(#BE5200 ${angle}deg, #ffffff ${angle}deg 360deg)`,
+  };
+  // локально подтянем PNG, чтобы не трогать импорты файла
+  const resultCircleImage = require('../assets/result_circle.png');
+
+  return (
+    <div className="score-circle-header">
+      <div className="score-circle-dynamic" style={circleStyle} />
+      <img src={resultCircleImage} alt="Result" className="score-circle-image" />
+      <div className="score-circle-text">{Math.round(clamped)}%</div>
+    </div>
+  );
+};
+// Result.js — ЗАМЕНИ компонент Result на эту версию (без рисованного круга поверх доски)
 const Result = ({ score, onReset, drawing, userId }) => {
   const BOT_USERNAME = 'circle_drawing_bot';
   const APP_SHORT_NAME = process.env.REACT_APP_TG_APP_SHORTNAME || 'circle_drawer';
@@ -42,13 +61,13 @@ const Result = ({ score, onReset, drawing, userId }) => {
 
   return (
     <div className="result-container">
-      {/* Перенесённый круг результата (PNG + градиент) */}
+      {/* Круг результата в шапке (PNG + градиент) */}
       <ScoreCircle score={pct} />
 
       <p className="circle-accuracy-text">Your circle is {pct}% accurate</p>
       <p className="earned-tokens-text">You've earned {decimalTokens} tokens</p>
 
-      {/* Готовая картинка с холста (без дополнительного круга поверх доски) */}
+      {/* Показываем ГОТОВЫЙ снимок холста (без дополнительного круга поверх доски) */}
       <div className="result-drawing-container">
         <img src={drawing} alt="Your drawing" className="result-drawing-image" />
       </div>
