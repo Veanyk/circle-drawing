@@ -165,26 +165,31 @@ const Canvas = ({ onDrawEnd, attempts }) => {
   };
 
   // Завершение рисования (единственная версия)
-  const endDrawing = () => {
-    if (!isDrawing) return;
-    setIsDrawing(false);
+    const getBoardImage = (() => {
+      let img = null;
+      return () => {
+        if (img && img.complete) return img;
+        img = new Image();
+        img.src = require('../assets/drawing_field.png'); // тот же файл, что в CSS
+        return img;
+      };
+    })();
 
-    // Возвращаем скролл
-    unlockScroll();
+    const drawBoardUnderStrokes = (canvas) => {
+      const ctx = canvas.getContext('2d');
+      const board = getBoardImage();
 
-    setChalkStyle({ display: 'none' });
-
-    const canvas = canvasRef.current;
-    const score = calculateFinalScore(points);
-
-    onDrawEnd(score, points, canvas, {
-      width: canvas.width,
-      height: canvas.height,
-    });
-
-    clearCanvas();
-    setPoints([]);
-  };
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-over'; // рисуем ПОД штрихами
+      if (board.complete) {
+        ctx.drawImage(board, 0, 0, canvas.width, canvas.height);
+      } else {
+        // фолбэк, если вдруг не успела загрузиться
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      ctx.restore();
+    };
 
   // Очистка канваса (фон задаётся через CSS)
   const clearCanvas = () => {
@@ -193,6 +198,30 @@ const Canvas = ({ onDrawEnd, attempts }) => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
+    const endDrawing = () => {
+      if (!isDrawing) return;
+      setIsDrawing(false);
+
+      // Вернуть скролл
+      unlockScroll();
+
+      setChalkStyle({ display: 'none' });
+
+      const canvas = canvasRef.current;
+
+      // Подкладываем доску ПОД штрихи — чтобы снимок содержал фон
+      drawBoardUnderStrokes(canvas);
+
+      const score = calculateFinalScore(points);
+
+      onDrawEnd(score, points, canvas, {
+        width: canvas.width,
+        height: canvas.height,
+      });
+
+      clearCanvas();
+      setPoints([]);
+    };
   return (
     <div className="canvas-container">
       {/* Мел */}

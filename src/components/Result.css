@@ -130,9 +130,11 @@
 .extra-scroll-space   { width: 100%; height: var(--extra-scroll); }
 
 @media (max-height: 768px) {
-  /* низ страницы: место под TabBar + запас для прокрутки */
-  --tabbar-clearance: max(40px, 55vh); /* зона под TabBar */
-  --extra-scroll:     max(40px, 65vh); /* доп. пустое поле */
+    :root {
+      /* низ страницы: место под TabBar + запас для прокрутки */
+      --tabbar-clearance: max(40px, 55vh); /* зона под TabBar */
+      --extra-scroll:     max(40px, 65vh); /* доп. пустое поле */
+    }
 }
 @media (max-width: 768px) {
   .result-container {
