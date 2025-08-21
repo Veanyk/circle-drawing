@@ -6,9 +6,18 @@
   --button-img: clamp(120px, 28vw, 160px);
   --text-size: clamp(16px, 3.5vw, 21px);
 
-  /* больше места снизу */
+  /* низ страницы: место под TabBar + запас для прокрутки */
   --tabbar-clearance: clamp(380px, 50vh, 640px);
   --extra-scroll: clamp(120px, 25vh, 260px);
+
+  /* параметры круга и сдвига текста */
+  --circle-size: 120px;     /* диаметр круга */
+  /* смещение текста вправо/вниз (пиксели) */
+  --circle-shift-x: 0px;
+  --circle-shift-y: 0px;
+  /* смещение в долях радиуса (0.04 = 4% радиуса) */
+  --circle-shift-kx: 0;
+  --circle-shift-ky: 0;
 }
 
 .result-container {
@@ -16,7 +25,12 @@
   flex-direction: column;
   align-items: center;
   padding: 20px;
-  padding-bottom: calc(env(safe-area-inset-bottom, 0) + var(--tabbar-clearance));
+
+  /* нижний отступ учитывает TabBar и дополнительный запас прокрутки */
+  padding-bottom: calc(
+    env(safe-area-inset-bottom, 0) + var(--tabbar-clearance) + var(--extra-scroll)
+  );
+
   box-sizing: border-box;
   width: 100%;
   gap: 0;
@@ -26,40 +40,33 @@
 /* === КРУГ === */
 .result-score-circle {
   position: relative;
-  width: 120px;
-  height: 120px;
-  display: grid;              /* слои по сетке */
-  place-items: center;        /* центрируем всё */
+  width: var(--circle-size);
+  height: var(--circle-size);
 }
 
+/* динамика и ободок — фулл-оверлей */
 .score-circle-dynamic,
-.score-circle-image,
-.score-circle-text {
-  grid-area: 1 / 1;           /* все слои совпадают */
-}
-
-.score-circle-dynamic {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-}
-
-/* ободок */
 .score-circle-image {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
 }
+.score-circle-dynamic { border-radius: 50%; }
 
-/* ПРОЦЕНТЫ — строго по центру */
+/* ПРОЦЕНТЫ — центр + настраиваемый сдвиг вправо/вниз */
 .score-circle-text {
-  position: relative;         /* больше не absolute */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   z-index: 2;
   user-select: none;
+
+  /* r = радиус круга */
+  --r: calc(var(--circle-size) / 2);
+  margin-left: calc(var(--circle-shift-x) + var(--r) * var(--circle-shift-kx));
+  margin-top:  calc(var(--circle-shift-y) + var(--r) * var(--circle-shift-ky));
 
   color: #BE5200;
   font-family: 'Gloria Hallelujah', cursive;
@@ -67,7 +74,7 @@
   font-weight: bold;
 }
 
-/* === остальной стиль как был === */
+/* === текст под кругом === */
 .circle-accuracy-text,
 .earned-tokens-text {
   font-family: 'Gloria Hallelujah', cursive;
@@ -77,19 +84,19 @@
   text-align: center;
   line-height: 1.2;
 }
-
 .circle-accuracy-text { margin-top: -6px; }
 
+/* === доска === */
 .result-drawing-container {
   width: 100%;
   display: grid;
   place-items: center;
   margin: 5px 0;
 }
-
 .board-size { width: var(--board-size); height: auto; max-width: 500px; }
 .result-drawing-image { border-radius: 10px; display: block; }
 
+/* === кнопки и шаринг === */
 .buttons {
   display: flex;
   flex-direction: column;
@@ -98,7 +105,6 @@
   max-width: 300px;
   align-items: center;
 }
-
 .reset-button { background: none; border: none; cursor: pointer; padding: 0; line-height: 0; }
 .button-icon { width: var(--button-img); height: auto; }
 
@@ -114,19 +120,9 @@
   align-items: center; justify-content: center;
   cursor: pointer; width: 48px; height: 48px;
 }
-/* Телеграм — выше на 2px */
+/* Телеграм — чуть выше */
 .social-icon-btn.telegram { transform: translateY(-2px); }
 
 .social-icon-btn .social-icon { display: block; width: 30px; height: 30px; border-radius: 50%; }
 .social-icon-btn:focus-visible { outline: 2px solid rgba(59,130,246,.8); outline-offset: 2px; }
-.social-icon.twitter-icon { width: 30px; height: 30px; }
-
-/* нижние «прокладки» для уверенного скролла */
-.bottom-scroll-spacer { width: 100%; height: var(--tabbar-clearance); }
-.extra-scroll-space   { width: 100%; height: var(--extra-scroll); }
-
-@media (max-width: 768px) {
-  .result-container {
-    padding-bottom: calc(env(safe-area-inset-bottom, 0) + var(--tabbar-clearance));
-  }
-}
+.social-icon.twitter-icon { width: 30px; height: 3
