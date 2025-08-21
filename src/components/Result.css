@@ -6,18 +6,16 @@
   --button-img: clamp(120px, 28vw, 160px);
   --text-size: clamp(16px, 3.5vw, 21px);
 
-  /* низ страницы: место под TabBar + запас для прокрутки */
-  --tabbar-clearance: max(40px, 55vh); /* зона под TabBar */
-  --extra-scroll:     max(40px, 65vh); /* доп. пустое поле */
-
   /* параметры круга и сдвига текста */
   --circle-size: 120px;     /* диаметр круга */
-  /* смещение текста вправо/вниз (пиксели) */
+
+    /* смещение текста вправо/вниз (пиксели) */
   --circle-shift-x: 0px;
   --circle-shift-y: 0px;
   /* смещение в долях радиуса (0.04 = 4% радиуса) */
   --circle-shift-kx: 0.8;
   --circle-shift-ky: 0.8;
+
 }
 
 .result-container {
@@ -121,7 +119,7 @@
   cursor: pointer; width: 48px; height: 48px;
 }
 /* Телеграм — чуть выше */
-.social-icon-btn.telegram { transform: translateY(-6px); }
+.social-icon-btn.telegram { transform: translateY(-5px); }
 
 .social-icon-btn .social-icon { display: block; width: 30px; height: 30px; border-radius: 50%; }
 .social-icon-btn:focus-visible { outline: 2px solid rgba(59,130,246,.8); outline-offset: 2px; }
@@ -131,6 +129,11 @@
 .bottom-scroll-spacer { width: 100%; height: var(--tabbar-clearance); }
 .extra-scroll-space   { width: 100%; height: var(--extra-scroll); }
 
+@media (max-height: 768px) {
+  /* низ страницы: место под TabBar + запас для прокрутки */
+  --tabbar-clearance: max(40px, 55vh); /* зона под TabBar */
+  --extra-scroll:     max(40px, 65vh); /* доп. пустое поле */
+}
 @media (max-width: 768px) {
   .result-container {
     padding-bottom: calc(

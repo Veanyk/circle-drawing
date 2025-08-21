@@ -14,53 +14,40 @@ const Canvas = ({ onDrawEnd, attempts }) => {
   const [chalkStyle, setChalkStyle] = useState({ display: 'none' });
 
   // Подгон размера канваса под CSS + фон
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    useEffect(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
 
-    const background = new Image();
-    background.src = drawingFieldImage;
+      const resizeCanvas = () => {
+        const c = canvasRef.current;
+        if (!c) return;
+        const ctx = c.getContext('2d');
 
-    const resizeCanvas = () => {
-      const c = canvasRef.current;
-      if (!c) return;
-      const ctx = c.getContext('2d');
+        const rect = c.getBoundingClientRect();
+        const canvasWidth = Math.max(1, Math.round(rect.width));
+        const canvasHeight = canvasWidth; // квадрат
 
-      const rect = c.getBoundingClientRect();
-      const canvasWidth = Math.max(1, Math.round(rect.width));
-      const canvasHeight = canvasWidth; // квадрат
+        if (c.width !== canvasWidth || c.height !== canvasHeight) {
+          c.width = canvasWidth;
+          c.height = canvasHeight;
+        }
 
-      if (c.width !== canvasWidth || c.height !== canvasHeight) {
-        c.width = canvasWidth;
-        c.height = canvasHeight;
-      }
+        // Только очистка и настройки пера — БЕЗ рисования фона
+        ctx.clearRect(0, 0, c.width, c.height);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+      };
 
-      ctx.clearRect(0, 0, c.width, c.height);
-      if (background.complete) {
-        ctx.drawImage(background, 0, 0, c.width, c.height);
-      }
-
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-    };
-
-    background.onload = resizeCanvas;
-
-    const observer = new ResizeObserver(() => {
+      const observer = new ResizeObserver(resizeCanvas);
+      if (canvas.parentElement) observer.observe(canvas.parentElement);
       resizeCanvas();
-    });
-    if (canvas.parentElement) {
-      observer.observe(canvas.parentElement);
-    }
 
-    return () => {
-      if (canvas.parentElement) {
-        observer.unobserve(canvas.parentElement);
-      }
-    };
-  }, []); // ← правильное закрытие первого useEffect
+      return () => {
+        if (canvas.parentElement) observer.unobserve(canvas.parentElement);
+      };
+    }, []);
 
   // Лочим прокрутку и гасим жесты, пока идёт рисование
   const scrollLockRef = useRef({ y: 0, locked: false });

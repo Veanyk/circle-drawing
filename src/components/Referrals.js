@@ -64,7 +64,13 @@ const Referrals = ({ userId }) => {
     }
   };
 
-  const displayName = (u) => (u?.username || u?.name || String(u?.user_id || ''));
+  const displayName = (u) => {
+    const name = u?.username || u?.name || String(u?.user_id || '');
+    if (name.length > 10) {
+      return name.substring(0, 10) + '...';
+    }
+    return name;
+};
 
   return (
     <div className="referrals-container">
