@@ -2,6 +2,7 @@
 :root {
   --board-size: min(82vw, 70dvh); /* синхронизировано с Result */
   --board-top: 120px;             /* синхронизировано с Result */
+  --hint-gap: clamp(8px, 1.6dvh, 18px);
 }
 
 html, body { overscroll-behavior: none; }
@@ -23,12 +24,16 @@ body.no-scroll { position: fixed; overflow: hidden; width: 100%; }
 /* Подсказка — не двигает доску (absolute), просто висит сверху */
 .draw-circle-image {
   position: absolute;
-  top: 12px;
+  /* якорим по верху доски */
+  top: var(--board-top);
   left: 50%;
-  transform: translateX(-50%);
+  /* ставим надпись ровно над доской, на расстоянии --hint-gap */
+  transform: translate(-50%, calc(-100% - var(--hint-gap)));
+
   width: clamp(220px, 50dvh, 540px);
   height: auto;
   pointer-events: none;
+  z-index: 1; /* чтобы было поверх канвы */
 }
 
 /* Холст — та же «доска», что и на экране результата */

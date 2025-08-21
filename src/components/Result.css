@@ -129,7 +129,7 @@
 .bottom-scroll-spacer { width: 100%; height: var(--tabbar-clearance); }
 .extra-scroll-space   { width: 100%; height: var(--extra-scroll); }
 
-@media (max-height: 768px) {
+@media (max-height: 600px) {
     :root {
       /* низ страницы: место под TabBar + запас для прокрутки */
       --tabbar-clearance: max(40px, 55vh); /* зона под TabBar */
