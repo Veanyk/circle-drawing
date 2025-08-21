@@ -3,6 +3,7 @@
   --board-size: min(82vw, 70dvh); /* синхронизировано с Result */
   --board-top: 120px;             /* синхронизировано с Result */
   --hint-gap: clamp(8px, 1.6dvh, 18px);
+  --board-extra-offset: 0px;
 }
 
 html, body { overscroll-behavior: none; }
