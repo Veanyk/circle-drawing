@@ -7,8 +7,8 @@
   --text-size: clamp(16px, 3.5vw, 21px);
 
   /* низ страницы: место под TabBar + запас для прокрутки */
-  --tabbar-clearance: clamp(380px, 50vh, 640px);
-  --extra-scroll: clamp(120px, 25vh, 260px);
+  --tabbar-clearance: max(260px, 70vh); /* зона под TabBar */
+  --extra-scroll:     max(240px, 100vh); /* доп. пустое поле */
 
   /* параметры круга и сдвига текста */
   --circle-size: 120px;     /* диаметр круга */
@@ -16,8 +16,8 @@
   --circle-shift-x: 0px;
   --circle-shift-y: 0px;
   /* смещение в долях радиуса (0.04 = 4% радиуса) */
-  --circle-shift-kx: 0.5;
-  --circle-shift-ky: 0.5;
+  --circle-shift-kx: 0.75;
+  --circle-shift-ky: 0.75;
 }
 
 .result-container {
