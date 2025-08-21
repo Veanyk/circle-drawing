@@ -100,11 +100,10 @@ function App() {
   const closeWalletModal = () => setWalletModalOpen(false);
 
   // Flags for showing actions:
-  // - At 420+ with no first wallet -> show "Add wallet"
-  // - At 1000+ with no second wallet -> show "Add second wallet"
   const canAddWallet420 = coins >= WALLET_CREATE_THRESHOLD && !wallet420;
   const canAddWallet1000 = coins >= WALLET_EDIT_THRESHOLD && !wallet1000;
-
+  const canEditWallet420 = coins >= WALLET_CREATE_THRESHOLD && !!wallet420;
+  const canEditWallet1000 = coins >= WALLET_EDIT_THRESHOLD && !!wallet1000;
   // 1) First load & user bootstrap
   useEffect(() => {
     let isMounted = true;
@@ -352,31 +351,37 @@ function App() {
           </div>
 
           {/* Action buttons appear only when available */}
-          {canAddWallet420 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button
-                className="wallet-button"
-                style={{ fontFamily: "'Gloria Hallelujah', cursive" }}
-                onClick={() => { undismiss(DISMISS_CREATE); openCreateWalletModal('420'); }}
-              >
-                <span className="dot" />
-                Add wallet
-              </button>
-            </div>
-          )}
+            {(canAddWallet420 || canEditWallet420) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  className="wallet-button"
+                  style={{ fontFamily: "'Gloria Hallelujah', cursive" }}
+                  onClick={() => {
+                    undismiss(DISMISS_CREATE);
+                    (canAddWallet420 ? openCreateWalletModal('420') : openEditWalletModal('420'));
+                  }}
+                >
+                  <span className="dot" />
+                  {canAddWallet420 ? 'Add wallet' : 'Change wallet'}
+                </button>
+              </div>
+            )}
 
-          {canAddWallet1000 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button
-                className="wallet-button"
-                style={{ fontFamily: "'Gloria Hallelujah', cursive" }}
-                onClick={() => { undismiss(DISMISS_EDIT); openEditWalletModal('1000'); }}
-              >
-                <span className="dot" />
-                Add second wallet
-              </button>
-            </div>
-          )}
+            {(canAddWallet1000 || canEditWallet1000) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  className="wallet-button"
+                  style={{ fontFamily: "'Gloria Hallelujah', cursive" }}
+                  onClick={() => {
+                    undismiss(DISMISS_EDIT);
+                    (canAddWallet1000 ? openCreateWalletModal('1000') : openEditWalletModal('1000'));
+                  }}
+                >
+                  <span className="dot" />
+                  {canAddWallet1000 ? 'Add second wallet' : 'Change second wallet'}
+                </button>
+              </div>
+            )}
         </div>
       )}
 
