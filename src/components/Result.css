@@ -13,10 +13,21 @@
 
 .result-container {
   display: flex;
-  flex-direction: column; /* Элементы будут идти друг под другом */
-  align-items: center;   /* Центрирование по горизонтали */
-  padding: 20px 0;         /* Добавим немного отступов сверху и снизу */
+  flex-direction: column; /* Все элементы идут друг под другом */
+  align-items: center;    /* Центрируем все по горизонтали */
+  padding: 20px;
+  box-sizing: border-box;
   width: 100%;
+  gap: 15px; /* Равномерный отступ между всеми элементами, чтобы поднять их */
+}
+
+.top-section {
+  width: 100%;
+  display: flex;
+  justify-content: center; /* Центрирование круга */
+  align-items: center;
+  margin-bottom: 10px; /* Небольшой отступ до текста ниже */
+  /* Если добавите плашки, используйте 'space-between' для justify-content */
 }
 
 .circle-accuracy-text,
@@ -123,13 +134,14 @@
 
 /* Сам круг результата */
 .result-score-circle {
-  position: relative;
-  width: 150px; /* Пример размера */
-  height: 150px; /* Пример размера */
+  position: relative; /* Обязательно для позиционирования дочерних элементов */
+  width: 120px;  /* Можете изменить размер */
+  height: 120px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
+
 .score-circle-dynamic,
 .score-circle-image {
   position: absolute;
@@ -143,8 +155,12 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 24px;
+  transform: translate(-50%, -50%); /* Ключевое свойство для центрирования */
+
+  /* Стилизация текста, чтобы он был похож на картинку */
+  color: #BE5200; /* Оранжевый цвет */
+  font-family: 'Comic Sans MS', 'Chalkduster', cursive; /* Рукописный шрифт */
+  font-size: 28px;
   font-weight: bold;
 }
 

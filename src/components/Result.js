@@ -8,18 +8,19 @@ import twitterIcon from '../assets/twitter_icon.png';
 import telegramIcon from '../assets/telegram_icon.png';
 import shareResultsImage from '../assets/share_results.png';
 
+// Компонент круга с процентами
 const ScoreCircle = ({ score }) => {
   const s = Number(score) || 0;
   const clamped = Math.min(100, Math.max(0, s));
   const angle = (clamped / 100) * 360;
-  const circleStyle = { backgroundImage: `conic-gradient(#BE5200 ${angle}deg, #ffffff ${angle}deg 360deg)` };
+  const circleStyle = { backgroundImage: `conic-gradient(#BE5200 ${angle}deg, transparent ${angle}deg 360deg)` };
   const resultCircleImage = require('../assets/result_circle.png');
 
   return (
     <div className="result-score-circle">
       <div className="score-circle-dynamic" style={circleStyle} />
       <img src={resultCircleImage} alt="Result" className="score-circle-image" />
-      {/* Этот блок теперь будет идеально центрирован с помощью CSS */}
+      {/* Этот текст теперь будет идеально отцентрирован внутри круга с помощью CSS */}
       <div className="score-circle-text">
         {Math.round(clamped)}%
       </div>
@@ -27,6 +28,7 @@ const ScoreCircle = ({ score }) => {
   );
 };
 
+// Основной компонент результата
 const Result = ({ score, onReset, drawing, userId }) => {
   const BOT_USERNAME = 'circle_drawing_bot';
   const APP_SHORT_NAME = process.env.REACT_APP_TG_APP_SHORTNAME || 'circle_drawer';
@@ -60,15 +62,19 @@ const Result = ({ score, onReset, drawing, userId }) => {
 
   return (
     <div className="result-container">
-      {/* КРУГ: фиксированно 50px от верха */}
-      <div className="score-container">
+      {/*
+        НОВЫЙ ВЕРХНИЙ БЛОК:
+        Центрирует круг и располагает его на одном уровне с плашками (если они будут добавлены)
+      */}
+      <div className="top-section">
         <ScoreCircle score={pct} />
+        {/* Здесь можно будет разместить плашки с монетами и попытками */}
       </div>
 
+      {/* Остальные элементы теперь будут расположены ниже и ближе к центру */}
       <p className="circle-accuracy-text">Your circle is {pct}% accurate</p>
       <p className="earned-tokens-text">You've earned {decimalTokens} tokens</p>
 
-      {/* «Доска» результата — тот же размер и место, что и в Canvas */}
       <div className="result-drawing-container">
         <img src={drawing} alt="Your drawing" className="result-drawing-image board-size" />
       </div>
@@ -84,7 +90,6 @@ const Result = ({ score, onReset, drawing, userId }) => {
             <TwitterShareButton url={shareUrl} title={shareText}>
               <img src={twitterIcon} alt="Twitter" className="social-icon twitter-icon" />
             </TwitterShareButton>
-
             <button
               type="button"
               className="social-icon-btn telegram"
