@@ -17,6 +17,15 @@ const ScoreCircle = ({ score }) => {
   };
   const resultCircleImage = require('../assets/result_circle.png');
 
+  const wrapperStyle = {
+    position: 'sticky', // прилипает внутри Result
+    top: 0,
+    margin: '0 auto 8px',
+    width: 120,
+    height: 120,
+    zIndex: 1,
+  };
+
   return (
     <div style={wrapperStyle} className="result-score-circle">
       <div className="score-circle-dynamic" style={circleStyle} />
