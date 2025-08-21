@@ -1,5 +1,5 @@
 // src/components/Result.js
-import React from 'react'; // без useRef/useEffect
+import React from 'react';
 import { TwitterShareButton } from 'react-share';
 import './Result.css';
 
@@ -12,7 +12,6 @@ const Result = ({ score, onReset, drawing, userId }) => {
   const BOT_USERNAME = 'circle_drawing_bot';
   const APP_SHORT_NAME = process.env.REACT_APP_TG_APP_SHORTNAME || 'circle_drawer';
 
-  // корректный deep link (с поддержкой short name)
   const buildDeepLink = React.useCallback(() => {
     const base = APP_SHORT_NAME
       ? `https://t.me/${BOT_USERNAME}/${APP_SHORT_NAME}`
@@ -24,14 +23,12 @@ const Result = ({ score, onReset, drawing, userId }) => {
   const shareText = `I drew a circle with ${Math.round(score)}% accuracy! Can you beat me?`;
   const shareUrl = buildDeepLink();
 
-  // открыть нативный Telegram share (внутри Telegram) или t.me/share в браузере
   const handleShareTelegram = React.useCallback(
     (e) => {
       e.preventDefault();
       const url = buildDeepLink();
       const text = `I drew a circle with ${Math.round(score)}% accuracy! Can you beat me?`;
       const tgShare = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
-
       if (window?.Telegram?.WebApp?.openTelegramLink) {
         window.Telegram.WebApp.openTelegramLink(tgShare);
       } else {
@@ -41,50 +38,27 @@ const Result = ({ score, onReset, drawing, userId }) => {
     [buildDeepLink, score]
   );
 
-  // стиль для динамического круга через conic-gradient
   const pct = Math.max(0, Math.min(100, Math.round(score)));
-  const circleStyle = React.useMemo(
-    () => ({
-      backgroundImage: `conic-gradient(#22c55e ${pct}%, #e5e7eb ${pct}% 100%)`,
-    }),
-    [pct]
-  );
 
   return (
     <div className="result-container">
-      {/* Текстовые итоги */}
       <p className="circle-accuracy-text">Your circle is {pct}% accurate</p>
       <p className="earned-tokens-text">You've earned {decimalTokens} tokens</p>
 
-      {/* Ваш рисунок на доске.
-          Динамический круг вынесен ВНУТРЬ этого блока, чтобы быть на том же фоне */}
+      {/* Показываем ГОТОВУЮ картинку, экспортированную с холста (без повторной доски и без второго круга) */}
       <div className="result-drawing-container">
-        {/* Динамический круг процента — поверх доски */}
-        <div className="result-circle-wrap" aria-label="Accuracy circle">
-          <div className="result-circle-dynamic" style={circleStyle} />
-          <div className="result-text-overlay">{pct}%</div>
-          {/* Если нужен PNG-ободок — можно добавить <img className="result-circle-image" /> */}
-        </div>
-
-        {/* Сам рисунок пользователя */}
-        <img src={drawing} alt="Your drawing" className="result-drawing-preview" />
+        <img src={drawing} alt="Your drawing" className="result-drawing-image" />
       </div>
 
-      {/* Кнопки */}
       <div className="buttons">
         <button className="reset-button" onClick={onReset} aria-label="Try again">
           <img src={tryAgainIcon} alt="Try again" className="button-icon" />
         </button>
 
         <div className="share-buttons">
-          <img
-            src={shareResultsImage}
-            alt="Share results"
-            className="share-results-image"
-          />
+          <img src={shareResultsImage} alt="Share results" className="share-results-image" />
           <div className="social-icons">
             <TwitterShareButton url={shareUrl} title={shareText}>
-              {/* Twitter иконку делаем сильно меньше отдельным классом */}
               <img src={twitterIcon} alt="Twitter" className="social-icon twitter-icon" />
             </TwitterShareButton>
 

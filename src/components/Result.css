@@ -1,16 +1,10 @@
 /* src/components/Result.css */
-
-/* Импортируем шрифт Gloria Hallelujah */
 @import url('https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap');
 
-/* Адаптивные переменные */
 :root {
-  --circle-size: clamp(68px, 18vw, 120px);             /* размер кольца процента */
-  --circle-offset: clamp(8px, 2.5vw, 14px);            /* отступ круга от краёв доски */
-  --percent-font: clamp(18px, 5vw, 28px);              /* шрифт цифры процента */
-  --share-max: clamp(160px, 40vw, 300px);              /* ширина "Share results" */
-  --button-img: clamp(120px, 28vw, 160px);             /* размер кнопки Try Again */
-  --text-size: clamp(16px, 3.5vw, 21px);               /* текст под кругом */
+  --share-max: clamp(160px, 40vw, 300px);
+  --button-img: clamp(120px, 28vw, 160px);
+  --text-size: clamp(16px, 3.5vw, 21px);
 }
 
 .result-container {
@@ -26,13 +20,10 @@
   box-sizing: border-box;
   width: 100%;
   padding: 20px;
-
-  /* Больший верхний/нижний паддинг, чтобы не задевать HUD/TabBar */
   padding-top: 120px;
   padding-bottom: calc(env(safe-area-inset-bottom, 0) + 240px);
 }
 
-/* Тексты под/над кругом */
 .circle-accuracy-text,
 .earned-tokens-text {
   font-family: 'Gloria Hallelujah', cursive;
@@ -43,68 +34,21 @@
   line-height: 1.2;
 }
 
-/* Контейнер с рисунком — общий фон "доски" */
+/* Контейнер просто центрирует изображение результата */
 .result-drawing-container {
-  position: relative;
-  width: 80vw;
-  max-width: 500px;
-  aspect-ratio: 1 / 1;
-  margin-top: 10px;
-  margin-bottom: 16px;
-  background-image: url('../assets/drawing_field.png');
-  background-size: 100% 100%;
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-/* Сам рисунок пользователя на доске */
-.result-drawing-preview {
-  position: absolute;
-  inset: 0;
   width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-/* === Динамический круг перемещён ВНУТРЬ "доски" === */
-.result-circle-wrap {
-  position: absolute;
-  top: var(--circle-offset);
-  right: var(--circle-offset);
-  width: var(--circle-size);
-  height: var(--circle-size);
-  z-index: 3;
-}
-
-/* Нижний слой круга (градиент прогресса) */
-.result-circle-dynamic {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background-color: #ffffff; /* fallback */
-  /* backgroundImage задаётся инлайн-стилем в Result.js */
-}
-
-/* (опционально) PNG-ободок поверхности, если понадобится
-.result-circle-image {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-}
-*/
-
-/* Текст процента поверх всего */
-.result-text-overlay {
-  position: absolute;
-  inset: 0;
   display: grid;
   place-items: center;
-  z-index: 4;
-  color: #000;
-  font-size: var(--percent-font);
-  font-weight: bold;
-  text-shadow: none;
-  font-family: 'Gloria Hallelujah', cursive;
+  margin: 12px 0 16px 0;
+}
+
+/* Это ИМЕННО экспорт холста (уже с фоном и бейджем) */
+.result-drawing-image {
+  width: 80vw;
+  max-width: 500px;
+  height: auto;
+  border-radius: 10px;
+  display: block;
 }
 
 .buttons {
@@ -126,7 +70,6 @@
   height: auto;
 }
 
-/* Блок шаринга */
 .share-buttons {
   display: flex;
   flex-direction: column;
@@ -140,7 +83,6 @@
   max-width: var(--share-max);
 }
 
-/* Кнопки соцсетей */
 .social-icon-btn {
   appearance: none;
   -webkit-appearance: none;
@@ -174,13 +116,12 @@
   transform: translateY(-1px);
 }
 
-/* === Сильно уменьшаем именно twitter-иконку === */
+/* Twitter — «чуть побольше» */
 .social-icon.twitter-icon {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
 }
 
-/* Адаптив */
 @media (max-width: 768px) {
   .result-container {
     padding-top: 105px;
