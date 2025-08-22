@@ -64,8 +64,20 @@ const Referrals = ({ userId }) => {
     }
   };
 
+// Берём первые 10 "видимых" символов (работает с эмодзи/кириллицей)
+const clamp10 = (val) => {
+  const arr = Array.from(String(val ?? '')); // code points
+  return arr.slice(0, 10).join('');
+};
+
 const displayName = (u) => {
-  return u?.username || u?.name || String(u?.user_id || '');
+  const base =
+    u?.username ||
+    u?.name ||
+    u?.first_name ||
+    u?.last_name ||
+    String(u?.user_id || '');
+  return clamp10(base);
 };
 
   return (

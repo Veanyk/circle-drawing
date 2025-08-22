@@ -2,16 +2,15 @@
 
 .referrals-container {
   padding: 20px;
-  /* Убираем min-height, чтобы контейнер занимал ровно столько места, сколько нужно */
   color: #ffffff;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 100%; /* Занимаем всю доступную ширину */
+  width: 100%;
 }
 
-.referrals-container > img { /* Применяем стили только к прямым потомкам-картинкам */
+.referrals-container > img {
   max-width: 100%;
   height: auto;
   display: block;
@@ -26,11 +25,8 @@
   max-width: 400px;
 }
 
-/* --- КЛЮЧЕВЫЕ ИЗМЕНЕНИЯ ДЛЯ АДАПТИВНОСТИ --- */
 .referral-link {
   display: flex;
-  /* align-items: stretch; is the default, which is what we want.
-     You can also explicitly set it. `center` is also fine. */
   align-items: center;
   margin-top: 50px;
   width: 90%;
@@ -40,33 +36,29 @@
 .link-field {
   position: relative;
   flex-grow: 1;
-  /* We need to ensure it has a display property that allows height calculation */
   display: flex;
 }
 
 .link-field img.link-image {
   width: 100%;
-  height: 100%; /* Растягиваем фон по высоте */
-  object-fit: fill; /* Заполняем все пространство */
+  height: 100%;
+  object-fit: fill;
 }
 
 .link-field .link-text {
   position: absolute;
   top: 50%;
-  left: 50%; /* <-- 1. Сдвигаем НАЧАЛО текста в центр */
-  transform: translate(-50%, -50%); /* <-- 2. Сдвигаем текст НАЗАД на половину его ширины и высоты */
+  left: 50%;
+  transform: translate(-50%, -50%);
 
-  /* Остальные стили остаются прежними */
   font-family: 'Gloria Hallelujah', cursive;
   font-size: 14px;
   color: #111111;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-
-  /* Устанавливаем ширину, чтобы длинный текст не вылезал за рамки */
   width: 90%;
-  text-align: center; /* Дополнительно центрируем сам текст внутри его блока */
+  text-align: center;
 }
 
 .copy-button {
@@ -77,10 +69,9 @@
   margin-left: 10px;
   flex-shrink: 0;
 
-  /* --- KEY CHANGE --- */
-  display: flex; /* Make the button a flex container too */
-  align-items: center; /* Center the image vertically */
-  justify-content: center; /* Center the image horizontally */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .copy-button img {
@@ -88,12 +79,10 @@
   width: 25vw;
   max-width: 100px;
 
-  /* --- KEY CHANGE --- */
-  height: 100%; /* Make the image take up 100% of the button's height */
-  object-fit: contain; /* Ensure the image scales proportionally within the new height */
+  height: 100%;
+  object-fit: contain;
 }
 
-/* --- УЛУЧШЕННЫЙ СПИСОК РЕФЕРАЛОВ --- */
 .referrals-list {
   list-style: none;
   padding: 0;
@@ -110,7 +99,6 @@
   padding: 10px 0;
   border-bottom: 1px dashed rgba(255, 255, 255, 0.3);
   font-size: 16px;
-  /* было justify-content: space-between; — больше не нужно */
 }
 .referrals-list li.ref-item:last-child {
   border-bottom: none;
@@ -120,26 +108,21 @@
   content: none;
 }
 
-/* Стили для имени реферала */
 .ref-name {
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1 1 0;   /* <-- вместо просто flex-grow:1 */
-  min-width: 0;  /* обязательно для корректного ellipsis в flex */
+  flex: 0 0 auto;
+  min-width: unset;
 }
 
-/* Контейнер для статистики */
 .ref-stats {
   display: flex;
   gap: 12px;
-  white-space: normal;  /* было nowrap */
-  flex-wrap: wrap;      /* разрешаем перенос на узких экранах */
-  margin-left: auto;    /* прижимает статистику вправо */
-  /* убери flex-shrink: 0; чтобы не мешать сжатию при нехватке места */
+  white-space: normal;
+  flex-wrap: wrap;
+  margin-left: auto;
 }
 .invite-image {
-  margin-top: 50px; /* Уменьшили отступ */
+  margin-top: 50px;
 }
 
 .your-referrals-image {
