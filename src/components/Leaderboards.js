@@ -174,7 +174,6 @@ const Leaderboards = ({ userId: propUserId }) => {
               Accuracy: {Math.round(me.best_score || 0)}%
             </span>
             <span className="lb-me-tokens">
-              {/* ИЗМЕНЕНИЕ: Используем новую функцию и здесь */}
               Tokens: {formatCoins(me.coins)}
             </span>
           </>
