@@ -1,5 +1,5 @@
 // src/components/Leaderboards.js
-import React, { useEffect, useState, useMemo } from 'react'; // 1. Удалён неиспользуемый 'useCallback'
+import React, { useEffect, useState, useMemo } from 'react';
 import './Leaderboards.css';
 import leaderboardText from '../assets/leaderboard_text.png';
 import boardImage from '../assets/board.png';
@@ -20,6 +20,17 @@ function displayName(u) {
     (u?.name && String(u.name).trim()) ||
     String(u?.user_id || '');
   return base.length > 10 ? `${base.slice(0, 10)}…` : base;
+}
+
+// НОВАЯ ФУНКЦИЯ: форматирует монеты согласно правилу
+function formatCoins(coins) {
+  // Проверяем, является ли значение конечным числом
+  if (!Number.isFinite(coins)) {
+    return '0.00';
+  }
+  // Если число > 1000, округляем до одного знака после запятой,
+  // в противном случае — до двух.
+  return coins > 1000 ? Number(coins).toFixed(1) : Number(coins).toFixed(2);
 }
 
 // постараемся взять тот же userId, что использует приложение
@@ -92,7 +103,6 @@ const Leaderboards = ({ userId: propUserId }) => {
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        // 2. Сохраняем полученные данные в состояние
         if (!stop) {
           setMe(data);
         }
@@ -121,7 +131,6 @@ const Leaderboards = ({ userId: propUserId }) => {
       <div className="lb-board">
         <img src={boardImage} alt="Board" className="lb-board-img" />
         <div className="lb-overlay">
-          {/* шапка скрыта CSS'ом (lb-head { display: none }) */}
           <div className="lb-row lb-head">
             <div className="col-rank">№</div>
             <div className="col-name">name</div>
@@ -136,14 +145,13 @@ const Leaderboards = ({ userId: propUserId }) => {
               <div className="lb-row" key={u.user_id || i}>
                 <div className="col-rank">{i + 1}</div>
                 <div className="col-name">{displayName(u)}</div>
-                {/* ОБЪЕДИНЯЕМ СТАТИСТИКУ В ОДИН БЛОК */}
                 <div className="col-stats">
                   <span className="col-acc">
                     {Number.isFinite(u?.best_score) ? `${Math.round(u.best_score)}%` : '—'}
                   </span>
                   <span className="col-tok">
-                    {/* Код для токенов теперь ВНУТРИ своего span */}
-                    {Number.isFinite(u?.coins) ? Number(u.coins).toFixed(2) : '0.00'}
+                    {/* ИЗМЕНЕНИЕ: Используем новую функцию форматирования */}
+                    {formatCoins(u?.coins)}
                   </span>
                 </div>
               </div>
@@ -154,26 +162,26 @@ const Leaderboards = ({ userId: propUserId }) => {
         </div>
       </div>
 
-      {/* подпись снизу: текущий пользователь */}
-        <div className="lb-me">
-                {errMe ? (
-                  <span className="faded">Failed to load your results ({errMe})</span>
-                ) : me ? (
-                  <>
-                    <span className="lb-me-rank">
-                      Rank: {typeof myRankInTop === 'number' ? `#${myRankInTop}` : 'N/A'}
-                    </span>
-                    <span className="lb-me-accuracy">
-                      Accuracy: {Math.round(me.best_score || 0)}%
-                    </span>
-                    <span className="lb-me-tokens">
-                      Tokens: {Number(me.coins || 0).toFixed(2)}
-                    </span>
-                  </>
-                ) : (
-                  <span className="faded">Loading your results…</span>
-                )}
-              </div>
+      <div className="lb-me">
+        {errMe ? (
+          <span className="faded">Failed to load your results ({errMe})</span>
+        ) : me ? (
+          <>
+            <span className="lb-me-rank">
+              Rank: {typeof myRankInTop === 'number' ? `#${myRankInTop}` : 'N/A'}
+            </span>
+            <span className="lb-me-accuracy">
+              Accuracy: {Math.round(me.best_score || 0)}%
+            </span>
+            <span className="lb-me-tokens">
+              {/* ИЗМЕНЕНИЕ: Используем новую функцию и здесь */}
+              Tokens: {formatCoins(me.coins)}
+            </span>
+          </>
+        ) : (
+          <span className="faded">Loading your results…</span>
+        )}
+      </div>
     </div>
   );
 };
