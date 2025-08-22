@@ -52,7 +52,7 @@
 
   /* Новые переменные управления вертикальным интервалом */
   --lb-row-gap: 0cqw;   /* Уменьшаем расстояние между строками */
-  --lb-row-pad: 0cqw;   /* вертикальный внутренний отступ строки (было 0.6cqw) */
+  --lb-row-pad: -0.1cqw;   /* вертикальный внутренний отступ строки (было 0.6cqw) */
 }
 
 .lb-board-img {
@@ -94,9 +94,6 @@
   gap: 1.2cqw;
   padding: var(--lb-row-pad) 0.8cqw;
   align-items: center;
-}
-.lb-row + .lb-row {
-    margin-top: -2px;
 }
 
 .col-rank {
