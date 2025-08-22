@@ -110,8 +110,8 @@
 
 .ref-name {
   white-space: nowrap;
-  flex: 0 0 auto;
-  min-width: unset;
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .ref-stats {
