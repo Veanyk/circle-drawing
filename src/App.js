@@ -362,7 +362,7 @@ function App() {
                   }}
                 >
                   <span className="dot" />
-                  {canAddWallet420 ? 'Add wallet' : 'Change wallet'}
+                  {canAddWallet420 ? 'Add wallet' : 'Wallet #1'}
                 </button>
               </div>
             )}
@@ -378,7 +378,7 @@ function App() {
                   }}
                 >
                   <span className="dot" />
-                  {canAddWallet1000 ? 'Add second wallet' : 'Change second wallet'}
+                  {canAddWallet1000 ? 'Add second wallet' : 'Wallet #2'}
                 </button>
               </div>
             )}
