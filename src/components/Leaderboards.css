@@ -51,10 +51,12 @@
   container-type: inline-size;
 
   /* Новые переменные управления вертикальным интервалом */
-  --lb-row-gap: 0cqw;   /* Уменьшаем расстояние между строками */
+  --lb-row-gap: -1cqw;   /* Уменьшаем расстояние между строками */
   --lb-row-pad: -1cqw;   /* вертикальный внутренний отступ строки (было 0.6cqw) */
 }
-
+.lb-row + .lb-row {
+  margin-top: var(--lb-row-gap);
+}
 .lb-board-img {
   width: 100%;
   height: 100%;
