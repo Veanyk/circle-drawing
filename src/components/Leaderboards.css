@@ -96,7 +96,7 @@
   align-items: center;
 }
 .lb-row + .lb-row {
-  margin-top: var(--lb-row-gap);
+    margin-top: -2px;
 }
 
 .col-rank {
