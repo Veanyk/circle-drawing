@@ -55,7 +55,7 @@ const Tasks = memo(function Tasks({ onTaskComplete, completedTasks, setCurrentTa
       id: 1,
       title: 'Subscribe to Telegram Channel',
       descriptionImage: task1Desc,
-      link: 'https://t.me/durov', // замените на ваш канал
+      link: 'https://t.me/+ZdC7p7itt3IyMTkx', // замените на ваш канал
       tokens: 30,
       image: task1Icon,
       requires_verification: true,
