@@ -51,7 +51,7 @@
   container-type: inline-size;
 
   /* Новые переменные управления вертикальным интервалом */
-  --lb-row-gap: 0.1cqw;   /* Уменьшаем расстояние между строками */
+  --lb-row-gap: 0.05cqw;   /* Уменьшаем расстояние между строками */
   --lb-row-pad: 0.05cqw;   /* вертикальный внутренний отступ строки (было 0.6cqw) */
 }
 
@@ -78,7 +78,7 @@
   bottom: 13%;
 
   /* масштабируемые отступы/интерлиньяж от ширины доски */
-   gap: var(--lb-row-gap);
+   gap: 0;
 
   /* fallback по вьюпорту... */
   font-size: clamp(14px, 2.7vw, 18px);
@@ -94,6 +94,9 @@
   gap: 1.2cqw;
   padding: var(--lb-row-pad) 0.8cqw;
   align-items: center;
+}
+.lb-row + .lb-row {
+  margin-top: var(--lb-row-gap);
 }
 
 .col-rank {
