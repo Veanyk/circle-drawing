@@ -448,24 +448,20 @@ function App() {
 
       <TabBar currentTab={currentTab} setCurrentTab={setCurrentTab} />
 
-      <WalletModal
-        isOpen={walletModalOpen}
-        initialWallet={
-          walletModalSlot === '1000'
-            ? (wallet1000 || '')
-            : walletModalSlot === '690'
-              ? (wallet690 || '')
-              : (wallet420 || '')
-        }
-        onSave={saveWalletOnServer}
-        onCancel={() => {
-          const key = keyForSlot(walletModalSlot);
-          dismiss(key);
-          closeWalletModal();
-        }}
-        onRequestClose={closeWalletModal}
-        slot={walletModalSlot}
-      />
+        <WalletModal
+          isOpen={walletModalOpen}
+          initialWallet={walletModalSlot === '1000' ? (wallet1000 || '') : walletModalSlot === '690' ? (wallet690 || '') : (wallet420 || '')}
+          onSave={saveWalletOnServer}
+          onCancel={() => {
+            if (walletModalSlot === '1000') dismiss(DISMISS_1000);
+            else if (walletModalSlot === '690') dismiss(DISMISS_690);
+            else dismiss(DISMISS_420);
+            closeWalletModal();
+          }}
+          onRequestClose={closeWalletModal}
+          slot={walletModalSlot}
+          coins={coins}
+        />
     </div>
   );
 }

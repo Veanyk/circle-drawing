@@ -153,7 +153,7 @@ function writeDb(nextData) {
   scheduleFlush();
 }
 
-const values = obj => Object.values(obj || {}).filter(v => v && typeof v === 'object']);
+const values = obj => Object.values(obj || {}).filter(v => v && typeof v === 'object');
 
 function isTelegramId(id) {
   return typeof id === 'string' && /^\d+$/.test(id);

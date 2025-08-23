@@ -4,6 +4,18 @@ import './WalletModal.css';
 const MIN_LEN = 6;
 const MAX_LEN = 120;
 
+// Пороги для каждого слота
+const SLOT_THRESHOLDS = { '420': 420, '690': 690, '1000': 1000 };
+const normalizeSlot = (s) => (['420', '690', '1000'].includes(String(s)) ? String(s) : '420');
+const thresholdForSlot = (s) => SLOT_THRESHOLDS[normalizeSlot(s)] || 420;
+
+// Форматирование монет: ≥1000 → 1 знак, иначе 2
+const formatCoins = (n) => {
+  const x = Number(n);
+  if (!Number.isFinite(x)) return '0.00';
+  return x >= 1000 ? x.toFixed(1) : x.toFixed(2);
+};
+
 export default function WalletModal({
   isOpen,
   initialWallet,
@@ -11,11 +23,15 @@ export default function WalletModal({
   onCancel,
   onRequestClose,
   slot = '420',
+  coins, // <— НОВОЕ: передай текущее число монет из App.js
 }) {
   const [wallet, setWallet] = useState(initialWallet || '');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const inputRef = useRef(null);
+
+  const s = normalizeSlot(slot);
+  const threshold = thresholdForSlot(s);
 
   useEffect(() => {
     if (isOpen) {
@@ -57,7 +73,8 @@ export default function WalletModal({
       const msg = String(e?.message || e);
       // map common backend responses
       if (/not_eligible/.test(msg)) {
-        setError('Not enough coins to link a wallet (need 100+).');
+        // показываем корректный порог и текущие монеты
+        setError(`Not enough coins to link this wallet (need ${threshold}+, you have ${formatCoins(coins)}).`);
       } else if (/invalid_wallet/.test(msg)) {
         setError('Invalid wallet format. Please try another one.');
       } else if (/telegram_only/.test(msg)) {
@@ -77,6 +94,12 @@ export default function WalletModal({
     }
   };
 
+  // В заголовке показываем ФАКТИЧЕСКИЕ монеты (если переданы), иначе — порог
+  const reachedText = typeof coins === 'number' ? formatCoins(coins) : String(threshold);
+
+  // Человекопонятное название слота
+  const slotName = s === '1000' ? 'Wallet #3' : s === '690' ? 'Wallet #2' : 'Wallet #1';
+
   return (
     <div className="wm-backdrop" onClick={onRequestClose}>
       <div
@@ -88,10 +111,13 @@ export default function WalletModal({
       >
         <button className="wm-close" onClick={onRequestClose} aria-label="Close">×</button>
 
-        <h2 className="wm-title">🎉 Congrats! You’ve reached {slot === '1000' ? 1000 : 420} coins</h2>
+        <h2 id="wm-title" className="wm-title">
+          🎉 Congrats! You’ve reached {reachedText} coins
+        </h2>
 
         <p className="wm-subtitle">
-          Enter your crypto wallet address for future payouts. You can always change it later.
+          {slotName} unlocks at <strong>{threshold}</strong> coins. Enter your crypto wallet address for future payouts.
+          You can always change it later.
         </p>
 
         <label className="wm-label" htmlFor="wallet-input">Wallet address</label>
