@@ -14,10 +14,10 @@ import './App.css';
 const SERVER_URL = process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : '/api';
 const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000;
 
-// Threshold #1 — add first wallet
-const WALLET_CREATE_THRESHOLD = 420;
-// Threshold #2 — add second wallet
-const WALLET_EDIT_THRESHOLD = 1000;
+// Thresholds for 3 wallets
+const WALLET1_THRESHOLD = 420;
+const WALLET2_THRESHOLD = 690;
+const WALLET3_THRESHOLD = 1000;
 
 // Universal fetch with timeout & retries
 const fetchJSON = async (url, options = {}, { timeout = 10000, retries = 2, retryDelay = 300 } = {}) => {
@@ -61,7 +61,7 @@ function App() {
   // Wallet modal
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [walletModalMode, setWalletModalMode] = useState('create'); // 'create' | 'edit' (kept for compatibility)
-  const [walletModalSlot, setWalletModalSlot] = useState('420');    // '420' | '1000'
+  const [walletModalSlot, setWalletModalSlot] = useState('420');    // '420' | '690' | '1000'
 
   // User state
   const [userId, setUserId] = useState(null);
@@ -73,17 +73,25 @@ function App() {
   const [timeToNextAttempt, setTimeToNextAttempt] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Two wallet slots
+  // Three wallet slots
   const [wallet420, setWallet420] = useState(null);
+  const [wallet690, setWallet690] = useState(null);
   const [wallet1000, setWallet1000] = useState(null);
 
-  // "Don't annoy me" keys for the two thresholds
-  const DISMISS_CREATE = 'walletPromptDismissed_create'; // for 420
-  const DISMISS_EDIT = 'walletPromptDismissed_edit';     // for 1000
+  // "Don't annoy me" keys per slot
+  const DISMISS_420 = 'walletPromptDismissed_420';
+  const DISMISS_690 = 'walletPromptDismissed_690';
+  const DISMISS_1000 = 'walletPromptDismissed_1000';
 
   const isDismissed = (key) => localStorage.getItem(key) === '1';
   const dismiss = (key) => localStorage.setItem(key, '1');
   const undismiss = (key) => localStorage.removeItem(key);
+
+  const keyForSlot = (slot) => {
+    if (slot === '1000') return DISMISS_1000;
+    if (slot === '690') return DISMISS_690;
+    return DISMISS_420;
+  };
 
   const openCreateWalletModal = (slot = '420') => {
     setWalletModalMode('create');
@@ -91,7 +99,7 @@ function App() {
     setWalletModalOpen(true);
   };
 
-  const openEditWalletModal = (slot = '1000') => {
+  const openEditWalletModal = (slot = '420') => {
     setWalletModalMode('edit');
     setWalletModalSlot(slot);
     setWalletModalOpen(true);
@@ -100,10 +108,14 @@ function App() {
   const closeWalletModal = () => setWalletModalOpen(false);
 
   // Flags for showing actions:
-  const canAddWallet420 = coins >= WALLET_CREATE_THRESHOLD && !wallet420;
-  const canAddWallet1000 = coins >= WALLET_EDIT_THRESHOLD && !wallet1000;
-  const canEditWallet420 = coins >= WALLET_CREATE_THRESHOLD && !!wallet420;
-  const canEditWallet1000 = coins >= WALLET_EDIT_THRESHOLD && !!wallet1000;
+  const canAddWallet420 = coins >= WALLET1_THRESHOLD && !wallet420;
+  const canAddWallet690 = coins >= WALLET2_THRESHOLD && !wallet690;
+  const canAddWallet1000 = coins >= WALLET3_THRESHOLD && !wallet1000;
+
+  const canEditWallet420 = coins >= WALLET1_THRESHOLD && !!wallet420;
+  const canEditWallet690 = coins >= WALLET2_THRESHOLD && !!wallet690;
+  const canEditWallet1000 = coins >= WALLET3_THRESHOLD && !!wallet1000;
+
   // 1) First load & user bootstrap
   useEffect(() => {
     let isMounted = true;
@@ -150,10 +162,12 @@ function App() {
         setCompletedTasks(Array.isArray(data.completed_tasks) ? data.completed_tasks : []);
         setNextAttemptTimestamp(Number.isFinite(data.nextAttemptTimestamp) ? data.nextAttemptTimestamp : null);
 
-        // two separate wallets (fallback to legacy "wallet" for the first slot)
-        const w420  = data.wallet_420 ?? data.wallet ?? null;
-        const w1000 = data.wallet_1000 ?? null;
+        // Three separate wallets (fallback to legacy "wallet" for the first slot)
+        const w420   = data.wallet_420 ?? data.wallet ?? null;
+        const w690   = data.wallet_690 ?? null;
+        const w1000  = data.wallet_1000 ?? null;
         setWallet420(w420);
+        setWallet690(w690);
         setWallet1000(w1000);
 
         // Safe referral attach
@@ -182,11 +196,12 @@ function App() {
           }
         }
 
-        // Threshold modals: first 420 (if no wallet420), then 1000 (if no wallet1000)
-        if (nextCoins >= WALLET_CREATE_THRESHOLD && !w420 && !isDismissed(DISMISS_CREATE)) {
+        // Threshold modals (open по очереди, чтобы не спамить): 420 -> 690 -> 1000
+        if (nextCoins >= WALLET1_THRESHOLD && !w420 && !isDismissed(DISMISS_420)) {
           openCreateWalletModal('420');
-        }
-        if (nextCoins >= WALLET_EDIT_THRESHOLD && !w1000 && !isDismissed(DISMISS_EDIT)) {
+        } else if (nextCoins >= WALLET2_THRESHOLD && !w690 && !isDismissed(DISMISS_690)) {
+          openCreateWalletModal('690');
+        } else if (nextCoins >= WALLET3_THRESHOLD && !w1000 && !isDismissed(DISMISS_1000)) {
           openCreateWalletModal('1000');
         }
       } catch (err) {
@@ -232,7 +247,7 @@ function App() {
     });
   }, [userId]);
 
-  // 4) Save wallet to the server (slot '420' | '1000')
+  // 4) Save wallet to the server (slot '420' | '690' | '1000')
   const saveWalletOnServer = useCallback(async (walletStr) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort('timeout'), 10000);
@@ -244,7 +259,7 @@ function App() {
         body: JSON.stringify({
           user_id: userId,
           wallet: walletStr,
-          slot: walletModalSlot, // '420' | '1000'
+          slot: walletModalSlot, // '420' | '690' | '1000'
         }),
         signal: controller.signal
       });
@@ -256,11 +271,14 @@ function App() {
       }
 
       if (walletModalSlot === '1000') {
-        setWallet1000(payload?.wallet_1000 || walletStr);
-        undismiss(DISMISS_EDIT);
+        setWallet1000(payload?.wallet_1000 ?? walletStr);
+        undismiss(DISMISS_1000);
+      } else if (walletModalSlot === '690') {
+        setWallet690(payload?.wallet_690 ?? walletStr);
+        undismiss(DISMISS_690);
       } else {
-        setWallet420(payload?.wallet_420 || walletStr);
-        undismiss(DISMISS_CREATE);
+        setWallet420(payload?.wallet_420 ?? payload?.wallet ?? walletStr);
+        undismiss(DISMISS_420);
       }
 
       closeWalletModal();
@@ -272,11 +290,29 @@ function App() {
     }
   }, [userId, walletModalSlot]);
 
+  const promptIfCrossed = (prevCoins, newCoins) => {
+    if (prevCoins < WALLET1_THRESHOLD && newCoins >= WALLET1_THRESHOLD && !wallet420) {
+      undismiss(DISMISS_420);
+      openCreateWalletModal('420');
+      return; // показать по одному за раз
+    }
+    if (prevCoins < WALLET2_THRESHOLD && newCoins >= WALLET2_THRESHOLD && !wallet690) {
+      undismiss(DISMISS_690);
+      openCreateWalletModal('690');
+      return;
+    }
+    if (prevCoins < WALLET3_THRESHOLD && newCoins >= WALLET3_THRESHOLD && !wallet1000) {
+      undismiss(DISMISS_1000);
+      openCreateWalletModal('1000');
+    }
+  };
+
   const onDrawEnd = (circleAccuracy, points, canvas) => {
     if (attempts <= 0) return;
     const newAttempts = attempts - 1;
     const tokensEarned = parseFloat((0.01 * circleAccuracy).toFixed(2));
-    const newCoins = coins + tokensEarned;
+    const prevCoins = coins;
+    const newCoins = prevCoins + tokensEarned;
 
     setScore(circleAccuracy);
     setDrawingData(canvas?.toDataURL?.() || null);
@@ -287,16 +323,8 @@ function App() {
     }
     updateUserDataOnServer({ coins: newCoins, attempts: newAttempts, score: circleAccuracy });
 
-    // 420+: if first wallet missing — prompt
-    if (coins < WALLET_CREATE_THRESHOLD && newCoins >= WALLET_CREATE_THRESHOLD && !wallet420) {
-      undismiss(DISMISS_CREATE);
-      openCreateWalletModal('420');
-    }
-    // 1000+: if second wallet missing — prompt
-    if (coins < WALLET_EDIT_THRESHOLD && newCoins >= WALLET_EDIT_THRESHOLD && !wallet1000) {
-      undismiss(DISMISS_EDIT);
-      openCreateWalletModal('1000');
-    }
+    // Prompt for wallets when crossing thresholds
+    promptIfCrossed(prevCoins, newCoins);
   };
 
   const onReset = () => {
@@ -307,20 +335,15 @@ function App() {
   const onTaskComplete = (taskId, tokens) => {
     if (completedTasks.includes(taskId)) return;
     const newCompletedTasks = [...completedTasks, taskId];
-    const newCoins = coins + tokens;
+    const prevCoins = coins;
+    const newCoins = prevCoins + tokens;
 
     setCompletedTasks(newCompletedTasks);
     setCoins(newCoins);
     updateUserDataOnServer({ coins: newCoins, completed_tasks: newCompletedTasks });
 
-    if (coins < WALLET_CREATE_THRESHOLD && newCoins >= WALLET_CREATE_THRESHOLD && !wallet420) {
-      undismiss(DISMISS_CREATE);
-      openCreateWalletModal('420');
-    }
-    if (coins < WALLET_EDIT_THRESHOLD && newCoins >= WALLET_EDIT_THRESHOLD && !wallet1000) {
-      undismiss(DISMISS_EDIT);
-      openCreateWalletModal('1000');
-    }
+    // Prompt for wallets when crossing thresholds
+    promptIfCrossed(prevCoins, newCoins);
   };
 
   if (isLoading) {
@@ -334,7 +357,8 @@ function App() {
           <div className="coins-display">
             <div className="banner-container">
               <img src={require('./assets/total_coins.png')} alt="Total coins" className="banner-icon" />
-              <span className="banner-text">{coins >= WALLET_EDIT_THRESHOLD ? coins.toFixed(1) : coins.toFixed(2)}</span>
+              {/* как и раньше: при 1000+ показываем 1 знак после запятой */}
+              <span className="banner-text">{coins >= WALLET3_THRESHOLD ? coins.toFixed(1) : coins.toFixed(2)}</span>
             </div>
           </div>
 
@@ -351,37 +375,53 @@ function App() {
           </div>
 
           {/* Action buttons appear only when available */}
-            {(canAddWallet420 || canEditWallet420) && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button
-                  className="wallet-button"
-                  style={{ fontFamily: "'Gloria Hallelujah', cursive" }}
-                  onClick={() => {
-                    undismiss(DISMISS_CREATE);
-                    (canAddWallet420 ? openCreateWalletModal('420') : openEditWalletModal('420'));
-                  }}
-                >
-                  <span className="dot" />
-                  {canAddWallet420 ? 'Add wallet' : 'Wallet #1'}
-                </button>
-              </div>
-            )}
+          {(canAddWallet420 || canEditWallet420) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                className="wallet-button"
+                style={{ fontFamily: "'Gloria Hallelujah', cursive" }}
+                onClick={() => {
+                  undismiss(DISMISS_420);
+                  (canAddWallet420 ? openCreateWalletModal('420') : openEditWalletModal('420'));
+                }}
+              >
+                <span className="dot" />
+                {canAddWallet420 ? 'Add wallet' : '1'}
+              </button>
+            </div>
+          )}
 
-            {(canAddWallet1000 || canEditWallet1000) && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button
-                  className="wallet-button"
-                  style={{ fontFamily: "'Gloria Hallelujah', cursive" }}
-                  onClick={() => {
-                    undismiss(DISMISS_EDIT);
-                    (canAddWallet1000 ? openCreateWalletModal('1000') : openEditWalletModal('1000'));
-                  }}
-                >
-                  <span className="dot" />
-                  {canAddWallet1000 ? 'Add second wallet' : 'Wallet #2'}
-                </button>
-              </div>
-            )}
+          {(canAddWallet690 || canEditWallet690) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                className="wallet-button"
+                style={{ fontFamily: "'Gloria Hallelujah', cursive" }}
+                onClick={() => {
+                  undismiss(DISMISS_690);
+                  (canAddWallet690 ? openCreateWalletModal('690') : openEditWalletModal('690'));
+                }}
+              >
+                <span className="dot" />
+                {canAddWallet690 ? 'Add second wallet' : '2'}
+              </button>
+            </div>
+          )}
+
+          {(canAddWallet1000 || canEditWallet1000) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                className="wallet-button"
+                style={{ fontFamily: "'Gloria Hallelujah', cursive" }}
+                onClick={() => {
+                  undismiss(DISMISS_1000);
+                  (canAddWallet1000 ? openCreateWalletModal('1000') : openEditWalletModal('1000'));
+                }}
+              >
+                <span className="dot" />
+                {canAddWallet1000 ? 'Add third wallet' : '3'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -408,17 +448,24 @@ function App() {
 
       <TabBar currentTab={currentTab} setCurrentTab={setCurrentTab} />
 
-        <WalletModal
-          isOpen={walletModalOpen}
-          initialWallet={walletModalSlot === '1000' ? (wallet1000 || '') : (wallet420 || '')}
-          onSave={saveWalletOnServer}
-          onCancel={() => {
-            if (walletModalSlot === '1000') dismiss(DISMISS_EDIT); else dismiss(DISMISS_CREATE);
-            closeWalletModal();
-          }}
-          onRequestClose={closeWalletModal}
-          slot={walletModalSlot}
-        />
+      <WalletModal
+        isOpen={walletModalOpen}
+        initialWallet={
+          walletModalSlot === '1000'
+            ? (wallet1000 || '')
+            : walletModalSlot === '690'
+              ? (wallet690 || '')
+              : (wallet420 || '')
+        }
+        onSave={saveWalletOnServer}
+        onCancel={() => {
+          const key = keyForSlot(walletModalSlot);
+          dismiss(key);
+          closeWalletModal();
+        }}
+        onRequestClose={closeWalletModal}
+        slot={walletModalSlot}
+      />
     </div>
   );
 }

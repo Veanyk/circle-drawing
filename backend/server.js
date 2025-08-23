@@ -20,8 +20,14 @@ const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS || 10000);
 const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000; // 1 минута
 const REFERRAL_TASK_ID = 2;
 const REFERRAL_TASK_REWARD = 30;
-const WALLET_THRESHOLDS = { '420': 420, '1000': 1000 };
-const parseWalletSlot = (slot) => (String(slot).trim() === '1000' ? '1000' : '420');
+
+// --- ТРИ ПОРОГА ДЛЯ КОШЕЛЬКОВ ---
+const WALLET_THRESHOLDS = { '420': 420, '690': 690, '1000': 1000 };
+const parseWalletSlot = (slot) => {
+  const s = String(slot || '').trim();
+  if (s === '420' || s === '690' || s === '1000') return s;
+  return '420';
+};
 
 // ------ Admin auth ------
 const ADMIN_KEYS = (process.env.ADMIN_KEYS || '')
@@ -147,7 +153,7 @@ function writeDb(nextData) {
   scheduleFlush();
 }
 
-const values = obj => Object.values(obj || {}).filter(v => v && typeof v === 'object');
+const values = obj => Object.values(obj || {}).filter(v => v && typeof v === 'object']);
 
 function isTelegramId(id) {
   return typeof id === 'string' && /^\d+$/.test(id);
@@ -182,15 +188,20 @@ function normalizeUser(u) {
   n.referrals = n.referrals.map(String);
   if (typeof n.referral_processed !== 'boolean') n.referral_processed = false;
 
-  // ---- ДОБАВЛЕНО: миграция и дефолты для двух кошельков ----
+  // ---- Миграция и дефолты для ТРЁХ кошельков ----
   // старое поле wallet маппим в wallet_420 для обратной совместимости
   if (typeof n.wallet_420 === 'undefined') {
     n.wallet_420 = (typeof n.wallet === 'string' && n.wallet.trim()) ? n.wallet.trim() : null;
   }
+  if (typeof n.wallet_690 === 'undefined') {
+    n.wallet_690 = null;
+  }
   if (typeof n.wallet_1000 === 'undefined') {
     n.wallet_1000 = null;
   }
+
   if (typeof n.wallet_420_updated_at !== 'string') n.wallet_420_updated_at = null;
+  if (typeof n.wallet_690_updated_at !== 'string') n.wallet_690_updated_at = null;
   if (typeof n.wallet_1000_updated_at !== 'string') n.wallet_1000_updated_at = null;
 
   return n;
@@ -315,93 +326,98 @@ app.post('/getUserData', async (req, res) => {
     user_id = String(user_id);
     const providedUsername = sanitizeTelegramUsername(username);
 
-    // Логика для гостевых пользователей (без изменений)
+    // Гостевые пользователи
     if (!isTelegramId(user_id)) {
       return res.json({
         user_id,
         username: providedUsername || 'Guest',
-        referrer_id: null, coins: 0, attempts: 10, max_attempts: 10,
-        best_score: 0, completed_tasks: [], referrals: [],
-        nextAttemptTimestamp: null, wallet: null, wallet_updated_at: null,
-        walletEligible: false,
+        referrer_id: null,
+        coins: 0,
+        attempts: 10,
+        max_attempts: 10,
+        best_score: 0,
+        completed_tasks: [],
+        referrals: [],
+        nextAttemptTimestamp: null,
+        // три слота (гость не может сохранять кошельки)
+        wallet: null,
+        wallet_420: null,
+        wallet_690: null,
+        wallet_1000: null,
+        wallet_420_updated_at: null,
+        wallet_690_updated_at: null,
+        wallet_1000_updated_at: null,
+        walletEligible: false,          // back-compat (==420)
+        walletEligible690: false,
+        walletEligible1000: false,
       });
     }
 
     const db = readDb();
     let user = db[user_id];
-    let inviter = null; // Переменная для хранения данных пригласившего
+    let inviter = null;
 
     const refIdStr = ref_id ? String(ref_id) : null;
     const isRefLinkValid = refIdStr && refIdStr !== user_id && isTelegramId(refIdStr);
 
-    // --- Сценарий 1: Новый пользователь ---
+    // Новый пользователь
     if (!user) {
       user = normalizeUser({
         user_id,
         username: providedUsername || `User_${user_id.slice(-4)}`,
-        // Сразу записываем реферера, если ссылка валидная
         referrer_id: isRefLinkValid ? refIdStr : null,
       });
     } else {
-      // --- Сценарий 2: Существующий пользователь ---
+      // Существующий
       user = normalizeUser(user);
-      // Обновляем username, если он изменился в Telegram
       if (providedUsername && providedUsername !== user.username) {
         user.username = providedUsername;
       }
-      // Если у пользователя еще нет реферера, а он пришел по валидной ссылке - записываем
       if (isRefLinkValid && !user.referrer_id) {
         user.referrer_id = refIdStr;
       }
     }
 
-    // --- ОБЩАЯ ЛОГИКА ДЛЯ ОБОИХ СЦЕНАРИЕВ: ОБРАБОТКА РЕФЕРАЛА ---
-    // Проверяем, есть ли у пользователя реферер и не был ли он уже обработан
+    // Обработка реферала
     if (user.referrer_id && !user.referral_processed) {
       const inviterId = user.referrer_id;
 
-      // Проверяем, существует ли пригласивший в базе
       if (db[inviterId]) {
-        inviter = normalizeUser(db[inviterId]); // Загружаем данные пригласившего
-
-        // 1. Добавляем нового пользователя в список рефералов пригласившего
+        inviter = normalizeUser(db[inviterId]);
         if (!inviter.referrals.includes(user_id)) {
           inviter.referrals.push(user_id);
         }
-
-        // 2. *** НОВАЯ ЛОГИКА: НАГРАДА ЗА ПРИГЛАШЕНИЕ ***
-        // Вызываем функцию, которая проверяет, нужно ли выдать награду.
-        // Она сама добавит монеты и taskId.
         const rewardGiven = awardInviteIfNeeded(inviter);
         if (rewardGiven) {
           log(`Награда за реферала (+${REFERRAL_TASK_REWARD}) начислена ${inviter.user_id} от ${user_id}`);
         }
-
-        // 3. Помечаем, что реферал для этого пользователя обработан
         user.referral_processed = true;
       }
     }
 
-    // Восстанавливаем попытки пользователя (без изменений)
+    // Регенерация попыток
     regenAttempts(user);
 
-    // Сохраняем все изменения в базу данных
+    // Сохраняем
     db[user_id] = user;
-    if (inviter) {
-      // Если мы изменяли данные пригласившего, их тоже нужно сохранить
-      db[inviter.user_id] = inviter;
-    }
+    if (inviter) db[inviter.user_id] = inviter;
     writeDb(db);
 
-    // Отправляем ответ клиенту
+    const c = user.coins || 0;
+
     res.json({
       ...user,
       // back-compat: "wallet" считаем как кошелёк 420
       wallet: user.wallet_420 ?? null,
       wallet_420: user.wallet_420 ?? null,
+      wallet_690: user.wallet_690 ?? null,
       wallet_1000: user.wallet_1000 ?? null,
-      walletEligible: (user.coins || 0) >= 420,
-      walletEligible1000: (user.coins || 0) >= 1000,
+      wallet_420_updated_at: user.wallet_420_updated_at ?? null,
+      wallet_690_updated_at: user.wallet_690_updated_at ?? null,
+      wallet_1000_updated_at: user.wallet_1000_updated_at ?? null,
+      walletEligible: c >= 420,        // back-compat
+      walletEligible690: c >= 690,
+      walletEligible1000: c >= 1000,
     });
 
   } catch (e) {
@@ -418,30 +434,31 @@ app.post('/updateUserData', async (req, res) => {
 
     user_id = String(user_id);
 
+    // Гостевые пользователи
     if (!isTelegramId(user_id)) {
-      const coins = typeof data.coins === 'number' && Number.isFinite(data.coins) ? Math.max(0, data.coins) : 0;
-      const attempts = typeof data.attempts === 'number' && Number.isFinite(data.attempts) ? Math.max(0, Math.floor(data.attempts)) : 10;
-      const best_score = typeof data.score === 'number' ? data.score : 0;
       return res.json({
-          user_id,
-          username: providedUsername || 'Guest',
-          referrer_id: null,
-          coins: 0,
-          attempts: 10,
-          max_attempts: 10,
-          best_score: 0,
-          completed_tasks: [],
-          referrals: [],
-          nextAttemptTimestamp: null,
-          // два слота
-          wallet: null,
-          wallet_420: null,
-          wallet_1000: null,
-          wallet_420_updated_at: null,
-          wallet_1000_updated_at: null,
-          walletEligible: false,
-          walletEligible1000: false,
-        });
+        user_id,
+        username: 'Guest',
+        referrer_id: null,
+        coins: 0,
+        attempts: 10,
+        max_attempts: 10,
+        best_score: 0,
+        completed_tasks: [],
+        referrals: [],
+        nextAttemptTimestamp: null,
+        // три слота
+        wallet: null,
+        wallet_420: null,
+        wallet_690: null,
+        wallet_1000: null,
+        wallet_420_updated_at: null,
+        wallet_690_updated_at: null,
+        wallet_1000_updated_at: null,
+        walletEligible: false,
+        walletEligible690: false,
+        walletEligible1000: false,
+      });
     }
 
     const db = readDb();
@@ -472,6 +489,7 @@ app.post('/updateUserData', async (req, res) => {
       }
     }
 
+    // 5% бонус рефереру за заработанные монеты
     const earned = (u.coins || 0) - (prev.coins || 0);
     if (earned > 0 && prev.referrer_id && db[prev.referrer_id]) {
       const ref = normalizeUser(db[prev.referrer_id]);
@@ -483,11 +501,21 @@ app.post('/updateUserData', async (req, res) => {
 
     db[user_id] = u;
     writeDb(db);
+
+    const c = u.coins || 0;
+
     res.json({
       ...u,
-      wallet: u.wallet_420 ?? null,
-      walletEligible: (u.coins || 0) >= 420,
-      walletEligible1000: (u.coins || 0) >= 1000,
+      wallet: u.wallet_420 ?? null, // back-compat
+      wallet_420: u.wallet_420 ?? null,
+      wallet_690: u.wallet_690 ?? null,
+      wallet_1000: u.wallet_1000 ?? null,
+      wallet_420_updated_at: u.wallet_420_updated_at ?? null,
+      wallet_690_updated_at: u.wallet_690_updated_at ?? null,
+      wallet_1000_updated_at: u.wallet_1000_updated_at ?? null,
+      walletEligible: c >= 420,       // back-compat
+      walletEligible690: c >= 690,
+      walletEligible1000: c >= 1000,
     });
   } catch (e) {
     log(e);
@@ -615,7 +643,7 @@ app.post('/acceptReferral', (req, res) => {
   }
 });
 
-// ========= Wallet =========
+// ========= Wallet (три слота) =========
 app.post('/setWallet', (req, res) => {
   try {
     let { user_id, wallet, slot } = req.body || {};
@@ -634,7 +662,7 @@ app.post('/setWallet', (req, res) => {
 
     const u = normalizeUser({ ...prev });
 
-    // какой слот сохраняем: '420' по умолчанию, либо '1000'
+    // какой слот сохраняем: '420' | '690' | '1000'
     const s = parseWalletSlot(slot);
     const needCoins = WALLET_THRESHOLDS[s];
 
@@ -652,6 +680,9 @@ app.post('/setWallet', (req, res) => {
     if (s === '1000') {
       u.wallet_1000 = w;
       u.wallet_1000_updated_at = nowIso;
+    } else if (s === '690') {
+      u.wallet_690 = w;
+      u.wallet_690_updated_at = nowIso;
     } else {
       u.wallet_420 = w;
       u.wallet_420_updated_at = nowIso;
@@ -664,11 +695,13 @@ app.post('/setWallet', (req, res) => {
 
     return res.json({
       ok: true,
-      // возвращаем оба для удобства фронта
+      // возвращаем всё для удобства фронта
       wallet: u.wallet_420 ?? null, // back-compat
       wallet_420: u.wallet_420 ?? null,
+      wallet_690: u.wallet_690 ?? null,
       wallet_1000: u.wallet_1000 ?? null,
       wallet_420_updated_at: u.wallet_420_updated_at ?? null,
+      wallet_690_updated_at: u.wallet_690_updated_at ?? null,
       wallet_1000_updated_at: u.wallet_1000_updated_at ?? null,
     });
   } catch (e) {
