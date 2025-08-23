@@ -4,17 +4,8 @@ import './WalletModal.css';
 const MIN_LEN = 6;
 const MAX_LEN = 120;
 
-// Пороги для каждого слота
 const SLOT_THRESHOLDS = { '420': 420, '690': 690, '1000': 1000 };
 const normalizeSlot = (s) => (['420', '690', '1000'].includes(String(s)) ? String(s) : '420');
-const thresholdForSlot = (s) => SLOT_THRESHOLDS[normalizeSlot(s)] || 420;
-
-// Форматирование монет: ≥1000 → 1 знак, иначе 2
-const formatCoins = (n) => {
-  const x = Number(n);
-  if (!Number.isFinite(x)) return '0.00';
-  return x >= 1000 ? x.toFixed(1) : x.toFixed(2);
-};
 
 export default function WalletModal({
   isOpen,
@@ -23,7 +14,7 @@ export default function WalletModal({
   onCancel,
   onRequestClose,
   slot = '420',
-  coins, // <— НОВОЕ: передай текущее число монет из App.js
+  requiredCoins, // <-- ПЕРЕДАЁМ СЮДА 420 / 690 / 1000
 }) {
   const [wallet, setWallet] = useState(initialWallet || '');
   const [error, setError] = useState('');
@@ -31,14 +22,15 @@ export default function WalletModal({
   const inputRef = useRef(null);
 
   const s = normalizeSlot(slot);
-  const threshold = thresholdForSlot(s);
+  const need = Number.isFinite(requiredCoins)
+    ? Number(requiredCoins)
+    : SLOT_THRESHOLDS[s]; // fallback от слота, если проп не передали
 
   useEffect(() => {
     if (isOpen) {
       setWallet(initialWallet || '');
       setError('');
       setSaving(false);
-      // autofocus
       setTimeout(() => inputRef.current?.focus(), 0);
     }
   }, [isOpen, initialWallet]);
@@ -71,10 +63,8 @@ export default function WalletModal({
       await onSave(w);
     } catch (e) {
       const msg = String(e?.message || e);
-      // map common backend responses
       if (/not_eligible/.test(msg)) {
-        // показываем корректный порог и текущие монеты
-        setError(`Not enough coins to link this wallet (need ${threshold}+, you have ${formatCoins(coins)}).`);
+        setError(`Not enough coins to link this wallet (need ${need}+).`);
       } else if (/invalid_wallet/.test(msg)) {
         setError('Invalid wallet format. Please try another one.');
       } else if (/telegram_only/.test(msg)) {
@@ -94,10 +84,6 @@ export default function WalletModal({
     }
   };
 
-  // В заголовке показываем ФАКТИЧЕСКИЕ монеты (если переданы), иначе — порог
-  const reachedText = typeof coins === 'number' ? formatCoins(coins) : String(threshold);
-
-  // Человекопонятное название слота
   const slotName = s === '1000' ? 'Wallet #3' : s === '690' ? 'Wallet #2' : 'Wallet #1';
 
   return (
@@ -112,11 +98,11 @@ export default function WalletModal({
         <button className="wm-close" onClick={onRequestClose} aria-label="Close">×</button>
 
         <h2 id="wm-title" className="wm-title">
-          🎉 Congrats! You’ve reached {reachedText} coins
+          🎉 Congrats! You’ve reached {need} coins
         </h2>
 
         <p className="wm-subtitle">
-          {slotName} unlocks at <strong>{threshold}</strong> coins. Enter your crypto wallet address for future payouts.
+          {slotName} unlocks at <strong>{need}</strong> coins. Enter your crypto wallet address for future payouts.
           You can always change it later.
         </p>
 

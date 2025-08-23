@@ -450,7 +450,13 @@ function App() {
 
         <WalletModal
           isOpen={walletModalOpen}
-          initialWallet={walletModalSlot === '1000' ? (wallet1000 || '') : walletModalSlot === '690' ? (wallet690 || '') : (wallet420 || '')}
+          initialWallet={
+            walletModalSlot === '1000'
+              ? (wallet1000 || '')
+              : walletModalSlot === '690'
+                ? (wallet690 || '')
+                : (wallet420 || '')
+          }
           onSave={saveWalletOnServer}
           onCancel={() => {
             if (walletModalSlot === '1000') dismiss(DISMISS_1000);
@@ -460,7 +466,7 @@ function App() {
           }}
           onRequestClose={closeWalletModal}
           slot={walletModalSlot}
-          coins={coins}
+          requiredCoins={walletModalSlot === '1000' ? 1000 : walletModalSlot === '690' ? 690 : 420}
         />
     </div>
   );
