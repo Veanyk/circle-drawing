@@ -1,4 +1,3 @@
-// src/App.js
 import React, { useState, useEffect, useCallback } from 'react';
 import WalletModal from './components/WalletModal';
 import './components/WalletModal.css';
@@ -10,16 +9,15 @@ import Referrals from './components/Referrals';
 import Leaderboards from './components/Leaderboards';
 import './App.css';
 
-// Single source of truth for the server URL
 const SERVER_URL = process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : '/api';
 const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000;
 
-// Thresholds for 3 wallets
+// Пороговые значения для 3 кошельков
 const WALLET1_THRESHOLD = 420;
 const WALLET2_THRESHOLD = 690;
 const WALLET3_THRESHOLD = 1000;
 
-// Universal fetch with timeout & retries
+// Универсальная функция fetch с таймаутом и повторами
 const fetchJSON = async (url, options = {}, { timeout = 10000, retries = 2, retryDelay = 300 } = {}) => {
   for (let attempt = 0; attempt <= retries; attempt++) {
     const ctrl = new AbortController();
@@ -37,7 +35,7 @@ const fetchJSON = async (url, options = {}, { timeout = 10000, retries = 2, retr
   }
 };
 
-// Resolve user id (Telegram user or browser fallback)
+// Получение user_id
 const initializeUserId = () => {
   const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
   if (tgUser?.id) {
@@ -58,12 +56,12 @@ function App() {
   const [currentTab, setCurrentTab] = useState('circle');
   const [drawingData, setDrawingData] = useState(null);
 
-  // Wallet modal
+  // Модальное окно для кошелька
   const [walletModalOpen, setWalletModalOpen] = useState(false);
-  const [walletModalMode, setWalletModalMode] = useState('create'); // 'create' | 'edit' (kept for compatibility)
+  const [walletModalMode, setWalletModalMode] = useState('create'); // 'create' | 'edit' (оставлено для совместимости)
   const [walletModalSlot, setWalletModalSlot] = useState('420');    // '420' | '690' | '1000'
 
-  // User state
+  // Состояние пользователя
   const [userId, setUserId] = useState(null);
   const [coins, setCoins] = useState(0);
   const [attempts, setAttempts] = useState(0);
@@ -73,12 +71,11 @@ function App() {
   const [timeToNextAttempt, setTimeToNextAttempt] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Three wallet slots
+  // Три слота для кошельков
   const [wallet420, setWallet420] = useState(null);
   const [wallet690, setWallet690] = useState(null);
   const [wallet1000, setWallet1000] = useState(null);
 
-  // "Don't annoy me" keys per slot
   const DISMISS_420 = 'walletPromptDismissed_420';
   const DISMISS_690 = 'walletPromptDismissed_690';
   const DISMISS_1000 = 'walletPromptDismissed_1000';
@@ -107,7 +104,7 @@ function App() {
 
   const closeWalletModal = () => setWalletModalOpen(false);
 
-  // Flags for showing actions:
+  // Флаги для отображения кнопок действий:
   const canAddWallet420 = coins >= WALLET1_THRESHOLD && !wallet420;
   const canAddWallet690 = coins >= WALLET2_THRESHOLD && !wallet690;
   const canAddWallet1000 = coins >= WALLET3_THRESHOLD && !wallet1000;
@@ -116,7 +113,7 @@ function App() {
   const canEditWallet690 = coins >= WALLET2_THRESHOLD && !!wallet690;
   const canEditWallet1000 = coins >= WALLET3_THRESHOLD && !!wallet1000;
 
-  // 1) First load & user bootstrap
+  // Первая загрузка и инициализация пользователя
   useEffect(() => {
     let isMounted = true;
 
@@ -162,7 +159,7 @@ function App() {
         setCompletedTasks(Array.isArray(data.completed_tasks) ? data.completed_tasks : []);
         setNextAttemptTimestamp(Number.isFinite(data.nextAttemptTimestamp) ? data.nextAttemptTimestamp : null);
 
-        // Three separate wallets (fallback to legacy "wallet" for the first slot)
+        // Три отдельных кошелька
         const w420   = data.wallet_420 ?? data.wallet ?? null;
         const w690   = data.wallet_690 ?? null;
         const w1000  = data.wallet_1000 ?? null;
@@ -170,7 +167,7 @@ function App() {
         setWallet690(w690);
         setWallet1000(w1000);
 
-        // Safe referral attach
+        // Безопасная обработка рефералов
         const isTelegramUserId = /^\d+$/.test(String(finalUserId));
         const inviterNumeric   = /^\d+$/.test(String(refId || '')) ? String(refId) : null;
         const hasInitData      = typeof tgInitData === 'string' && tgInitData.length > 0;
@@ -196,7 +193,7 @@ function App() {
           }
         }
 
-        // Threshold modals (open по очереди, чтобы не спамить): 420 -> 690 -> 1000
+        // Модалки для порогов
         if (nextCoins >= WALLET1_THRESHOLD && !w420 && !isDismissed(DISMISS_420)) {
           openCreateWalletModal('420');
         } else if (nextCoins >= WALLET2_THRESHOLD && !w690 && !isDismissed(DISMISS_690)) {
@@ -214,7 +211,7 @@ function App() {
     return () => { isMounted = false; };
   }, []);
 
-  // 2) Attempts regeneration ticker
+  // Таймер регенерации попыток
   useEffect(() => {
     if (!userId || attempts >= maxAttempts || !nextAttemptTimestamp) {
       setTimeToNextAttempt(null);
@@ -235,7 +232,7 @@ function App() {
     return () => clearInterval(timer);
   }, [userId, attempts, maxAttempts, nextAttemptTimestamp]);
 
-  // 3) Update user data on the server
+  // Обновление данных пользователя на сервере
   const updateUserDataOnServer = useCallback((newData) => {
     if (!userId) return;
     fetchJSON(`${SERVER_URL}/updateUserData`, {
@@ -247,7 +244,7 @@ function App() {
     });
   }, [userId]);
 
-  // 4) Save wallet to the server (slot '420' | '690' | '1000')
+  // Сохранение кошелька на сервере
   const saveWalletOnServer = useCallback(async (walletStr) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort('timeout'), 10000);
@@ -259,7 +256,7 @@ function App() {
         body: JSON.stringify({
           user_id: userId,
           wallet: walletStr,
-          slot: walletModalSlot, // '420' | '690' | '1000'
+          slot: walletModalSlot,
         }),
         signal: controller.signal
       });
@@ -290,11 +287,12 @@ function App() {
     }
   }, [userId, walletModalSlot]);
 
+  // Проверка, пересекли ли новые монеты порог
   const promptIfCrossed = (prevCoins, newCoins) => {
     if (prevCoins < WALLET1_THRESHOLD && newCoins >= WALLET1_THRESHOLD && !wallet420) {
       undismiss(DISMISS_420);
       openCreateWalletModal('420');
-      return; // показать по одному за раз
+      return;
     }
     if (prevCoins < WALLET2_THRESHOLD && newCoins >= WALLET2_THRESHOLD && !wallet690) {
       undismiss(DISMISS_690);
@@ -307,6 +305,7 @@ function App() {
     }
   };
 
+  // Завершение рисования
   const onDrawEnd = (circleAccuracy, points, canvas) => {
     if (attempts <= 0) return;
     const newAttempts = attempts - 1;
@@ -323,15 +322,16 @@ function App() {
     }
     updateUserDataOnServer({ coins: newCoins, attempts: newAttempts, score: circleAccuracy });
 
-    // Prompt for wallets when crossing thresholds
     promptIfCrossed(prevCoins, newCoins);
   };
 
+  // Сброс результата
   const onReset = () => {
     setScore(null);
     setDrawingData(null);
   };
 
+  // Завершение задачи
   const onTaskComplete = (taskId, tokens) => {
     if (completedTasks.includes(taskId)) return;
     const newCompletedTasks = [...completedTasks, taskId];
@@ -342,7 +342,6 @@ function App() {
     setCoins(newCoins);
     updateUserDataOnServer({ coins: newCoins, completed_tasks: newCompletedTasks });
 
-    // Prompt for wallets when crossing thresholds
     promptIfCrossed(prevCoins, newCoins);
   };
 
@@ -357,7 +356,6 @@ function App() {
           <div className="coins-display">
             <div className="banner-container">
               <img src={require('./assets/total_coins.png')} alt="Total coins" className="banner-icon" />
-              {/* как и раньше: при 1000+ показываем 1 знак после запятой */}
               <span className="banner-text">{coins >= WALLET3_THRESHOLD ? coins.toFixed(1) : coins.toFixed(2)}</span>
             </div>
           </div>
@@ -374,7 +372,6 @@ function App() {
             )}
           </div>
 
-          {/* Action buttons appear only when available */}
           {(canAddWallet420 || canEditWallet420) && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <button
@@ -448,26 +445,26 @@ function App() {
 
       <TabBar currentTab={currentTab} setCurrentTab={setCurrentTab} />
 
-        <WalletModal
-          isOpen={walletModalOpen}
-          initialWallet={
-            walletModalSlot === '1000'
-              ? (wallet1000 || '')
-              : walletModalSlot === '690'
-                ? (wallet690 || '')
-                : (wallet420 || '')
-          }
-          onSave={saveWalletOnServer}
-          onCancel={() => {
-            if (walletModalSlot === '1000') dismiss(DISMISS_1000);
-            else if (walletModalSlot === '690') dismiss(DISMISS_690);
-            else dismiss(DISMISS_420);
-            closeWalletModal();
-          }}
-          onRequestClose={closeWalletModal}
-          slot={walletModalSlot}
-          requiredCoins={walletModalSlot === '1000' ? 1000 : walletModalSlot === '690' ? 690 : 420}
-        />
+      <WalletModal
+        isOpen={walletModalOpen}
+        initialWallet={
+          walletModalSlot === '1000'
+            ? (wallet1000 || '')
+            : walletModalSlot === '690'
+              ? (wallet690 || '')
+              : (wallet420 || '')
+        }
+        onSave={saveWalletOnServer}
+        onCancel={() => {
+          if (walletModalSlot === '1000') dismiss(DISMISS_1000);
+          else if (walletModalSlot === '690') dismiss(DISMISS_690);
+          else dismiss(DISMISS_420);
+          closeWalletModal();
+        }}
+        onRequestClose={closeWalletModal}
+        slot={walletModalSlot}
+        requiredCoins={walletModalSlot === '1000' ? 1000 : walletModalSlot === '690' ? 690 : 420}
+      />
     </div>
   );
 }

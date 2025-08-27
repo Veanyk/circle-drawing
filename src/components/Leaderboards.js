@@ -1,4 +1,3 @@
-// src/components/Leaderboards.js
 import React, { useEffect, useState, useMemo } from 'react';
 import './Leaderboards.css';
 import leaderboardText from '../assets/leaderboard_text.png';
@@ -22,18 +21,14 @@ function displayName(u) {
   return base.length > 10 ? `${base.slice(0, 10)}…` : base;
 }
 
-// НОВАЯ ФУНКЦИЯ: форматирует монеты согласно правилу
+// Форматируем монеты согласно правилу
 function formatCoins(coins) {
-  // Проверяем, является ли значение конечным числом
   if (!Number.isFinite(coins)) {
     return '0.00';
   }
-  // Если число > 1000, округляем до одного знака после запятой,
-  // в противном случае — до двух.
   return coins > 1000 ? Number(coins).toFixed(1) : Number(coins).toFixed(2);
 }
 
-// постараемся взять тот же userId, что использует приложение
 function getStoredUserId() {
   try {
     const tgId = window?.Telegram?.WebApp?.initDataUnsafe?.user?.id;
@@ -52,7 +47,7 @@ const Leaderboards = ({ userId: propUserId }) => {
   const [errTop, setErrTop] = useState(null);
   const [errMe, setErrMe] = useState(null);
 
-  // определяем userId (из пропса или из хранилища/Telegram)
+  // Определяем userId
   const [userId, setUserId] = useState(propUserId || null);
   useEffect(() => {
     if (propUserId) { setUserId(String(propUserId)); return; }
@@ -88,7 +83,7 @@ const Leaderboards = ({ userId: propUserId }) => {
     return () => { stop = true; clearInterval(t); };
   }, []);
 
-  // Мои текущие данные (для подписи + кошелёк)
+  // Мои текущие данные
   useEffect(() => {
     if (!userId) return;
     let stop = false;
@@ -117,7 +112,7 @@ const Leaderboards = ({ userId: propUserId }) => {
     return () => { stop = true; clearInterval(t); };
   }, [userId]);
 
-  // Ранг пользователя в топ-10 (если входит)
+  // Ранг пользователя в топ-10
   const myRankInTop = useMemo(() => {
     if (!me || !leaders || leaders.length === 0) return null;
     const idx = leaders.findIndex(u => String(u.user_id) === String(me.user_id));
@@ -150,7 +145,6 @@ const Leaderboards = ({ userId: propUserId }) => {
                     {Number.isFinite(u?.best_score) ? `${Math.round(u.best_score)}%` : '—'}
                   </span>
                   <span className="col-tok">
-                    {/* ИЗМЕНЕНИЕ: Используем новую функцию форматирования */}
                     {formatCoins(u?.coins)}
                   </span>
                 </div>

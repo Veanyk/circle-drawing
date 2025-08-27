@@ -56,7 +56,7 @@ const TabBar = ({ currentTab, setCurrentTab }) => {
         />
       </div>
     </div>
-  ); // <-- Скобка для return
-}; // <-- Скобка для функции TabBar
+  );
+};
 
-export default TabBar; // <-- Теперь экспорт на своем месте
+export default TabBar;

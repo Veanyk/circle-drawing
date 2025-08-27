@@ -1,87 +1,75 @@
-/* TabBar.css */
-
 .tab-bar {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
 
-  /* Используем Flexbox для создания сетки */
   display: flex;
-  flex-wrap: wrap; /* Разрешаем перенос */
+  flex-wrap: wrap;
 
   z-index: 1000;
-  pointer-events: none; /* Весь контейнер "прозрачен" для кликов */
+  pointer-events: none;
 }
 
 .tab-item {
-  width: 50%; /* Каждая ячейка занимает 50% ширины */
-
-  /* Центрируем иконку внутри ячейки */
+  width: 50%;
   display: flex;
   justify-content: center;
   align-items: center;
-
-  /* Создаем отступы, которые поднимут нижние кнопки */
   padding: 10px 0;
 }
 
 .tab-item:active {
-  background-color: rgba(255, 255, 255, 0.1); /* Легкая подсветка при нажатии */
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* Новый контейнер для контента внутри кнопки */
 .tab-item-content {
-  position: relative; /* Очень важно для позиционирования "дыры" */
+  position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
   width: 100%;
-  max-width: 200px; /* Возвращаем большой размер иконок */
+  max-width: 200px;
 }
 
 /* Позиционируем каждую из 4 кнопок в свой угол */
-.tab-item:nth-child(1) { /* Первая кнопка (Circle) */
-  bottom: 100px; /* Верхний ряд, левая сторона */
+.tab-item:nth-child(1) {
+  bottom: 100px;
   left: 0;
 }
-.tab-item:nth-child(2) { /* Вторая кнопка (Tasks) */
-  bottom: 100px; /* Верхний ряд, правая сторона */
+.tab-item:nth-child(2) {
+  bottom: 100px;
   right: 0;
 }
-.tab-item:nth-child(3) { /* Третья кнопка (Referrals) */
-  bottom: 0; /* Нижний ряд, левая сторона */
+.tab-item:nth-child(3) {
+  bottom: 0;
   left: 0;
 }
-.tab-item:nth-child(4) { /* Четвертая кнопка (Leaderboards) */
-  bottom: 0; /* Нижний ряд, правая сторона */
+.tab-item:nth-child(4) {
+  bottom: 0;
   right: 0;
 }
 
 .tab-icon {
   width: 100%;
-  max-width: 200px; /* Увеличили размер на ~10% (было 180px) */
+  max-width: 200px;
   height: auto;
   object-fit: contain;
   cursor: pointer;
-  pointer-events: auto; /* Возвращаем иконке способность принимать клики */
+  pointer-events: auto;
   transition: transform 0.2s ease;
 }
 .tab-icon:active {
-  transform: scale(0.95); /* Эффект "нажатия" для иконок */
+  transform: scale(0.95);
 }
 
-/* Вот и наша "мертвая зона" */
+/* "Мертвая зона" */
 .tab-item-dead-zone {
-  position: absolute; /* Позиционируем ее поверх всего */
+  position: absolute;
   top: 25%;
   left: 25%;
-  width: 50%; /* Занимает центральные 50% ширины */
-  height: 50%; /* и высоты */
-
-  /* Самое главное свойство! */
-  pointer-events: none; /* Делает этот элемент "прозрачным" для кликов */
-
-  /* Раскомментируйте следующую строку, чтобы увидеть "дыру" во время отладки */
-  /* background-color: rgba(255, 0, 0, 0.5); */
+  width: 50%;
+  height: 50%;
+  pointer-events: none;
 }

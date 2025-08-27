@@ -1,4 +1,3 @@
-// src/components/Canvas.js
 import React, { useRef, useEffect, useState } from 'react';
 import chalkImage from '../assets/chalk.png';
 import drawCircleImage from '../assets/draw_the_circle.png';
@@ -25,14 +24,14 @@ const Canvas = ({ onDrawEnd, attempts }) => {
 
         const rect = c.getBoundingClientRect();
         const canvasWidth = Math.max(1, Math.round(rect.width));
-        const canvasHeight = canvasWidth; // квадрат
+        const canvasHeight = canvasWidth;
 
         if (c.width !== canvasWidth || c.height !== canvasHeight) {
           c.width = canvasWidth;
           c.height = canvasHeight;
         }
 
-        // Только очистка и настройки пера — БЕЗ рисования фона
+        // Очистка и настройки пера
         ctx.clearRect(0, 0, c.width, c.height);
         ctx.lineWidth = 3;
         ctx.strokeStyle = '#ffffff';
@@ -72,7 +71,7 @@ const Canvas = ({ onDrawEnd, attempts }) => {
 
   useEffect(() => {
     const preventWhileDrawing = (e) => {
-      if (isDrawing) e.preventDefault(); // важно: listener НЕ passive
+      if (isDrawing) e.preventDefault();
     };
 
     document.addEventListener('touchmove', preventWhileDrawing, { passive: false });
@@ -164,13 +163,13 @@ const Canvas = ({ onDrawEnd, attempts }) => {
     updateChalkPosition(event);
   };
 
-  // Завершение рисования (единственная версия)
+  // Завершение рисования
     const getBoardImage = (() => {
       let img = null;
       return () => {
         if (img && img.complete) return img;
         img = new Image();
-        img.src = require('../assets/drawing_field.png'); // тот же файл, что в CSS
+        img.src = require('../assets/drawing_field.png');
         return img;
       };
     })();
@@ -191,7 +190,7 @@ const Canvas = ({ onDrawEnd, attempts }) => {
       ctx.restore();
     };
 
-  // Очистка канваса (фон задаётся через CSS)
+  // Очистка канваса
   const clearCanvas = () => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -254,11 +253,7 @@ const Canvas = ({ onDrawEnd, attempts }) => {
   );
 };
 
-/* ===========================
-   УМНАЯ ПРОВЕРКА НА КРУГ
-   =========================== */
-
-// Главный скор 0..100
+// Главный результат
 function calculateFinalScore(allPoints) {
   if (!allPoints || allPoints.length < 8) return 0;
 
@@ -339,8 +334,7 @@ function compositeCircleScore(points, circle) {
   return clamp01(score) * 100;
 }
 
-/* === Робастная подгонка круга === */
-
+// Робастная подгонка круга
 function robustFitCircle(points) {
   if (!points || points.length < 8) return null;
 
@@ -461,7 +455,7 @@ function filterOutliersByMAD(points, fit, k = 2.5) {
   return filtered;
 }
 
-/* === Метрики и утилиты === */
+// Метрики и утилиты
 function angularCoverage(points, cx, cy) {
   if (points.length < 3) return 0;
   const angles = points.map((p) => Math.atan2(p.y - cy, p.x - cx));

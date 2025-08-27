@@ -2,7 +2,7 @@
 
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs'); // оставим для совместимости (не блокируем)
+const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
 const crypto = require('crypto');
@@ -12,16 +12,14 @@ const PORT = Number(process.env.PORT) || 8000;
 const DB_PATH = path.join(__dirname, 'database.json');
 const LOG_PATH = path.join(__dirname, 'server.log');
 
-// === ОБЯЗАТЕЛЬНО В .env ===
-// BOT_TOKEN=123456:ABC...
 const BOT_TOKEN = process.env.BOT_TOKEN;
 
 const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS || 10000);
-const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000; // 1 минута
+const ATTEMPT_REGEN_INTERVAL_MS = 1 * 60 * 1000;
 const REFERRAL_TASK_ID = 2;
 const REFERRAL_TASK_REWARD = 30;
 
-// --- ТРИ ПОРОГА ДЛЯ КОШЕЛЬКОВ ---
+// Пороги монет для слотов кошельков
 const WALLET_THRESHOLDS = { '420': 420, '690': 690, '1000': 1000 };
 const parseWalletSlot = (slot) => {
   const s = String(slot || '').trim();
@@ -29,13 +27,11 @@ const parseWalletSlot = (slot) => {
   return '420';
 };
 
-// ------ Admin auth ------
 const ADMIN_KEYS = (process.env.ADMIN_KEYS || '')
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
 
-// ---------- utils ----------
 function toStr(a) {
   if (a === undefined) return 'undefined';
   if (a === null) return 'null';
@@ -43,12 +39,9 @@ function toStr(a) {
   try { return JSON.stringify(a); } catch { return String(a); }
 }
 
-// неблокирующий лог (очередь на appendFile)
 let logQueue = Promise.resolve();
 async function appendLog(line) {
-  try {
-    await fsp.appendFile(LOG_PATH, line);
-  } catch {}
+  try { await fsp.appendFile(LOG_PATH, line); } catch {}
 }
 function log(...args) {
   const line = `[${new Date().toISOString()}] ` + args.map(toStr).join(' ') + '\n';
@@ -66,7 +59,6 @@ function requireAdmin(req, res, next) {
   return res.status(401).json({ error: 'unauthorized' });
 }
 
-// ---------- CORS ----------
 const ORIGIN_PATTERNS = [
   /^https?:\/\/localhost(:\d+)?$/i,
   /^https?:\/\/127\.0\.0\.1(:\d+)?$/i,
@@ -76,7 +68,6 @@ const ORIGIN_PATTERNS = [
   /^https?:\/\/desktop\.telegram\.org$/i,
   /^https?:\/\/appassets\.androidplatform\.net$/i,
   /^https?:\/\/webapp\.telegram\.org$/i,
-  // при необходимости добавьте ваш прод-домен
   /^https?:\/\/circle-drawing\.vercel\.app$/i,
 ];
 
@@ -97,7 +88,7 @@ app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
 app.use(express.json({ limit: '1mb' }));
 
-// таймаут ответа, чтобы запросы не «висели» бесконечно
+// Таймаут на ответ (защита от «зависших» запросов)
 app.use((req, res, next) => {
   res.setTimeout(REQUEST_TIMEOUT_MS, () => {
     log('Request timed out', req.method, req.originalUrl);
@@ -106,17 +97,16 @@ app.use((req, res, next) => {
   next();
 });
 
-// простой лог запросов
 app.use((req, _res, next) => {
   log(`${req.method} ${req.originalUrl}`, `ip=${req.ip}`, `origin=${req.headers.origin || '-'}`);
   next();
 });
 
-// ---------- DB helpers (async, non-blocking) ----------
+// JSON-БД кешируется в памяти; запись коалесцируется и идёт через атомарную замену
 const DB_DIR = path.dirname(DB_PATH);
-let dbCache = Object.create(null);   // живёт в памяти
+let dbCache = Object.create(null);
 let flushScheduled = false;
-let writeLock = Promise.resolve();   // последовательная запись
+let writeLock = Promise.resolve();
 
 async function initDb() {
   try {
@@ -143,9 +133,9 @@ function scheduleFlush() {
     const tmp = DB_PATH + '.tmp';
     writeLock = writeLock.then(async () => {
       await fsp.writeFile(tmp, data, 'utf8');
-      await fsp.rename(tmp, DB_PATH); // атомарная замена
+      await fsp.rename(tmp, DB_PATH); // атомарная запись базы
     }).catch(e => log('DB write error:', e));
-  }, 50); // коалесим частые записи
+  }, 50);
 }
 
 function writeDb(nextData) {
@@ -168,6 +158,7 @@ function sanitizeTelegramUsername(name) {
   return v || null;
 }
 
+// Поддержка legacy-поля wallet -> перенос в wallet_420; три независимых слота
 function normalizeUser(u) {
   const n = { ...u };
   n.user_id = String(n.user_id);
@@ -188,17 +179,11 @@ function normalizeUser(u) {
   n.referrals = n.referrals.map(String);
   if (typeof n.referral_processed !== 'boolean') n.referral_processed = false;
 
-  // ---- Миграция и дефолты для ТРЁХ кошельков ----
-  // старое поле wallet маппим в wallet_420 для обратной совместимости
   if (typeof n.wallet_420 === 'undefined') {
     n.wallet_420 = (typeof n.wallet === 'string' && n.wallet.trim()) ? n.wallet.trim() : null;
   }
-  if (typeof n.wallet_690 === 'undefined') {
-    n.wallet_690 = null;
-  }
-  if (typeof n.wallet_1000 === 'undefined') {
-    n.wallet_1000 = null;
-  }
+  if (typeof n.wallet_690 === 'undefined') n.wallet_690 = null;
+  if (typeof n.wallet_1000 === 'undefined') n.wallet_1000 = null;
 
   if (typeof n.wallet_420_updated_at !== 'string') n.wallet_420_updated_at = null;
   if (typeof n.wallet_690_updated_at !== 'string') n.wallet_690_updated_at = null;
@@ -218,6 +203,7 @@ function awardInviteIfNeeded(refUser) {
   return false;
 }
 
+// Восстановление попыток по фиксированному интервалу
 function regenAttempts(u) {
   u.max_attempts = Math.max(1, Math.floor(u.max_attempts || 10));
   u.attempts = Math.max(0, Math.min(u.max_attempts, Math.floor(u.attempts || 0)));
@@ -247,7 +233,7 @@ function regenAttempts(u) {
   }
 }
 
-// ---------- Telegram WebApp initData verification ----------
+// Проверка подписи initData Telegram WebApp (совместимо с V1/V2)
 function verifyInitData(initData, botToken) {
   if (!initData) throw new Error('initData_empty');
   if (!botToken) throw new Error('bot_token_missing');
@@ -287,7 +273,6 @@ function verifyInitData(initData, botToken) {
   return { user, start_param };
 }
 
-// ---------- ROUTES ----------
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
 app.get('/debug/ping', (_req, res) => {
@@ -306,10 +291,9 @@ app.get('/debug/ping', (_req, res) => {
   }
 });
 
-// Возвращает { link: string }
 app.get('/getTask3', (_req, res) => {
   try {
-    const db = readDb(); // тот же helper, что у вас уже есть
+    const db = readDb();
     const link = db.__config?.task3_link || '';
     res.json({ link });
   } catch (e) {
@@ -317,7 +301,6 @@ app.get('/getTask3', (_req, res) => {
   }
 });
 
-// ========= getUserData =========
 app.post('/getUserData', async (req, res) => {
   try {
     let { user_id, ref_id, username } = req.body || {};
@@ -326,7 +309,6 @@ app.post('/getUserData', async (req, res) => {
     user_id = String(user_id);
     const providedUsername = sanitizeTelegramUsername(username);
 
-    // Гостевые пользователи
     if (!isTelegramId(user_id)) {
       return res.json({
         user_id,
@@ -339,7 +321,6 @@ app.post('/getUserData', async (req, res) => {
         completed_tasks: [],
         referrals: [],
         nextAttemptTimestamp: null,
-        // три слота (гость не может сохранять кошельки)
         wallet: null,
         wallet_420: null,
         wallet_690: null,
@@ -347,7 +328,7 @@ app.post('/getUserData', async (req, res) => {
         wallet_420_updated_at: null,
         wallet_690_updated_at: null,
         wallet_1000_updated_at: null,
-        walletEligible: false,          // back-compat (==420)
+        walletEligible: false,
         walletEligible690: false,
         walletEligible1000: false,
       });
@@ -360,7 +341,6 @@ app.post('/getUserData', async (req, res) => {
     const refIdStr = ref_id ? String(ref_id) : null;
     const isRefLinkValid = refIdStr && refIdStr !== user_id && isTelegramId(refIdStr);
 
-    // Новый пользователь
     if (!user) {
       user = normalizeUser({
         user_id,
@@ -368,7 +348,6 @@ app.post('/getUserData', async (req, res) => {
         referrer_id: isRefLinkValid ? refIdStr : null,
       });
     } else {
-      // Существующий
       user = normalizeUser(user);
       if (providedUsername && providedUsername !== user.username) {
         user.username = providedUsername;
@@ -378,27 +357,20 @@ app.post('/getUserData', async (req, res) => {
       }
     }
 
-    // Обработка реферала
+    // Обработка реферала и единоразовое начисление за приглашение
     if (user.referrer_id && !user.referral_processed) {
       const inviterId = user.referrer_id;
-
       if (db[inviterId]) {
         inviter = normalizeUser(db[inviterId]);
-        if (!inviter.referrals.includes(user_id)) {
-          inviter.referrals.push(user_id);
-        }
+        if (!inviter.referrals.includes(user_id)) inviter.referrals.push(user_id);
         const rewardGiven = awardInviteIfNeeded(inviter);
-        if (rewardGiven) {
-          log(`Награда за реферала (+${REFERRAL_TASK_REWARD}) начислена ${inviter.user_id} от ${user_id}`);
-        }
+        if (rewardGiven) log(`Награда за реферала (+${REFERRAL_TASK_REWARD}) начислена ${inviter.user_id} от ${user_id}`);
         user.referral_processed = true;
       }
     }
 
-    // Регенерация попыток
     regenAttempts(user);
 
-    // Сохраняем
     db[user_id] = user;
     if (inviter) db[inviter.user_id] = inviter;
     writeDb(db);
@@ -407,15 +379,14 @@ app.post('/getUserData', async (req, res) => {
 
     res.json({
       ...user,
-      // back-compat: "wallet" считаем как кошелёк 420
-      wallet: user.wallet_420 ?? null,
+      wallet: user.wallet_420 ?? null, // back-compat — поле wallet = слот 420
       wallet_420: user.wallet_420 ?? null,
       wallet_690: user.wallet_690 ?? null,
       wallet_1000: user.wallet_1000 ?? null,
       wallet_420_updated_at: user.wallet_420_updated_at ?? null,
       wallet_690_updated_at: user.wallet_690_updated_at ?? null,
       wallet_1000_updated_at: user.wallet_1000_updated_at ?? null,
-      walletEligible: c >= 420,        // back-compat
+      walletEligible: c >= 420,
       walletEligible690: c >= 690,
       walletEligible1000: c >= 1000,
     });
@@ -426,7 +397,6 @@ app.post('/getUserData', async (req, res) => {
   }
 });
 
-// ========= updateUserData =========
 app.post('/updateUserData', async (req, res) => {
   try {
     let { user_id, data } = req.body || {};
@@ -434,7 +404,6 @@ app.post('/updateUserData', async (req, res) => {
 
     user_id = String(user_id);
 
-    // Гостевые пользователи
     if (!isTelegramId(user_id)) {
       return res.json({
         user_id,
@@ -447,7 +416,6 @@ app.post('/updateUserData', async (req, res) => {
         completed_tasks: [],
         referrals: [],
         nextAttemptTimestamp: null,
-        // три слота
         wallet: null,
         wallet_420: null,
         wallet_690: null,
@@ -484,12 +452,10 @@ app.post('/updateUserData', async (req, res) => {
     }
     if (typeof data.username === 'string') {
       const uName = sanitizeTelegramUsername(data.username);
-      if (uName && uName !== u.username) {
-        u.username = uName;
-      }
+      if (uName && uName !== u.username) u.username = uName;
     }
 
-    // 5% бонус рефереру за заработанные монеты
+    // 5% бонус рефереру от прироста монет реферала
     const earned = (u.coins || 0) - (prev.coins || 0);
     if (earned > 0 && prev.referrer_id && db[prev.referrer_id]) {
       const ref = normalizeUser(db[prev.referrer_id]);
@@ -506,14 +472,14 @@ app.post('/updateUserData', async (req, res) => {
 
     res.json({
       ...u,
-      wallet: u.wallet_420 ?? null, // back-compat
+      wallet: u.wallet_420 ?? null, // back-compat — поле wallet = слот 420
       wallet_420: u.wallet_420 ?? null,
       wallet_690: u.wallet_690 ?? null,
       wallet_1000: u.wallet_1000 ?? null,
       wallet_420_updated_at: u.wallet_420_updated_at ?? null,
       wallet_690_updated_at: u.wallet_690_updated_at ?? null,
       wallet_1000_updated_at: u.wallet_1000_updated_at ?? null,
-      walletEligible: c >= 420,       // back-compat
+      walletEligible: c >= 420,
       walletEligible690: c >= 690,
       walletEligible1000: c >= 1000,
     });
@@ -523,7 +489,6 @@ app.post('/updateUserData', async (req, res) => {
   }
 });
 
-// ========= Таблица лидеров =========
 app.get('/getLeaderboard', (_req, res) => {
   try {
     const db = readDb();
@@ -538,7 +503,6 @@ app.get('/getLeaderboard', (_req, res) => {
   }
 });
 
-// ========= Мои рефералы =========
 app.post('/getReferrals', (req, res) => {
   try {
     let { user_id } = req.body || {};
@@ -568,7 +532,7 @@ app.post('/getReferrals', (req, res) => {
   }
 });
 
-// ========= Привязка реферала через Telegram WebApp =========
+// AcceptReferral — проверка initData, защита от self-ref и повторной привязки
 app.post('/acceptReferral', (req, res) => {
   try {
     const { inviter_id, initData } = req.body || {};
@@ -643,7 +607,7 @@ app.post('/acceptReferral', (req, res) => {
   }
 });
 
-// ========= Wallet (три слота) =========
+// Проверка порога монет и запись только выбранного слота; back-compat дублируем в wallet (420)
 app.post('/setWallet', (req, res) => {
   try {
     let { user_id, wallet, slot } = req.body || {};
@@ -662,7 +626,6 @@ app.post('/setWallet', (req, res) => {
 
     const u = normalizeUser({ ...prev });
 
-    // какой слот сохраняем: '420' | '690' | '1000'
     const s = parseWalletSlot(slot);
     const needCoins = WALLET_THRESHOLDS[s];
 
@@ -686,8 +649,7 @@ app.post('/setWallet', (req, res) => {
     } else {
       u.wallet_420 = w;
       u.wallet_420_updated_at = nowIso;
-      // back-compat для старых клиентов: дублируем в "wallet"
-      u.wallet = w;
+      u.wallet = w; // back-compat для старых клиентов
     }
 
     db[user_id] = u;
@@ -695,8 +657,7 @@ app.post('/setWallet', (req, res) => {
 
     return res.json({
       ok: true,
-      // возвращаем всё для удобства фронта
-      wallet: u.wallet_420 ?? null, // back-compat
+      wallet: u.wallet_420 ?? null,
       wallet_420: u.wallet_420 ?? null,
       wallet_690: u.wallet_690 ?? null,
       wallet_1000: u.wallet_1000 ?? null,
@@ -710,7 +671,7 @@ app.post('/setWallet', (req, res) => {
   }
 });
 
-// Глобальный обработчик ошибок
+// Централизованный обработчик ошибок
 app.use((err, _req, res, _next) => {
   log('Необработанная ошибка:', err);
   res.status(500).json({ error: 'internal_server_error' });

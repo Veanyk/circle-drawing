@@ -14,7 +14,7 @@ export default function WalletModal({
   onCancel,
   onRequestClose,
   slot = '420',
-  requiredCoins, // <-- ПЕРЕДАЁМ СЮДА 420 / 690 / 1000
+  requiredCoins,
 }) {
   const [wallet, setWallet] = useState(initialWallet || '');
   const [error, setError] = useState('');
@@ -24,7 +24,7 @@ export default function WalletModal({
   const s = normalizeSlot(slot);
   const need = Number.isFinite(requiredCoins)
     ? Number(requiredCoins)
-    : SLOT_THRESHOLDS[s]; // fallback от слота, если проп не передали
+    : SLOT_THRESHOLDS[s];
 
   useEffect(() => {
     if (isOpen) {

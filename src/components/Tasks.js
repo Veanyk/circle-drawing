@@ -1,4 +1,3 @@
-// src/components/Tasks.js
 import React, { useEffect, useState, memo } from 'react';
 import './Tasks.css';
 
@@ -38,7 +37,6 @@ const Tasks = memo(function Tasks({ onTaskComplete, completedTasks, setCurrentTa
           setTask3Link(data.link.trim());
         }
       } catch {
-        // Если не удалось — остаёмся на дефолтной ссылке
       }
     })();
 
@@ -48,28 +46,26 @@ const Tasks = memo(function Tasks({ onTaskComplete, completedTasks, setCurrentTa
     };
   }, []);
 
-  // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
-  // Второе и третье задания поменялись местами
   const tasksData = [
     {
       id: 1,
       title: 'Subscribe to Telegram Channel',
       descriptionImage: task1Desc,
-      link: 'https://t.me/+ZdC7p7itt3IyMTkx', // замените на ваш канал
+      link: 'https://t.me/+ZdC7p7itt3IyMTkx',
       tokens: 30,
       image: task1Icon,
       requires_verification: true,
     },
     {
-      id: 3, // Раньше был 2
+      id: 3,
       title: 'Share on X (Twitter)',
       descriptionImage: task3Desc,
-      link: task3Link, // динамическая ссылка
+      link: task3Link,
       tokens: 20,
       image: task3Icon,
     },
     {
-      id: 2, // Раньше был 3
+      id: 2,
       title: 'Invite a Friend',
       descriptionImage: task2Desc,
       action: 'inviteFriend',

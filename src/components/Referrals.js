@@ -25,10 +25,7 @@ const Referrals = ({ userId }) => {
   }, [userId, isNumericId]);
 
   const loadMyRefs = useCallback(async () => {
-    // userId гарантированно не будет null благодаря логике в App.js
     if (!userId) return;
-
-    // console.log(`[Referrals.js] Запрашиваю рефералов для userId: ${userId}`); // <-- Для отладки
 
     try {
       const res = await fetch(`${SERVER_URL}/getReferrals`, {
@@ -49,8 +46,8 @@ const Referrals = ({ userId }) => {
 
   // Загружаем и затем опрашиваем список рефералов
   useEffect(() => {
-    loadMyRefs(); // Первая загрузка
-    const interval = setInterval(loadMyRefs, 10000); // Опрос каждые 10 секунд
+    loadMyRefs();
+    const interval = setInterval(loadMyRefs, 10000);
     return () => clearInterval(interval);
   }, [loadMyRefs]);
 
@@ -64,9 +61,9 @@ const Referrals = ({ userId }) => {
     }
   };
 
-// Берём первые 10 "видимых" символов (работает с эмодзи/кириллицей)
+// Берём первые 10 "видимых" символов
 const clamp10 = (val) => {
-  const arr = Array.from(String(val ?? '')); // code points
+  const arr = Array.from(String(val ?? ''));
   return arr.slice(0, 10).join('');
 };
 

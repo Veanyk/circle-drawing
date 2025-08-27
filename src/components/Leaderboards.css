@@ -11,7 +11,7 @@
 }
 
 .no-data-message {
-  font-family: 'Gloria Hallelujah', cursive; /* <-- Применяем нужный шрифт */
+  font-family: 'Gloria Hallelujah', cursive;
   font-size: 20px;
   color: #ffffff;
   margin-top: 20px;
@@ -50,9 +50,8 @@
   aspect-ratio: 1 / 0.86;
   container-type: inline-size;
 
-  /* Новые переменные управления вертикальным интервалом */
-  --lb-row-gap: -1cqw;   /* Уменьшаем расстояние между строками */
-  --lb-row-pad: -1cqw;   /* вертикальный внутренний отступ строки (было 0.6cqw) */
+  --lb-row-gap: -1cqw;
+  --lb-row-pad: -1cqw;
 }
 .lb-row + .lb-row {
   margin-top: var(--lb-row-gap);
@@ -79,12 +78,9 @@
   top: 13%;
   bottom: 13%;
 
-  /* масштабируемые отступы/интерлиньяж от ширины доски */
    gap: 0;
 
-  /* fallback по вьюпорту... */
   font-size: clamp(14px, 2.7vw, 18px);
-  /* ...и точное масштабирование от доски */
   font-size: clamp(12px, 2.7cqw, 18px);
 }
 
@@ -101,7 +97,7 @@
 .col-rank {
   text-align: center;
   opacity: 0.8;
-  min-width: 6cqw;   /* синхронизировано со столбцом сетки */
+  min-width: 6cqw;
   transform: translateX(5px);
 }
 
@@ -110,14 +106,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  transform: translateX(15px); /* was 30px; moved 9px left */
+  transform: translateX(15px);
 }
 
 .col-stats {
   display: flex;
   justify-content: flex-end;
   align-items: baseline;
-  gap: 1.2cqw;           /* промежуток между метриками */
+  gap: 1.2cqw;
   white-space: nowrap;
 }
 
@@ -131,7 +127,6 @@
 
 .col-acc { transform: translateX(-25px); }
 .col-tok { transform: translateX(20px); }
-/* прячем шапку столбцов */
 .lb-head {
   display: none;
 }
@@ -152,13 +147,11 @@
   text-align: center;
   width: 100%;
 
-  /* Используем flexbox для расположения метрик в строку */
   display: flex;
   justify-content: center;
-  gap: 20px; /* Пространство между метриками */
+  gap: 20px;
 }
 
-/* Убираем старый псевдоэлемент "Your position:" */
 .lb-me::before {
   content: none;
 }
@@ -210,7 +203,6 @@
   font-weight: 700;
   cursor: pointer;
 }
-
 
 .wallet-msg { color: #1a1a1a; font-size: 14px; }
 .wallet-view { color: #1a1a1a; font-size: 14px; }

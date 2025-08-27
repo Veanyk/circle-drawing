@@ -1,8 +1,4 @@
-/* src/components/Tasks.css */
-
-/* Базовое масштабирование шрифтов и отступов относительно ширины экрана */
 :root {
-  /* Масштаб от 320px до 1200px ширины окна */
   --base-font: clamp(14px, 1.8vw, 18px);
   --gap: clamp(8px, 2vw, 16px);
   --card-padding: clamp(12px, 2.5vw, 24px);
@@ -10,12 +6,12 @@
   --task-icon: clamp(72px, 18vw, 110px);
 
   /* Индивидуальные масштабы иконок */
-  --task2-icon-scale: 0.95; /* пункт 2: чуть-чуть меньше */
-  --task3-icon-scale: 0.88; /* пункт 3: ощутимо меньше, но аккуратно */
+  --task2-icon-scale: 0.95;
+  --task3-icon-scale: 0.88;
 
   /* Тексты/описания */
   --desc-max: clamp(220px, 70%, 420px);
-  --desc3-max: 280px; /* пункт 3: текст для №3 меньше */
+  --desc3-max: 280px;
 
   /* Кнопка */
   --button-width: clamp(130px, 30vw, 220px);
@@ -54,7 +50,7 @@
   justify-content: center;
   padding: var(--card-padding);
   background-image: url('../assets/background_task.png');
-  background-size: contain;       /* фон масштабируется вместе с шириной */
+  background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
   width: min(100%, var(--card-width-max));
@@ -87,13 +83,11 @@
   object-fit: contain;
 }
 
-/* пункт 2: иконка 2.png — чуть меньше */
 .task2-image {
   transform: scale(var(--task2-icon-scale));
   transform-origin: center;
 }
 
-/* пункт 3: иконка 3.png — меньше */
 .task3-image {
   transform: scale(var(--task3-icon-scale));
   transform-origin: center;
@@ -106,14 +100,11 @@
   height: auto;
 }
 
-/* пункт 1: текст для первого задания — чуть больше */
 .task1-description-image {
   width: 100%;
-  /* слегка увеличиваем доступный максимум, не ломая адаптивность */
   max-width: calc(var(--desc-max) * 1.15);
 }
 
-/* пункт 3: текст (картинка) для задания №3 — меньше */
 .task3-description-image {
   width: 50%;
   max-width: var(--desc3-max);
@@ -146,7 +137,7 @@
   transition: filter 0.3s ease;
 }
 
-/* Небольшие донастройки на сверхузких экранах */
+/* Небольшие донастройки на сверх-узких экранах */
 @media (max-width: 360px) {
   :root {
     --task2-icon-scale: 0.94;
