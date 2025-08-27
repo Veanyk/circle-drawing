@@ -10,7 +10,7 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEB_APP_URL = process.env.WEB_APP_URL;
 
 // Список админов из .env (через запятую)
-const ADMIN_IDS = (process.env.ADMIN_IDS || '779077474,270590890')
+const ADMIN_IDS = process.env.ADMIN_IDS;
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
@@ -19,7 +19,7 @@ const ADMIN_IDS = (process.env.ADMIN_IDS || '779077474,270590890')
 const DB_PATH = path.join(__dirname, '..', 'backend', 'database.json');
 
 // Резервный интервал, если потребуется плановый скан
-const SCAN_INTERVAL_MS = Number(process.env.SCAN_INTERVAL_MS || 60_000);
+const SCAN_INTERVAL_MS = Number(process.env.SCAN_INTERVAL_MS);
 
 if (!BOT_TOKEN || !WEB_APP_URL) {
   console.error('Error: BOT_TOKEN or WEB_APP_URL is not set in the .env file!');
