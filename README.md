@@ -184,5 +184,5 @@ if (nextCoins >= WALLET1_THRESHOLD && !wallet420) {
 - **Bot**: Telegraf-based Telegram bot for onboarding and admin commands.  
 - **Telegram Integration**: add the app URL in BotFather under *WebApp configuration*.  
 
-### Contact
+## Contact
 Created by Veanyk – feel free to reach out!
